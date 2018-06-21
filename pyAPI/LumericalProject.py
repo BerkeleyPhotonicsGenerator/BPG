@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from pyAPI.shapes import Rectangle
 from pyAPI.layerstack import techInfo
+from pyAPI.paths import LumericalPath
 
 
 class LumericalProject:
@@ -11,11 +12,12 @@ class LumericalProject:
         This class organizes the creation of all lumerical files, technology information, and directories
         """
         self.project_name = project_name
-        self.root_path = os.environ['LUMERICAL_GEN_ROOT']
-        self.scripts = os.environ['LUMERICAL_GEN_SCRIPTS']
-        self.data = os.environ['LUMERICAL_GEN_DATA']
-        self.techfile = os.environ['LUMERICAL_TECH']
-        self.techInfo = techInfo(self.techfile)
+        self.paths = LumericalPath()
+        self.root = self.paths.root
+        self.scripts = self.paths.scripts
+        self.data = self.paths.data
+        self.techfile = self.paths.techfile
+        self.techInfo = techInfo(self.techfile)  # Extract technology information for easy use
 
         # This is the directory where all generated scripts will be placed
         self.proj_dir = Path(self.scripts) / self.project_name
