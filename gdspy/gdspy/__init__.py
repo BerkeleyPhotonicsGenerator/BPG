@@ -22,6 +22,8 @@ from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import absolute_import
 
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
+
 import sys
 
 if sys.version_info.major < 3:
@@ -473,7 +475,12 @@ class PolygonSet(object):
 
     __slots__ = 'layers', 'datatypes', 'polygons'
 
-    def __init__(self, polygons, layer=0, datatype=0, verbose=True):
+    def __init__(self,
+                 polygons,  # type: List[List[Tuple[Union[int, float], Union[int, float]]]]
+                 layer=0,  # type: Optional[int]
+                 datatype=0,  # type: Optional[int]
+                 verbose=True,  # type: Optional[bool]
+                 ):
         self.layers = [layer] * len(polygons)
         self.datatypes = [datatype] * len(polygons)
         self.polygons = [None] * len(polygons)
@@ -2355,7 +2362,7 @@ class Cell(object):
     """
     __slots__ = 'name', 'elements', 'labels', '_bb_valid'
 
-    def __init__(self, name, exclude_from_current=False):
+    def __init__(self, name, exclude_from_current=True):
         self.name = name
         self.elements = []
         self.labels = []
@@ -2390,8 +2397,7 @@ class Cell(object):
                            now.hour, now.minute, now.second, now.year,
                            now.month, now.day, now.hour, now.minute,
                            now.second, 4 + len(name), 0x0606) \
-            + name.encode('ascii') + b''.join(element.to_gds(multiplier)
-                                              for element in self.elements)\
+            + name.encode('ascii') + b''.join(element.to_gds(multiplier) for element in self.elements) \
             + b''.join(label.to_gds(multiplier) for label in self.labels) \
             + struct.pack('>2h', 4, 0x0700)
 
@@ -2443,11 +2449,11 @@ class Cell(object):
             This cell.
         """
         if isinstance(element, list):
-            for e in element:
-                if isinstance(e, Label):
-                    self.labels.append(e)
+            for el in element:
+                if isinstance(el, Label):
+                    self.labels.append(el)
                 else:
-                    self.elements.append(e)
+                    self.elements.append(el)
         else:
             if isinstance(element, Label):
                 self.labels.append(element)
@@ -2568,7 +2574,11 @@ class Cell(object):
             _bounding_boxes[self] = bb
         return _bounding_boxes[self]
 
-    def get_polygons(self, by_spec=False, depth=None):
+    def get_polygons(self,
+                     by_spec=False,  # type: bool
+                     depth=None,  # type: Optional[int]
+                     ):
+        # type: (...) -> Union[List, Dict]
         """
         Returns a list of polygons in this cell.
 
@@ -2619,8 +2629,7 @@ class Cell(object):
                                     numpy.array(element.polygons[ii])
                                 ]
                     else:
-                        cell_polygons = element.get_polygons(
-                            True, None if depth is None else depth - 1)
+                        cell_polygons = element.get_polygons(True, None if depth is None else depth - 1)
                         for kk in cell_polygons.keys():
                             if kk in polygons:
                                 polygons[kk] += cell_polygons[kk]
@@ -2635,8 +2644,7 @@ class Cell(object):
                         for points in element.polygons:
                             polygons.append(numpy.array(points))
                     else:
-                        polygons += element.get_polygons(
-                            depth=None if depth is None else depth - 1)
+                        polygons += element.get_polygons(depth=None if depth is None else depth - 1)
         return polygons
 
     def get_labels(self, depth=None):
@@ -2683,8 +2691,7 @@ class Cell(object):
         """
         dependencies = set()
         for element in self.elements:
-            if isinstance(element, CellReference) or isinstance(
-                    element, CellArray):
+            if isinstance(element, CellReference) or isinstance(element, CellArray):
                 if recursive:
                     dependencies.update(
                         element.ref_cell.get_dependencies(True))
@@ -2827,8 +2834,7 @@ class CellReference(object):
         name = self.ref_cell.name
         if len(name) % 2 != 0:
             name = name + '\0'
-        data = struct.pack('>4h', 4, 0x0A00, 4 + len(name),
-                           0x1206) + name.encode('ascii')
+        data = struct.pack('>4h', 4, 0x0A00, 4 + len(name), 0x1206) + name.encode('ascii')
         if (self.rotation is not None) or (self.magnification is not None) or \
                 self.x_reflection:
             word = 0
