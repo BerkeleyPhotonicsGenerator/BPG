@@ -1,58 +1,42 @@
 # LumericalProject.py
-import os
+import yaml
 from pathlib import Path
 from .shapes import Rectangle
 from .layerstack import techInfo
-from .paths import LumericalPath
-
-
-class LumericalProject:
-    def __init__(self, project_name):
-        """
-        This class organizes the creation of all lumerical files, technology information, and directories
-        """
-        self.project_name = project_name
-        self.paths = LumericalPath()
-        self.root = self.paths.root
-        self.scripts = self.paths.scripts
-        self.data = self.paths.data
-        self.techfile = self.paths.techfile
-        self.techInfo = techInfo(self.techfile)  # Extract technology information for easy use
-
-        # This is the directory where all generated scripts will be placed
-        self.proj_dir = Path(self.scripts) / self.project_name
-
-        if not os.path.exists(self.proj_dir):
-            os.makedirs(self.proj_dir)
-
-        #self._db = []  # database containing all created shapes
-        #self.lsf_gen = LumericalGenerator()
-
-        # Check if the project already exists
-        # If it exists and the operation is to create a new project, throw error
-        # If it exists and the operation is to open the project, import all the file data
-        # If it does not exist and the operation is the create a new project, create a blank directory
-        # If it does not exist and the operation is to read, throw error
 
 
 class LumericalGenerator:
-    def __init__(self,
-                 project,  # type: LumericalProject
-                 name  # type: str
-                 ):
+    def __init__(self, specfile):
         """
         This class enables the creation of lumerical .lsf files
         """
-        self.prj = project
-        self.path = self.prj.proj_dir  # directory where this script will be stored
-        self.name = name  # name of the file to be created
+        self.specfile_path = specfile
+        self.specfile = self.load_yaml(specfile)
+
+        # Setup relevant files and directories
+        self.project_dir = Path(self.specfile['project_dir']).expanduser()
+        self.scripts_dir = self.project_dir/self.specfile['scripts']
+        self.data_dir = self.project_dir/self.specfile['data']
+
+        # Make the directories if they do not exists
+        self.project_dir.mkdir(exist_ok=True)
+        self.scripts_dir.mkdir(exist_ok=True)
+        self.data_dir.mkdir(exist_ok=True)
+
+        # Note: techfile is not in a subdirectory of project_dir
+        self.techfile = Path(self.specfile['techfile']).expanduser()
+
+        # Store technology information in an object for easy access
+        self.techInfo = techInfo(self.techfile)
+
+        self.lsf_filename = self.specfile['lsf_filename']
         self._db = []
 
     def add_rect(self, name, layer) -> Rectangle:
         """
         Creates a new rectangle shape, adds it to the database and returns it for further modification
         """
-        material_info = self.prj.techInfo[layer]
+        material_info = self.techInfo[layer]
         temp = Rectangle(name, material_info)
         self._db.append(temp)
         return temp
@@ -67,15 +51,14 @@ class LumericalGenerator:
             file += shape.export()
             file += '\n'
 
-        filename = Path(self.path) / self.name
+        filename = self.scripts_dir / self.lsf_filename
         with open(filename, 'w') as stream:
             stream.writelines(file)
 
+    @staticmethod
+    def load_yaml(filepath):
+        """ Setup standardized method for yaml loading """
+        with open(filepath, 'r') as stream:
+            temp = yaml.safe_load(stream)
+        return temp
 
-if __name__ == '__main__':
-    prj = LumericalProject('Single_Mode_Waveguide')
-    test_file = LumericalGenerator(prj, 'testfile.lsf')
-    rect1 = test_file.add_rect('test_rect', 'rx')
-    rect1.set_center_span('x', 0, .5)
-    rect1.set_center_span('y', 0, 4)
-    test_file.export_to_lsf()
