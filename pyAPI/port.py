@@ -2,13 +2,14 @@
 # -*- coding: utf-8 -*-
 
 from typing import TYPE_CHECKING, Tuple, Union, List, Optional, Dict, Any, Iterator, Iterable, Generator
+import numpy as np
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
 class Port:
-
+    # TODO:  __slots__ =
     def __init__(self,
                  center,  # type: coord_type
                  name,  # type: str
@@ -18,27 +19,30 @@ class Port:
                  ):
         # type: (...) -> None
 
-        self._center = center  # type: coord_type
+        self._center = np.array([center[0], center[1]])  # type: np.array
         self._name = name  # type: str
         self._layer = layer  # type: int
 
+        # Convert to np array
+        inside_point = np.array([inside_point[0], inside_point[1]])
+
         # Is x distance greater than y
-        if abs(center[0] - inside_point[0]) > abs(center[1] - inside_point[1]):
+        if abs(self._center - inside_point)[0] > abs(self._center - inside_point)[1]:
             # Is inside to the right
             if inside_point[0] > center[0]:
-                self._inside_point = (center[0] + port_width, center[1])
+                self._inside_point = self._center + np.array([port_width, 0])
             else:
-                self._inside_point = (center[0] - port_width, center[1])
+                self._inside_point = self._center - np.array([port_width, 0])
         else:
             # Is inside up
             if inside_point[1] > center[1]:
-                self._inside_point = (center[0], center[1] + port_width)
+                self._inside_point = self._center + np.array([0, port_width])
             else:
-                self._inside_point = (center[0], center[1] - port_width)
+                self._inside_point = self._center - np.array([0, port_width])
 
     @property
     def center(self):
-        # type: () -> coord_type
+        # type: () -> np.array
         """ Returns the center of the port """
         return self._center
 
@@ -64,13 +68,13 @@ class Port:
     def width(self):
         # type: () -> dim_type
         """ Returns the width of the port """
-        return max(abs(self._center[0] - self._inside_point[0]), abs(self._center[1] - self._inside_point[1]))
+        return np.linalg.norm(self._center - self._inside_point)
 
     @property
     def orientation(self):
         # type: () -> str
         """ Returns the orientation of the port """
-        diff = (self._inside_point[0] - self._center[0], self._inside_point[1] - self._center[1])
+        diff = self._inside_point - self._center
         # Horizontally oriented port
         if abs(diff[0]) > 0:
             if diff[0] > 0:
@@ -84,6 +88,19 @@ class Port:
                 orient = 'R270'
 
         return orient
+
+    @classmethod
+    def from_dict(cls,
+                  center,  # type: coord_type
+                  name,  # type: str
+                  inside_point,  # type: coord_type
+                  port_width,  # type: dim_type
+                  layer,  # type: int
+                  ):
+        # type: (...) -> Port
+
+        port = Port(center, name, inside_point, port_width, layer)
+        return port
 
 
 class Ports:
@@ -121,3 +138,8 @@ class Ports:
                 port.set_name(new_name)
 
         return ret_val
+
+    def add_port(self,
+                 port,  # type: Port
+                 ):
+        self._ports.append(Port)
