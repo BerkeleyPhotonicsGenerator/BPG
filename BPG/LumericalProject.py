@@ -1,9 +1,9 @@
 # LumericalProject.py
 import os
 from pathlib import Path
-from pyAPI.shapes import Rectangle
-from pyAPI.layerstack import techInfo
-from pyAPI.paths import LumericalPath
+from .shapes import Rectangle
+from .layerstack import techInfo
+from .paths import LumericalPath
 
 
 class LumericalProject:

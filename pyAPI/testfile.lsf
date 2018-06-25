@@ -1,8 +1,0 @@
-set("name", "test_rect");
-set("material", "rx");
-set("x min", -0.25e-6);
-set("x max", 0.25e-6);
-set("y min", 0.0e-6);
-set("y min", 0.0e-6);
-set("z min", 0.0e-6);
-set("z min", 0.0e-6);
