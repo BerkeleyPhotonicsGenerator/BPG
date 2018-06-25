@@ -1,0 +1,30 @@
+# layerstack.yaml
+# An example layerstack for a generic Silicon Photonic Process
+
+box:
+  material: 'SiO2 (Glass) - Palik'
+  z_min: !!python/float -1
+  z_max: 0
+  thickness: 1
+  variation: .01
+  alpha: 1
+
+rx:
+  material: 'Si (Silicon) - Palik'
+  z_min: 0
+  z_max: .200
+  thickness: .200
+  variation: .008
+  alpha: 1
+
+cladding:
+  material: 'SiO2 (Glass) - Palik'
+  z_min: 0
+  z_max: !!python/float 2
+  thickness: 2
+  alpha: .1
+
+#pc:
+#  material: # Make some sort of lossy polysilicon material
+#  thickness: .065
+#  variation: .010
