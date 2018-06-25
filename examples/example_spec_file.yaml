@@ -1,0 +1,11 @@
+# example_spec_file.yaml
+# A sample specification file to generate a SingleModeWaveguide project
+
+# Directory Locations
+project_dir: ./Generated_Waveguide  # Top level directory for the project
+scripts: scripts  # folder where generated script files are placed
+data: data  # folder where generated data is placed
+techfile: ./layerstack.yaml  # file containing technology information
+
+# Lumerical Output Settings
+lsf_filename: SingleModeWaveguide.lsf
