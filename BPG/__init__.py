@@ -1,2 +1,4 @@
-# Expose the creation of a LumericalProject and the LumericalGenerator, which is the superclass of all lsf files
-from pyAPI.LumericalProject import LumericalProject, LumericalGenerator
+# Expose the LumericalGenerator class, which is the superclass of all lsf files
+
+from .LumericalProject import LumericalGenerator
+print('Successfully imported BPG')
