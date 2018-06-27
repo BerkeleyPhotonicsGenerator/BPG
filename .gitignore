@@ -6,6 +6,9 @@ __pycache__/
 # Pycharm
 *.idea
 
+# DS_Store
+*.DS_Store
+
 # C extensions
 *.so
 
