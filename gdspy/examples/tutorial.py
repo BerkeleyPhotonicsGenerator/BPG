@@ -275,8 +275,19 @@ ref_cell.add(
 # included GUI, but they are included in the resulting GDSII file.
 ref_cell.add(
     gdspy.Label(
-        'Created with gdspy ' + gdspy.__version__, (-7, -36), 'nw', layer=6))
+        'text TYPE 0', (-7, -36), 'nw', layer=6, texttype=0))
 
+ref_cell.add(
+    gdspy.Label(
+        'text TYPE 1', (-7, -38), 'se', layer=6, texttype=1))
+
+ref_cell.add(
+    gdspy.Label(
+        'text TYPE 2', (-7, -40), 'nw', layer=6, texttype=2))
+
+ref_cell.add(
+    gdspy.Label(
+        'text TYPE 3', (-7, -42), 'se', layer=6, texttype=3))
 # ------------------------------------------------------------------ #
 #      Translation
 # ------------------------------------------------------------------ #
