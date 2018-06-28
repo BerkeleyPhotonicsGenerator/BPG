@@ -1,14 +1,14 @@
 via_info:
 
 layer_map:
-  !!python/tuple [Si, drawing]: [2, 0]
-  !!python/tuple [Poly, drawing]: [3, 0]
-  !!python/tuple [CA, drawing]: [4, 0]
-  !!python/tuple [M1, drawing]: [5, 0]
-  !!python/tuple [V1, drawing]: [6, 0]
-  !!python/tuple [M2, drawing]: [7, 0]
-  !!python/tuple [V2, drawing]: [8, 0]
-  !!python/tuple [M3, drawing]: [9, 0]
-  !!python/tuple [n, drawing]: [10, 0]
-  !!python/tuple [p, drawing]: [11, 0]
+  !!python/tuple [Si, phot]: [2, 0]
+  !!python/tuple [Poly, phot]: [3, 0]
+  !!python/tuple [CA, phot]: [4, 0]
+  !!python/tuple [M1, phot]: [5, 0]
+  !!python/tuple [V1, phot]: [6, 0]
+  !!python/tuple [M2, phot]: [7, 0]
+  !!python/tuple [V2, phot]: [8, 0]
+  !!python/tuple [M3, phot]: [9, 0]
+  !!python/tuple [n, phot]: [10, 0]
+  !!python/tuple [p, phot]: [11, 0]
 
