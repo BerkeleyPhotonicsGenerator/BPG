@@ -18,8 +18,9 @@ cd Photonics_Dev
 pip install -e BPG
 ```
 
+NOTE: BPG is currently being converted to using pipenv for all dependency management, these instructions may update
+
 If BPG successfully installs, it should be accessible anywhere in your python installation by running `import BPG` 
 Whenever any changes are made to the BPG package via git, they will be made available immediately.
 
 # Basic Usage Instructions
-...
