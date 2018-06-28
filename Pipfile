@@ -4,8 +4,12 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
-bpg = {editable = true, path = "./../BPG"}
+bpg = {editable = true, file = "."}
 pyyaml = "==3.12"
+numpy = "*"
+bag = {editable = true, path = "./../BAG_framework"}
+shapely = "*"
+"fbe3821" = {editable = true, path = "./../gdspy"}
 
 [dev-packages]
 
