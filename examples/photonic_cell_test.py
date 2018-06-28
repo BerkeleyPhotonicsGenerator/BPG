@@ -5,10 +5,10 @@ sys.path.append('/Users/Sidney/Documents/Research/BPG')
 import gdspy
 import datetime
 import struct
-from pyAPI.PhotonicCell import PhotonicCell
+from BPG.PhotonicCell import PhotonicCell
 
 
-lib = gdspy.current_library
+#lib = gdspy.current_library
 
 
 class TestRectCell(PhotonicCell):
