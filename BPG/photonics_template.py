@@ -5,8 +5,13 @@ from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, TypeVar, Type, \
     Optional, Tuple, Iterable, Sequence, Callable, Generator
 
 import abc
+import numpy as np
 
 from bag.layout.template import TemplateBase, TemplateDB
+from .photonics_port import PhotonicsPort
+
+dim_type = Union[float, int]
+coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicsTemplateDB(TemplateDB):
@@ -39,14 +44,84 @@ class PhotonicsTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  **kwargs,
                  ):
         TemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        self._photonic_ports = {}
 
     @abc.abstractmethod
     def draw_layout(self):
         pass
 
-    def add_photonic_port(self):
-        pass
+    def add_photonic_port(self,
+                          name,  # type: str
+                          center,  # type: coord_type
+                          inside_point,  # type: coord_type
+                          width,  # type: dim_type
+                          layer,  # type: Union[str, Tuple[str, str]]
+                          ):
+        if name in self._photonic_ports.keys():
+            raise ValueError('Port "{}" already exists in cell.'.format(name))
 
-    def add_instances_port_to_port(self):
-        pass
+        self._photonic_ports[name] = PhotonicsPort(name, center, inside_point, width, layer)
 
+    def has_photonic_port(self,
+                          port_name,  # type: str
+                          ):
+        return port_name in self._photonic_ports
+
+    def get_photonic_port(self,
+                          port_name='',  # type: str
+                          ):
+        # type: (...) -> PhotonicsPort
+        """Returns the photonic port object with the given name
+
+        Parameters
+        ----------
+        :param port_name: str
+            the photonic port terminal name. If None or empty, check if this photonic template has only one port,
+            and return it
+
+        Returns
+        -------
+        :return: photonicPort : PhotonicsPort
+            The photonic port object
+        """
+        if not self.has_photonic_port(port_name):
+            raise ValueError('Port "{}" does not exist in {}'.format(port_name, self.__class__.__name__))
+
+        if not port_name:
+            if len(self._photonic_ports) != 1:
+                raise ValueError(
+                    'Template "{}" has {} ports != 1. Must get port by name.'.format(self.__class__.__name__,
+                                                                                     len(self._photonic_ports)
+                                                                                     )
+                )
+        return self._photonic_ports[port_name]
+
+    def add_instances_port_to_port(self,
+                                   instance,  # type: PhotonicsTemplateBase
+                                   instance_port_name,  # type: str
+                                   self_port_name,  # type: str
+                                   instance_name=None,  # type: str
+                                   ):
+        if not self.has_photonic_port(self_port_name):
+            raise ValueError('Photonic cell ' + self_port_name + 'does not exist in ' + self.__class__.__name__)
+
+        if not instance.has_photonic_port(instance_port_name):
+            raise ValueError('Photonic cell ' + instance_port_name + 'does not exist in ' + instance.__class__.__name__)
+
+        # TODO: think about params
+        inst_master = self.new_template(temp_cls=instance)  # type: PhotonicsTemplateBase
+
+        my_port = self.get_photonic_port(self_port_name)
+        new_port = inst_master.get_photonic_port(instance_port_name)
+
+        scalar_product = np.dot(my_port.orient_vec, new_port.orient_vec)
+        vector_product = np
+
+
+
+        self.add_instance(
+            inst_master,
+            instance_name,
+            loc,
+            orient,
+        )

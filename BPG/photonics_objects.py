@@ -32,6 +32,8 @@ class PhotonicRect(Rect):
     """
 
     def __init__(self, layer, bbox, nx=1, ny=1, spx=0, spy=0, unit_mode=False):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Rect.__init__(self, layer, bbox, nx, ny, spx, spy, unit_mode)
 
 
@@ -66,6 +68,8 @@ class PhotonicPath(Path):
                  join_style='extend',  # type: str
                  unit_mode=False,  # type: bool
                  ):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
 
 
@@ -111,6 +115,8 @@ class PhotonicTLineBus(TLineBus):
 
     def __init__(self, resolution, layer, points, widths, spaces, end_style='truncate',
                  unit_mode=False):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         TLineBus.__init__(self, resolution, layer, points, widths, spaces, end_style, unit_mode)
 
 
@@ -136,6 +142,8 @@ class PhotonicPolygon(Polygon):
                  points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
                  unit_mode=False,  # type: bool
                  ):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
 
 
