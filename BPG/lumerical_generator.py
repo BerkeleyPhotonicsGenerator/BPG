@@ -1,4 +1,4 @@
-# LumericalProject.py
+# lumerical_generator.py
 import yaml
 from pathlib import Path
 from .shapes import Rectangle
