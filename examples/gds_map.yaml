@@ -11,4 +11,8 @@ layer_map:
   !!python/tuple [M3, phot]: [9, 0]
   !!python/tuple [n, phot]: [10, 0]
   !!python/tuple [p, phot]: [11, 0]
+  !!python/tuple [RX, phot]: [11, 0]
+  !!python/tuple [PC, phot]: [11, 0]
+
+
 
