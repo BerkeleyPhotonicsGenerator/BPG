@@ -9,6 +9,7 @@ import numpy as np
 
 from bag.layout.template import TemplateBase, TemplateDB
 from .photonics_port import PhotonicsPort
+from .photonics_objects import *
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -49,6 +50,20 @@ class PhotonicsTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def draw_layout(self):
         pass
+
+    def add_rect(self,  # type: TemplateBase
+                 layer,  # type: Union[str, Tuple[str, str]]
+                 bbox,  # type: Union[BBox, BBoxArray]
+                 nx=1,  # type: int
+                 ny=1,  # type: int
+                 spx=0,  # type: Union[float, int]
+                 spy=0,  # type: Union[float, int]
+                 unit_mode=False,  # type: bool
+                 ):
+        rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
+        self._layout.add_rect(rect)
+        self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
+        return rect
 
     def add_photonic_port(self,
                           name,  # type: str
@@ -125,3 +140,4 @@ class PhotonicsTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             loc,
             orient,
         )
+
