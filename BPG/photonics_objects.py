@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, Itera
 
 from bag.layout.objects import Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, ViaInfo, Via, PinInfo
 
+dim_type = Union[float, int]
+coord_type = Tuple[dim_type, dim_type]
+
 
 class PhotonicRect(Rect):
     """A layout rectangle, with optional arraying parameters.
@@ -32,6 +35,8 @@ class PhotonicRect(Rect):
     """
 
     def __init__(self, layer, bbox, nx=1, ny=1, spx=0, spy=0, unit_mode=False):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Rect.__init__(self, layer, bbox, nx, ny, spx, spy, unit_mode)
 
 
@@ -66,6 +71,8 @@ class PhotonicPath(Path):
                  join_style='extend',  # type: str
                  unit_mode=False,  # type: bool
                  ):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
 
 
@@ -111,6 +118,8 @@ class PhotonicTLineBus(TLineBus):
 
     def __init__(self, resolution, layer, points, widths, spaces, end_style='truncate',
                  unit_mode=False):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         TLineBus.__init__(self, resolution, layer, points, widths, spaces, end_style, unit_mode)
 
 
@@ -136,8 +145,43 @@ class PhotonicPolygon(Polygon):
                  points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
                  unit_mode=False,  # type: bool
                  ):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
 
+
+class PhotonicAdvancedPolygon(Polygon):
+    """A layout polygon object.
+
+        Parameters
+        ----------
+        resolution : float
+            the layout grid resolution.
+        layer : Union[str, Tuple[str, str]]
+            the layer name, or a tuple of layer name and purpose name.
+            If purpose name not given, defaults to 'drawing'.
+        points : List[Tuple[Union[float, int], Union[float, int]]]
+            the points defining the polygon.
+        unit_mode : bool
+            True if the points are given in resolution units.
+        """
+
+    def __init__(self,
+                 resolution,  # type: float
+                 layer,  # type: Union[str, Tuple[str, str]]
+                 points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
+                 negative_points,  # type: Union[List[coord_type], List[List[coord_type]]]
+                 unit_mode=False,  # type: bool
+                 ):
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
+        Polygon.__init__(self, resolution, layer, points, unit_mode)
+        if not negative_points:
+            self._negative_points = []  # TODO: or none?
+        elif isinstance(negative_points[0], List):
+            self._negative_points = negative_points
+        else:
+            self._negative_points = [negative_points]
 
 class PhotonicBlockage(Blockage):
     """A blockage object.

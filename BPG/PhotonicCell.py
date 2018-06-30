@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING, Tuple, Union, List, Optional, Dict, Any, Iterator, Iterable, Generator
 import numpy as np
-from .port import Port
+from .photonics_port import Port
 import gdspy as gdspy
 import datetime
 import struct
