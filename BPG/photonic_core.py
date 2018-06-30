@@ -1,4 +1,6 @@
 from bag.core import BagProject
+
+
 class PhotonicBagProject(BagProject):
     """The main bag controller class.
 
@@ -46,6 +48,8 @@ class PhotonicBagProject(BagProject):
         self.sim = sim_cls(bag_tmp_dir, self.bag_config['simulation'])  # type: SimAccess
         '''
         self.tech_info = PTech()
+
+    # TODO: Add support for rounds shapes from gdspy
 
 
 class PTech():
