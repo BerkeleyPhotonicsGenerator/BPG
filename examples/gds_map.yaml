@@ -2,6 +2,7 @@ via_info:
 
 layer_map:
   !!python/tuple [Si, phot]: [2, 0]
+  !!python/tuple [Si, port]: [2, 100]
   !!python/tuple [Poly, phot]: [3, 0]
   !!python/tuple [CA, phot]: [4, 0]
   !!python/tuple [M1, phot]: [5, 0]
@@ -11,8 +12,8 @@ layer_map:
   !!python/tuple [M3, phot]: [9, 0]
   !!python/tuple [n, phot]: [10, 0]
   !!python/tuple [p, phot]: [11, 0]
-  !!python/tuple [RX, phot]: [11, 0]
-  !!python/tuple [PC, phot]: [11, 0]
-
+  !!python/tuple [RX, phot]: [12, 0]
+  !!python/tuple [PC, phot]: [13, 0]
+  !!python/tuple [RX, port]: [12, 100]
 
 

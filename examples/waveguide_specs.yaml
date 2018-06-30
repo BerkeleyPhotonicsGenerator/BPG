@@ -1,0 +1,20 @@
+lib_name: 'waveguide_lib'
+cell_name: 'waveguide_cell'
+
+# Dummy rounting grid needed for TemplateDB
+routing_grid:
+  layers: {}
+  spaces: {}
+  widths: {}
+  bot_dir: 'x'
+
+params:
+  width: 0.5
+  length: 10
+
+  wg1:
+    width: 1
+    length: 5
+  wg2:
+    width: 1
+    length: 10

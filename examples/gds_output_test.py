@@ -7,13 +7,13 @@ import sys
 
 from bag.core import BagProject
 from bag.layout import RoutingGrid, TemplateDB
-from BPG.photonics_template import PhotonicsTemplateBase, PhotonicsPort, PhotonicsTemplateDB
+from BPG.photonics_template import PhotonicTemplateBase, PhotonicPort, PhotonicTemplateDB
 from BPG.photonic_core import PhotonicBagProject
 
 
-class Test(PhotonicsTemplateBase):
+class Test(PhotonicTemplateBase):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
-        # type: (PhotonicsTemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
+        # type: (PhotonicTemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
         super(Test, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
         self._sch_params = None
 
@@ -72,9 +72,9 @@ class Test(PhotonicsTemplateBase):
         )
 
 
-class Test2(PhotonicsTemplateBase):
+class Test2(PhotonicTemplateBase):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
-        # type: (PhotonicsTemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
+        # type: (PhotonicTemplateDB, str, Dict[str, Any], Set[str], **Any) -> None
         super(Test2, self).__init__(temp_db, lib_name, params, used_names, **kwargs)
         self._sch_params = None
 

@@ -8,18 +8,26 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-class PhotonicsPort:
+class PhotonicPort:
     # TODO:  __slots__ =
     def __init__(self,
                  name,  # type: str
                  center,  # type: coord_type
                  inside_point,  # type: coord_type
                  width,  # type: dim_type
-                 layer,  # type: int
+                 layer,  # type: Tuple[str, str]
+                 resolution,  # type: Union[float, int]
+                 unit_mode=False,  # type: bool
                  ):
         # type: (...) -> None
 
-        self._center = np.array([center[0], center[1]])  # type: np.array
+        self._res = resolution
+        if not unit_mode:
+            center = (int(round(center[0] / resolution)), int(round(center[1] / resolution)))
+            width = int(round(width / resolution))
+            inside_point = (int(round(inside_point[0] / resolution)), int(round(inside_point[1] / resolution)))
+
+        self._center_unit = np.array([center[0], center[1]])  # type: np.array
         self._name = name  # type: str
         self._layer = layer  # type: int
 
@@ -27,30 +35,40 @@ class PhotonicsPort:
         inside_point = np.array([inside_point[0], inside_point[1]])
 
         # Is x distance greater than y
-        if abs(self._center - inside_point)[0] > abs(self._center - inside_point)[1]:
+        if abs(self._center_unit - inside_point)[0] > abs(self._center_unit - inside_point)[1]:
             # Is inside to the right
             if inside_point[0] > center[0]:
-                self._inside_point = self._center + np.array([width, 0])
+                self._inside_point_unit = self._center_unit + np.array([width, 0])
             else:
-                self._inside_point = self._center - np.array([width, 0])
+                self._inside_point_unit = self._center_unit - np.array([width, 0])
         else:
             # Is inside up
             if inside_point[1] > center[1]:
-                self._inside_point = self._center + np.array([0, width])
+                self._inside_point_unit = self._center_unit + np.array([0, width])
             else:
-                self._inside_point = self._center - np.array([0, width])
+                self._inside_point_unit = self._center_unit - np.array([0, width])
 
-    @property
-    def center(self):
-        # type: () -> np.array
+    #@property
+    def center(self,
+               unit_mode=True,  # type: bool
+               ):
+        # type: (...) -> np.array
         """ Returns the center of the port """
-        return self._center
+        if unit_mode:
+            return self._center_unit
+        else:
+            return self._center_unit * self._res
 
-    @property
-    def inside_point(self):
-        # type: () -> np.array
+    #@property
+    def inside_point(self,
+                     unit_mode=True,  # type: bool
+                     ):
+        # type: (...) -> np.array
         """ Returns the interior point for port orientation"""
-        return self._inside_point
+        if unit_mode:
+            return self._inside_point_unit
+        else:
+            return self._inside_point_unit * self._res
 
     @property
     def name(self):
@@ -70,23 +88,36 @@ class PhotonicsPort:
         """ Returns the layer of the port """
         return self._layer
 
-    @property
-    def width(self):
+    # @property
+    def width(self,
+              unit_mode=True,  # type: bool
+              ):
         # type: () -> dim_type
         """ Returns the width of the port """
-        return np.linalg.norm(self._center - self._inside_point)
+        if unit_mode:
+            return int(round(np.linalg.norm(self._center_unit - self._inside_point_unit)))
+        else:
+            return int(round(np.linalg.norm(self._center_unit - self._inside_point_unit))) * self._res
 
-    @property
-    def orient_vec(self):
-        # type: () -> np.array
-        """ Returns a vector pointing into the port object """
-        return self._inside_point - self._center
+    # @property
+    def orient_vec(self,
+                   unit_mode=True,  # type: bool
+                   ):
+        # type: (...) -> np.array
+        """ Returns a normalized vector pointing into the port object """
+        vec = (self._inside_point_unit - self._center_unit)
+        vec_norm = np.round(vec / np.linalg.norm(vec)).astype(int)
+
+        if unit_mode:
+            return vec_norm
+        else:
+            return vec_norm * self._res
 
     @property
     def orientation(self):
         # type: () -> str
         """ Returns the orientation of the port """
-        diff = self._inside_point - self._center
+        diff = self._inside_point_unit - self._center_unit
         # Horizontally oriented port
         if abs(diff[0]) > 0:
             if diff[0] > 0:
@@ -101,20 +132,35 @@ class PhotonicsPort:
 
         return orient
 
+    def is_horizontal(self):
+        if self.orientation == 'R0' or self.orientation == 'R180':
+            return True
+        else:
+            return False
+
+    def is_vertical(self):
+        return not self.is_horizontal()
+
     @classmethod
     def from_dict(cls,
                   center,  # type: coord_type
                   name,  # type: str
                   inside_point,  # type: coord_type
                   port_width,  # type: dim_type
-                  layer,  # type: int
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  resolution,  # type: Union[float, int]
+                  unit_mode=True,  # type: bool
                   ):
-        # type: (...) -> Port
+        # type: (...) -> PhotonicPort
 
-        port = PhotonicsPort(center, name, inside_point, port_width, layer)
+        if isinstance(layer, str):
+            layer = (layer, 'port')
+
+        port = PhotonicPort(name, center, inside_point, port_width, layer, resolution, unit_mode)
         return port
 
 
+'''
 class Ports:
 
     def __init__(self,
@@ -123,7 +169,7 @@ class Ports:
         if port is None:
             self._ports = []
         else:
-            self._ports = [PhotonicsPort]
+            self._ports = [PhotonicPort]
 
     def get_port_by_name(self,
                          name,  # type: str
@@ -154,4 +200,5 @@ class Ports:
     def add_port(self,
                  port,  # type: Port
                  ):
-        self._ports.append(PhotonicsPort)
+        self._ports.append(PhotonicPort)
+'''
