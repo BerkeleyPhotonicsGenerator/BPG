@@ -1,26 +1,8 @@
 # Berkeley Photonics Generator 
-The Berkeley Photonics Generator (BPG) is a Python framework that enables the generation and simulation of photonics layout
+The Berkeley Photonics Generator (BPG) is a Python framework that enables the generation and simulation of photonics layout. BPG leverages the BAG 2.0 framework, and has similar syntax and file structure. BPG is primarily focused on enabling simulation through Lumerical, but other open-source options will be added later
 
 # Installation Instructions
-gdspy is a required dependency for BPG to function. It is recommended that gdspy is installed as an editable installation:
-
-```
-cd Photonics_Dev/BPG/BPG
-pip install -e gdspy
-```
-
-if gdspy successfully installs, it should be accessible anywhere in your python installation by running `import gdspy`
-
-Similarly, BPG should be added as an editable installation via pip. Navigate to the Photonics_Dev folder and run:
-
-```
-cd Photonics_Dev
-pip install -e BPG
-```
-
-NOTE: BPG is currently being converted to using pipenv for all dependency management, these instructions may update
-
-If BPG successfully installs, it should be accessible anywhere in your python installation by running `import BPG` 
-Whenever any changes are made to the BPG package via git, they will be made available immediately.
+To set up a consistent development file structure and environmental variables, please do not use BPG without Photonics_Dev. Locate, pull, and install via github.com/pvnbhargava/Photonics_Dev
 
 # Basic Usage Instructions
+Please navigate to BPG/docs for more information about usage
