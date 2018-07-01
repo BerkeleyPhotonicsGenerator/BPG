@@ -38,7 +38,7 @@ class Waveguide(PhotonicTemplateBase):
         width = self.params['width']
 
         self.add_rect('Si',
-                      BBox(left=0, bottom=-width/2, right=length, top=width/2,
+                      bbox=BBox(left=0, bottom=-width/2, right=length, top=width/2,
                            resolution=self.grid.resolution, unit_mode=False
                            ),
                       unit_mode=False
@@ -96,7 +96,7 @@ class WaveguideVert(PhotonicTemplateBase):
         width = self.params['width']
 
         self.add_rect('Poly',
-                      BBox(left=-width/2, bottom=0, right=width/2, top=length,
+                      bbox=BBox(left=-width/2, bottom=0, right=width/2, top=length,
                            resolution=self.grid.resolution, unit_mode=False
                            ),
                       unit_mode=False
