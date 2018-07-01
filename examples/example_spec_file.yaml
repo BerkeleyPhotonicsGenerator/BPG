@@ -9,3 +9,17 @@ techfile: ./layerstack.yaml  # file containing technology information
 
 # Lumerical Output Settings
 lsf_filename: SingleModeWaveguide.lsf
+
+
+# Cadence Related parameters
+lib_name: 'waveguide_lib'
+cell_name: 'waveguide_cell'
+
+# Dummy routing grid needed for TemplateDB
+routing_grid:
+  layers: {}
+  spaces: {}
+  widths: {}
+  bot_dir: 'x'
+
+params:

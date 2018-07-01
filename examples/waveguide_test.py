@@ -1,4 +1,3 @@
-
 from bag.layout.template import TemplateBase
 from bag.layout.util import BBox
 import yaml
@@ -9,7 +8,7 @@ from bag.core import BagProject
 from bag.layout import RoutingGrid, TemplateDB
 from BPG.photonics_template import PhotonicTemplateBase, PhotonicPort, PhotonicTemplateDB
 from BPG.photonic_core import PhotonicBagProject
-from examples.waveguide import Waveguide, WaveguideVert, WaveguideConnectTest
+from waveguide import Waveguide, WaveguideVert, WaveguideConnectTest
 
 
 def make_tdb(prj, target_lib, specs):
@@ -32,7 +31,7 @@ def generate(prj, specs, gen_layout=True):
     params = specs['params']
 
     temp_db = make_tdb(prj, impl_lib, specs)
-    temp = temp_db.new_template(params=params, temp_cls=WaveguideConnectTest, debug=False)
+    temp = temp_db.new_template(params=params, temp_cls=Waveguide, debug=False)
 
     if gen_layout:
         print('creating layout')
