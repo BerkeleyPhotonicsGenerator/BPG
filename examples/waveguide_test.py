@@ -20,7 +20,7 @@ def make_tdb(prj, target_lib, specs):
 
     routing_grid = RoutingGrid(prj.tech_info, layers, spaces, widths, bot_dir)
     tdb = TemplateDB('template_libs.def', routing_grid, target_lib, use_cybagoa=True,
-                     gds_lay_file=os.path.dirname(os.path.abspath(__file__)) + '/gds_map.yaml')
+                     gds_lay_file=os.path.dirname(os.path.abspath(__file__)) + '/tech/gds_map.yaml')
     return tdb
 
 
@@ -31,7 +31,7 @@ def generate(prj, specs, gen_layout=True):
     params = specs['params']
 
     temp_db = make_tdb(prj, impl_lib, specs)
-    temp = temp_db.new_template(params=params, temp_cls=Waveguide, debug=False)
+    temp = temp_db.new_template(params=params, temp_cls=WaveguideConnectTest, debug=False)
 
     if gen_layout:
         print('creating layout')
@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     impl_lib = 'PhotTest'
 
-    with open(os.path.dirname(os.path.abspath(__file__)) + '/waveguide_specs.yaml', 'r') as f:
+    with open(os.path.dirname(os.path.abspath(__file__)) + '/specs/waveguide_specs.yaml', 'r') as f:
         block_specs = yaml.load(f)
 
     local_dict = locals()
