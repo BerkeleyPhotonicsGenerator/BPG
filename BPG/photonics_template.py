@@ -234,15 +234,87 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # type: () -> Iterable[str]
         return self._photonic_ports.keys()
 
-    def add_rect(self,  # type: TemplateBase
+    def add_rect(self,
                  layer,  # type: Union[str, Tuple[str, str]]
-                 bbox,  # type: Union[BBox, BBoxArray]
+                 x_span=None,  # type: dim_type
+                 y_span=None,  # type: dim_type
+                 center=None,  # type: coord_type
+                 coord1=None,  # type: coord_type
+                 coord2=None,  # type: coord_type
+                 bbox=None,  # type: Union[BBox, BBoxArray]
                  nx=1,  # type: int
                  ny=1,  # type: int
                  spx=0,  # type: Union[float, int]
                  spy=0,  # type: Union[float, int]
                  unit_mode=False,  # type: bool
                  ):
+        """Add a new (arrayed) rectangle.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            the layer name, or the (layer, purpose) pair.
+        x_span : Union[int, float]
+            horizontal span of the rectangle.
+        y_span : Union[int, float]
+            vertical span of the rectangle.
+        center : Union[int, float]
+            coordinate defining center point of the rectangle.
+        coord1 : Tuple[Union[int, float], Union[int, float]]
+            point defining one corner of rectangle boundary.
+        coord2 : Tuple[Union[int, float], Union[int, float]]
+            opposite corner from coord1 defining rectangle boundary.
+        bbox : bag.layout.util.BBox or bag.layout.util.BBoxArray
+            the base bounding box.  If this is a BBoxArray, the BBoxArray's
+            arraying parameters are used.
+        nx : int
+            number of columns.
+        ny : int
+            number of rows.
+        spx : float
+            column pitch.
+        spy : float
+            row pitch.
+        unit_mode : bool
+            True if layout dimensions are specified in resolution units.
+
+        Returns
+        -------
+        rect : PhotonicRect
+            the added rectangle.
+        """
+        # Define by center, x_span, and y_span
+        if x_span is not None or y_span is not None or center is not None:
+            # Ensure all three are defined
+            if x_span is None or y_span is None or center is None:
+                raise ValueError("If defining by x_span, y_span, and center, all three parameters must be specified.")
+
+            # Define the BBox
+            bbox = BBox(
+                left=center[0] - x_span / 2,
+                right=center[0] + x_span / 2,
+                bottom=center[1] - y_span / 2,
+                top=center[1] - y_span / 2,
+                resolution=self.grid.resolution,
+                unit_mode=unit_mode
+            )
+
+        # Define by two coordinate points
+        elif coord1 is not None or coord2 is not None:
+            # Ensure both points are defined
+            if coord1 is None or coord2 is None:
+                raise ValueError("If defining by two points, both must be specified.")
+
+            # Define the BBox
+            bbox = BBox(
+                left=min(coord1[0], coord2[0]),
+                right=max(coord1[0], coord2[0]),
+                bottom=min(coord1[1], coord2[1]),
+                top=max(coord1[1], coord2[1]),
+                resolution=self.grid.resolution,
+                unit_mode=unit_mode
+            )
+
         rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
         self._layout.add_rect(rect)
         self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
