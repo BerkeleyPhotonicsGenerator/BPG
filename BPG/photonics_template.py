@@ -294,7 +294,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 left=center[0] - x_span / 2,
                 right=center[0] + x_span / 2,
                 bottom=center[1] - y_span / 2,
-                top=center[1] - y_span / 2,
+                top=center[1] + y_span / 2,
                 resolution=self.grid.resolution,
                 unit_mode=unit_mode
             )
