@@ -1,0 +1,26 @@
+# example_spec_file.yaml
+# A sample specification file to generate a SingleModeWaveguide project
+
+# Directory Locations
+project_dir: ~/Documents/Photonics_Data/Generated_Waveguide  # Top level directory for the project
+scripts: scripts  # subdirectory of project_dir where generated script files are placed
+data: data  # subdirectory of project_dir where generated data is placed
+layermap: ./tech/gds_map.yaml  # file containing technology information
+
+# Output Settings
+lsf_filename: SingleModeWaveguide.lsf
+gds_filename: Output
+
+# Generator Params
+layout_package: 'LumericalWaveguide'  # Module that contains the layout generator class
+layout_class: 'SingleModeWaveguide'  # Layout generator class name
+layout_params:  # Place parameters to be passed to the generator class under here
+
+# Cadence related parameters
+impl_lib: 'waveguide_lib'
+impl_cell: 'waveguide_cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'
