@@ -26,19 +26,24 @@ class PhotonicTemplateDB(TemplateDB):
     def __init__(self,  # type: TemplateDB
                  lib_defs,  # type: str
                  routing_grid,  # type: RoutingGrid
-                 lib_name,  # type: str
+                 libname,  # type: str
                  prj=None,  # type: Optional[BagProject]
                  name_prefix='',  # type: str
                  name_suffix='',  # type: str
                  use_cybagoa=False,  # type: bool
                  gds_lay_file='',  # type: str
                  flatten=False,  # type: bool
+                 gds_filepath='',  # type: str
+                 lsf_filepath='',  # type: str
                  **kwargs,
                  ):
-        TemplateDB.__init__(self, lib_defs, routing_grid, lib_name, prj,
+        TemplateDB.__init__(self, lib_defs, routing_grid, libname, prj,
                             name_prefix, name_suffix, use_cybagoa, gds_lay_file,
                             flatten, **kwargs)
-        self.content_list = None
+
+        self.content_list = None  # Variable where all generated layout content will be stored
+        self.gds_filepath = gds_filepath
+        self.lsf_filepath = lsf_filepath
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -46,9 +51,10 @@ class PhotonicTemplateDB(TemplateDB):
                             lib_name='',  # type: str
                             debug=False,  # type: bool
                             rename_dict=None,  # type: Optional[Dict[str, str]]
-                            ):
-        # type: (...) -> None
-        """create all given masters in the database.
+                            ) -> None:
+        """
+        Create all given masters in the database. Currently, this is being overridden so that the content_list is stored
+        This is a little hacky, and may need to be changed pending further testing
 
         Parameters
         ----------
@@ -120,8 +126,13 @@ class PhotonicTemplateDB(TemplateDB):
 
         self.create_masters_in_db(lib_name, self.content_list, debug=debug)
 
-    def to_lumerical(self, lsf_config_file, debug=False):
-        LSFWriter = LumericalGenerator(lsf_config_file)
+    def _create_gds(self, lib_name, content_list, debug=False):
+        """ Use the superclass' create gds function, but point its output to a filepath provided by the spec file """
+        TemplateDB._create_gds(self, self.gds_filepath, content_list, debug)
+
+    def to_lumerical(self, debug=False):
+        """ Export the drawn layout to the LSF format """
+        lsfwriter = LumericalGenerator()
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
@@ -140,8 +151,8 @@ class PhotonicTemplateDB(TemplateDB):
              path_list, blockage_list, boundary_list, polygon_list) = content
 
             # add instances
-            for inst_info in inst_tot_list:  # type: InstanceInfo
-                continue
+            for inst_info in inst_tot_list:
+                pass
 
                 # TODO: Determine how useful this section really is...
                 # if inst_info.params is not None:
@@ -169,14 +180,14 @@ class PhotonicTemplateDB(TemplateDB):
                 else:
                     lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
 
-                LSFWriter.addCode(lsf_repr)
+                lsfwriter.add_code(lsf_repr)
 
             # add vias
-            for via in via_list:  # type: ViaInfo
+            for via in via_list:
                 pass
 
             # add pins
-            for pin in pin_list:  # type: PinInfo
+            for pin in pin_list:
                 pass
 
             for path in path_list:
@@ -197,7 +208,7 @@ class PhotonicTemplateDB(TemplateDB):
                 #                          verbose=False)
                 # gds_cell.add(cur_poly.fracture(precision=res))
 
-        LSFWriter.export_to_lsf()
+        lsfwriter.export_to_lsf(self.lsf_filepath)
         end = time.time()
         if debug:
             print('layout instantiation took %.4g seconds' % (end - start))

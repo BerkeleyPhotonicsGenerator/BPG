@@ -9,8 +9,6 @@ setup(name='BPG',
           'PyYAML>=3.11',
           'numpy>=1.10',
           'pytest',
-          'BAG>=2.0',
-          'gdspy>=1.2.1'
       ],
       url='https://github.com/pvnbhargava/BPG',
       packages=['BPG']
