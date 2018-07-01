@@ -1,7 +1,6 @@
 # lumerical_generator.py
 import yaml
 from pathlib import Path
-from .shapes import Rectangle
 from .layerstack import techInfo
 
 
@@ -32,24 +31,23 @@ class LumericalGenerator:
         self.lsf_filename = self.specfile['lsf_filename']
         self._db = []
 
-    def add_rect(self, name, layer) -> Rectangle:
+    def addCode(self, code) -> None:
         """
-        Creates a new rectangle shape, adds it to the database and returns it for further modification
+        Adds provided code to running list to be written to the final lsf file
+
+        Parameters
+        ----------
+        code : List[str]
+            List of strings containing lumerical script
         """
-        material_info = self.techInfo[layer]
-        temp = Rectangle(name, material_info)
-        self._db.append(temp)
-        return temp
+        # TODO: Make this a generator statement to speed up compute time for large codebases
+        self._db += code
 
     def export_to_lsf(self):
-        """
-        Take all shapes in the database and export them to lumerical script
-        """
+        """ Take all code in the database and export it to a lumerical script file """
         file = ['# Created by the {} lumerical generator\n'.format(self.__class__.__name__)]
         file.append('clear; newmode; redrawoff;\n')
-        for shape in self._db:
-            file += shape.export()
-            file += '\n'
+        file += self._db
 
         filename = self.scripts_dir / self.lsf_filename
         with open(filename, 'w') as stream:

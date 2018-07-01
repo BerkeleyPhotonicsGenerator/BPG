@@ -12,7 +12,8 @@ coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicRect(Rect):
-    """A layout rectangle, with optional arraying parameters.
+    """
+    A layout rectangle, with optional arraying parameters.
 
     Parameters
     ----------
@@ -39,9 +40,65 @@ class PhotonicRect(Rect):
             layer = (layer, 'phot')
         Rect.__init__(self, layer, bbox, nx, ny, spx, spy, unit_mode)
 
+    @classmethod
+    def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
+        """
+        Describes the current rectangle shape in terms of lsf parameters for lumerical use
+
+        Parameters
+        ----------
+        bbox : [[float, float], [float, float]]
+            lower left and upper right corner xy coordinates
+        layer_prop : dict
+            dictionary containing material properties for the desired layer
+        nx : int
+            number of arrayed rectangles in the x-direction
+        ny : int
+            number of arrayed rectangles in the y-direction
+        spx : float
+            space between arrayed rectangles in the x-direction
+        spy : float
+            space between arrayed rectangles in the y-direction
+
+        Returns
+        -------
+        lsf_code : List[str]
+            list of str containing the lsf code required to create specified rectangles
+        """
+
+        # Calculate the width and length of the rectangle
+        x_span = bbox[1][0] - bbox[0][0]
+        y_span = bbox[1][1] - bbox[0][1]
+
+        # Calculate the center of the first rectangle rounded to the nearest nm
+        base_x_center = round((bbox[1][0] + bbox[0][0]) / 2, 3)
+        base_y_center = round((bbox[1][1] + bbox[0][1]) / 2, 3)
+
+        # Write the lumerical code for each rectangle in the array
+        lsf_code = []
+        for x_count in range(nx):
+            for y_count in range(ny):
+                lsf_code.append('\n')
+                lsf_code.append('addrect;\n')
+                lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+
+                # Compute the x and y coordinates for each rectangle
+                lsf_code.append('set("x span", {});\n'.format(x_span))
+                lsf_code.append('set("x", {});\n'.format(base_x_center + spx*x_count))
+                lsf_code.append('set("y span", {});\n'.format(y_span))
+                lsf_code.append('set("y", {});\n'.format(base_y_center + spy*y_count))
+
+                # Extract the thickness values from the layermap file
+                lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
+                lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+
+        return lsf_code
+
 
 class PhotonicPath(Path):
-    """A layout path.  Only 45/90 degree turns are allowed.
+    """
+    A layout path.  Only 45/90 degree turns are allowed.
 
     Parameters
     ----------
@@ -77,7 +134,8 @@ class PhotonicPath(Path):
 
 
 class PhotonicPathCollection(PathCollection):
-    """A layout figure that consists of one or more paths.
+    """
+    A layout figure that consists of one or more paths.
 
     This class make it easy to draw bus/trasmission line objects.
 
@@ -94,7 +152,8 @@ class PhotonicPathCollection(PathCollection):
 
 
 class PhotonicTLineBus(TLineBus):
-    """A transmission line bus drawn using Path.
+    """
+    A transmission line bus drawn using Path.
 
     assumes only 45 degree turns are used, and begin and end line segments are straight.
 
@@ -124,7 +183,8 @@ class PhotonicTLineBus(TLineBus):
 
 
 class PhotonicPolygon(Polygon):
-    """A layout polygon object.
+    """
+    A layout polygon object.
 
     Parameters
     ----------
@@ -151,20 +211,21 @@ class PhotonicPolygon(Polygon):
 
 
 class PhotonicAdvancedPolygon(Polygon):
-    """A layout polygon object.
+    """
+    A layout polygon object.
 
-        Parameters
-        ----------
-        resolution : float
-            the layout grid resolution.
-        layer : Union[str, Tuple[str, str]]
-            the layer name, or a tuple of layer name and purpose name.
-            If purpose name not given, defaults to 'drawing'.
-        points : List[Tuple[Union[float, int], Union[float, int]]]
-            the points defining the polygon.
-        unit_mode : bool
-            True if the points are given in resolution units.
-        """
+    Parameters
+    ----------
+    resolution : float
+        the layout grid resolution.
+    layer : Union[str, Tuple[str, str]]
+        the layer name, or a tuple of layer name and purpose name.
+        If purpose name not given, defaults to 'drawing'.
+    points : List[Tuple[Union[float, int], Union[float, int]]]
+        the points defining the polygon.
+    unit_mode : bool
+        True if the points are given in resolution units.
+    """
 
     def __init__(self,
                  resolution,  # type: float
@@ -183,8 +244,10 @@ class PhotonicAdvancedPolygon(Polygon):
         else:
             self._negative_points = [negative_points]
 
+
 class PhotonicBlockage(Blockage):
-    """A blockage object.
+    """
+    A blockage object.
 
     Subclass Polygon for code reuse.
 
@@ -208,7 +271,8 @@ class PhotonicBlockage(Blockage):
 
 
 class PhotonicBoundary(Boundary):
-    """A boundary object.
+    """
+    A boundary object.
 
     Subclass Polygon for code reuse.
 
@@ -230,7 +294,8 @@ class PhotonicBoundary(Boundary):
 
 
 class PhotonicViaInfo(ViaInfo):
-    """A dictionary that represents a layout via.
+    """
+    A dictionary that represents a layout via.
     """
 
     param_list = ['id', 'loc', 'orient', 'num_rows', 'num_cols', 'sp_rows', 'sp_cols',
@@ -241,7 +306,8 @@ class PhotonicViaInfo(ViaInfo):
 
 
 class PhotonicVia(Via):
-    """A layout via, with optional arraying parameters.
+    """
+    A layout via, with optional arraying parameters.
 
     Parameters
     ----------
@@ -280,7 +346,8 @@ class PhotonicVia(Via):
 
 
 class PhotonicPinInfo(PinInfo):
-    """A dictionary that represents a layout pin.
+    """
+    A dictionary that represents a layout pin.
     """
 
     param_list = ['net_name', 'pin_name', 'label', 'layer', 'bbox', 'make_rect']

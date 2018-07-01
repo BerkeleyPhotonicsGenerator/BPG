@@ -6,12 +6,17 @@ from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, TypeVar, Type, \
 
 import abc
 import numpy as np
+import yaml
+import time
 
 from bag.core import BagProject, RoutingGrid
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray
+from bag.util.cache import _get_unique_name, DesignMaster
 from .photonics_port import PhotonicPort
 from .photonics_objects import *
+from BPG import LumericalGenerator
+from collections import OrderedDict
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -33,9 +38,169 @@ class PhotonicTemplateDB(TemplateDB):
         TemplateDB.__init__(self, lib_defs, routing_grid, lib_name, prj,
                             name_prefix, name_suffix, use_cybagoa, gds_lay_file,
                             flatten, **kwargs)
+        self.content_list = None
 
-    def to_lumerical(self):
-        pass
+    def instantiate_masters(self,
+                            master_list,  # type: Sequence[DesignMaster]
+                            name_list=None,  # type: Optional[Sequence[Optional[str]]]
+                            lib_name='',  # type: str
+                            debug=False,  # type: bool
+                            rename_dict=None,  # type: Optional[Dict[str, str]]
+                            ):
+        # type: (...) -> None
+        """create all given masters in the database.
+
+        Parameters
+        ----------
+        master_list : Sequence[DesignMaster]
+            list of masters to instantiate.
+        name_list : Optional[Sequence[Optional[str]]]
+            list of master cell names.  If not given, default names will be used.
+        lib_name : str
+            Library to create the masters in.  If empty or None, use default library.
+        debug : bool
+            True to print debugging messages
+        rename_dict : Optional[Dict[str, str]]
+            optional master cell renaming dictionary.
+        """
+        if name_list is None:
+            name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
+        else:
+            if len(name_list) != len(master_list):
+                raise ValueError("Master list and name list length mismatch.")
+
+        # configure renaming dictionary.  Verify that renaming dictionary is one-to-one.
+        rename = self._rename_dict
+        rename.clear()
+        reverse_rename = {}
+        if rename_dict:
+            for key, val in rename_dict.items():
+                if key != val:
+                    if val in reverse_rename:
+                        raise ValueError('Both %s and %s are renamed '
+                                         'to %s' % (key, reverse_rename[val], val))
+                    rename[key] = val
+                    reverse_rename[val] = key
+
+        for master, name in zip(master_list, name_list):
+            if name is not None and name != master.cell_name:
+                cur_name = master.cell_name
+                if name in reverse_rename:
+                    raise ValueError('Both %s and %s are renamed '
+                                     'to %s' % (cur_name, reverse_rename[name], name))
+                rename[cur_name] = name
+                reverse_rename[name] = cur_name
+
+                if name in self._used_cell_names:
+                    # name is an already used name, so we need to rename it to something else
+                    name2 = _get_unique_name(name, self._used_cell_names, reverse_rename)
+                    rename[name] = name2
+                    reverse_rename[name2] = name
+
+        if debug:
+            print('Retrieving master contents')
+
+        # use ordered dict so that children are created before parents.
+        info_dict = OrderedDict()  # type: Dict[str, DesignMaster]
+        start = time.time()
+        for master, top_name in zip(master_list, name_list):
+            self._instantiate_master_helper(info_dict, master)
+        end = time.time()
+
+        if not lib_name:
+            lib_name = self.lib_name
+        if not lib_name:
+            raise ValueError('master library name is not specified.')
+
+        self.content_list = [master.get_content(lib_name, self.format_cell_name)
+                             for master in info_dict.values()]
+
+        if debug:
+            print('master content retrieval took %.4g seconds' % (end - start))
+
+        self.create_masters_in_db(lib_name, self.content_list, debug=debug)
+
+    def to_lumerical(self, lsf_config_file, debug=False):
+        LSFWriter = LumericalGenerator(lsf_config_file)
+        tech_info = self.grid.tech_info
+        lay_unit = tech_info.layout_unit
+        res = tech_info.resolution
+
+        with open(self._gds_lay_file, 'r') as f:
+            lay_info = yaml.load(f)
+            lay_map = lay_info['layer_map']
+            prop_map = lay_info['lumerical_prop_map']
+
+        if debug:
+            print('Creating Lumerical Script File')
+
+        start = time.time()
+        for content in self.content_list:
+            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
+             path_list, blockage_list, boundary_list, polygon_list) = content
+
+            # add instances
+            for inst_info in inst_tot_list:  # type: InstanceInfo
+                continue
+
+                # TODO: Determine how useful this section really is...
+                # if inst_info.params is not None:
+                #     raise ValueError('Cannot instantiate PCells in GDS.')
+                # num_rows = inst_info.num_rows
+                # num_cols = inst_info.num_cols
+                # angle, reflect = inst_info.angle_reflect
+                # if num_rows > 1 or num_cols > 1:
+                #     cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
+                #                                (inst_info.sp_cols, inst_info.sp_rows),
+                #                                origin=inst_info.loc, rotation=angle,
+                #                                x_reflection=reflect)
+                # else:
+                #     cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
+                #                                    rotation=angle, x_reflection=reflect)
+                # gds_cell.add(cur_inst)
+
+            # add rectangles
+            for rect in rect_list:
+                nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
+                layer_prop = prop_map[tuple(rect['layer'])]
+                if nx > 1 or ny > 1:
+                    lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop, nx, ny,
+                                                       spx=rect['arr_spx'], spy=rect['arr_spy'])
+                else:
+                    lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
+
+                LSFWriter.addCode(lsf_repr)
+
+            # add vias
+            for via in via_list:  # type: ViaInfo
+                pass
+
+            # add pins
+            for pin in pin_list:  # type: PinInfo
+                pass
+
+            for path in path_list:
+                pass
+
+            for blockage in blockage_list:
+                pass
+
+            for boundary in boundary_list:
+                pass
+
+            for polygon in polygon_list:
+                pass
+                # TODO: Write Lumerical implementation of polygon code
+
+                # lay_id, purp_id = lay_map[polygon['layer']]
+                # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
+                #                          verbose=False)
+                # gds_cell.add(cur_poly.fracture(precision=res))
+
+        LSFWriter.export_to_lsf()
+        end = time.time()
+        if debug:
+            print('layout instantiation took %.4g seconds' % (end - start))
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
