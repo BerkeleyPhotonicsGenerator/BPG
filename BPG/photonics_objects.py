@@ -85,9 +85,9 @@ class PhotonicRect(Rect):
 
                 # Compute the x and y coordinates for each rectangle
                 lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + spx*x_count))
+                lsf_code.append('set("x", {});\n'.format(base_x_center + spx * x_count))
                 lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + spy*y_count))
+                lsf_code.append('set("y", {});\n'.format(base_y_center + spy * y_count))
 
                 # Extract the thickness values from the layermap file
                 lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
@@ -208,6 +208,44 @@ class PhotonicPolygon(Polygon):
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
+
+    @classmethod
+    def lsf_export(cls, vertices, layer_prop) -> List[str]:
+        """
+        Describes the current polygon shape in terms of lsf parameters for lumerical use
+
+        Parameters
+        ----------
+        vertices : List[Tuple[float, float]]
+            ordered list of x,y coordinates representing the points of the polygon
+        layer_prop : dict
+            dictionary containing material properties for the desired layer
+
+        Returns
+        -------
+        lsf_code : List[str]
+            list of str containing the lsf code required to create specified rectangles
+        """
+        # Grab the number of vertices in the polygon to preallocate Lumerical matrix size
+        poly_len = len(vertices)
+
+        # Write the lumerical code for each rectangle in the array
+        lsf_code = []
+        lsf_code.append('\n')
+        lsf_code.append('addpoly;\n')
+        lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+        lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+
+        lsf_code.append('V = matrix({},2);\n'.format(poly_len))  # Create matrix to hold x,y coords for vertices
+        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0] for point in vertices]))  # Add x coordinates
+        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1] for point in vertices]))  # Add y coordinates
+        lsf_code.append('set("vertices", V);\n')
+
+        # Extract the thickness values from the layermap file
+        lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
+        lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+
+        return lsf_code
 
 
 class PhotonicAdvancedPolygon(Polygon):

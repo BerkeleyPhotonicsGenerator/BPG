@@ -200,8 +200,10 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for polygon in polygon_list:
-                pass
-                # TODO: Write Lumerical implementation of polygon code
+                layer_prop = prop_map[tuple(polygon['layer'])]
+                lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
+                lsfwriter.add_code(lsf_repr)
+
 
                 # lay_id, purp_id = lay_map[polygon['layer']]
                 # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
