@@ -3,6 +3,7 @@
 
 from typing import TYPE_CHECKING, Tuple, Union, List, Optional, Dict, Any, Iterator, Iterable, Generator
 import numpy as np
+from bag.layout.util import transform_point
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -28,9 +29,10 @@ class PhotonicPort:
             inside_point = (int(round(inside_point[0] / resolution)), int(round(inside_point[1] / resolution)))
 
         self._center_unit = np.array([center[0], center[1]])  # type: np.array
-        self._name = name  # type: str
-        self._layer = layer  # type: int
+        self._name = name
+        self._layer = layer
         self._matched = False
+        self._width_unit = width
 
         # Convert to np array
         inside_point = np.array([inside_point[0], inside_point[1]])
@@ -59,27 +61,35 @@ class PhotonicPort:
                 ):
         self._matched = new_match
 
-    #@property
-    def center(self,
-               unit_mode=True,  # type: bool
-               ):
+    @property
+    def center(self):
         # type: (...) -> np.array
-        """ Returns the center of the port """
-        if unit_mode:
-            return self._center_unit
-        else:
-            return self._center_unit * self._res
+        """Return the center coordinates as np array"""
+        return self._center_unit * self._res
 
-    #@property
-    def inside_point(self,
-                     unit_mode=True,  # type: bool
-                     ):
+    @property
+    def center_unit(self):
         # type: (...) -> np.array
-        """ Returns the interior point for port orientation"""
-        if unit_mode:
-            return self._inside_point_unit
-        else:
-            return self._inside_point_unit * self._res
+        """Return the center coordinates as np array in resolution units"""
+        return self._center_unit
+
+    @property
+    def inside_point(self):
+        # type: (...) -> np.array
+        """Return the inside point coordinates as np array"""
+        return self._inside_point_unit * self._res
+
+    @property
+    def inside_point_unit(self):
+        # type: (...) -> np.array
+        """Return the inside point coordinates as np array in resolution units"""
+        return self._inside_point_unit
+
+    @property
+    def resolution(self):
+        # type (...) -> float
+        """Returns the layout resolution of the port object"""
+        return self._res
 
     @property
     def name(self):
@@ -95,20 +105,33 @@ class PhotonicPort:
 
     @property
     def layer(self):
-        # type: () -> int
-        """ Returns the layer of the port """
+        # type: () -> Tuple[str, str]
+        """Returns the layer of the port """
         return self._layer
 
-    # @property
-    def width(self,
-              unit_mode=True,  # type: bool
-              ):
-        # type: () -> dim_type
-        """ Returns the width of the port """
-        if unit_mode:
-            return int(round(np.linalg.norm(self._center_unit - self._inside_point_unit)))
-        else:
-            return int(round(np.linalg.norm(self._center_unit - self._inside_point_unit))) * self._res
+    @property
+    def width(self):
+        # type: () -> float
+        """Returns the width of the port """
+        return self._width_unit * self._res
+
+    @property
+    def width_unit(self):
+        # type: () -> int
+        """Returns the width of the port in layout units"""
+        return self._width_unit
+
+    @width.setter
+    def width(self, new_width):
+        # type: (float) -> None
+        """Sets the port width"""
+        self._width_unit = int(round(new_width / self._res))
+
+    @width_unit.setter
+    def width_unit(self, new_width):
+        # type: (int) -> None
+        """Sets the port width"""
+        self._width_unit = new_width
 
     # @property
     def orient_vec(self,
@@ -168,6 +191,52 @@ class PhotonicPort:
     def is_vertical(self):
         return not self.is_horizontal()
 
+    def transform(self,
+                  loc=(0, 0),  # type: coord_type
+                  orient='R0',  # type: str
+                  unit_mode=False,  # type: bool
+                  ):
+        """Return a new transformed photonic port
+
+        Parameters
+        ----------
+        loc
+        orient
+        unit_mode
+
+        Returns
+        -------
+
+        """
+        # Convert to nearest int unit mode value
+        if not unit_mode:
+            res = self._res
+            loc = (int(round(loc[0] / res)), int(round(loc[1] / res)))
+
+        new_center = transform_point(
+            x=self._center_unit[0],
+            y=self._center_unit[1],
+            loc=loc,
+            orient=orient,
+        )
+
+        new_inner = transform_point(
+            x=self._inside_point_unit[0],
+            y=self._inside_point_unit[1],
+            loc=loc,
+            orient=orient,
+        )
+
+        return PhotonicPort(
+            name=self._name,
+            center=new_center,
+            inside_point=new_inner,
+            width=self._width_unit,
+            layer=self._layer,
+            resolution=self._res,
+            unit_mode=True,
+        )
+
     @classmethod
     def from_dict(cls,
                   center,  # type: coord_type
@@ -185,47 +254,3 @@ class PhotonicPort:
 
         port = PhotonicPort(name, center, inside_point, port_width, layer, resolution, unit_mode)
         return port
-
-
-'''
-class Ports:
-
-    def __init__(self,
-                 port=None,  # type: Optional[Port]
-                 ):
-        if port is None:
-            self._ports = []
-        else:
-            self._ports = [PhotonicPort]
-
-    def get_port_by_name(self,
-                         name,  # type: str
-                         ):
-        # type: (...) -> Union[Port, None]
-        for port in self._ports:
-            if port.name == name:
-                return port
-
-        # Could not find port with that name
-        # TODO: Raise error or return none?
-        return None
-
-    def rename_port(self,
-                    old_name,  # type: str
-                    new_name,  # type: str
-                    ):
-        # type: (...) -> bool
-
-        ret_val = False
-        for port in self._ports:
-            if port.name == old_name:
-                ret_val = True
-                port.set_name(new_name)
-
-        return ret_val
-
-    def add_port(self,
-                 port,  # type: Port
-                 ):
-        self._ports.append(PhotonicPort)
-'''

@@ -5,10 +5,489 @@
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, Iterator, Iterable, \
     Generator
 
-from bag.layout.objects import Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, ViaInfo, Via, PinInfo
+from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
+    ViaInfo, Via, PinInfo, Instance
+from bag.layout.routing import RoutingGrid
+from bag.layout.template import TemplateBase
+from BPG.photonics_template import PhotonicTemplateBase
 
+
+ldim = Union[float, int]
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
+
+
+class InstanceInfo(dict):
+    """A dictionary that represents a layout instance.
+    """
+
+    param_list = ['lib', 'cell', 'view', 'name', 'loc', 'orient', 'num_rows',
+                  'num_cols', 'sp_rows', 'sp_cols']
+
+    def __init__(self, res, change_orient=True, **kwargs):
+        kv_iter = ((key, kwargs[key]) for key in self.param_list)
+        dict.__init__(self, kv_iter)
+        self._resolution = res
+        if 'params' in kwargs:
+            self.params = kwargs['params']
+
+        # skill/OA array before rotation, while we're doing the opposite.
+        # this is supposed to fix it.
+        if change_orient:
+            orient = self['orient']
+            if orient == 'R180':
+                self['sp_rows'] *= -1
+                self['sp_cols'] *= -1
+            elif orient == 'MX':
+                self['sp_rows'] *= -1
+            elif orient == 'MY':
+                self['sp_cols'] *= -1
+            elif orient == 'R90':
+                self['sp_rows'], self['sp_cols'] = self['sp_cols'], -self['sp_rows']
+                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
+            elif orient == 'MXR90':
+                self['sp_rows'], self['sp_cols'] = self['sp_cols'], self['sp_rows']
+                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
+            elif orient == 'MYR90':
+                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], -self['sp_rows']
+                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
+            elif orient == 'R270':
+                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], self['sp_rows']
+                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
+            elif orient != 'R0':
+                raise ValueError('Unknown orientation: %s' % orient)
+
+    @property
+    def lib(self):
+        # type: () -> str
+        return self['lib']
+
+    @property
+    def cell(self):
+        # type: () -> str
+        return self['cell']
+
+    @property
+    def view(self):
+        # type: () -> str
+        return self['view']
+
+    @property
+    def name(self):
+        # type: () -> str
+        return self['name']
+
+    @name.setter
+    def name(self, new_name):
+        # type: (str) -> None
+        self['name'] = new_name
+
+    @property
+    def loc(self):
+        # type: () -> Tuple[float, float]
+        loc_list = self['loc']
+        return loc_list[0], loc_list[1]
+
+    @property
+    def orient(self):
+        # type: () -> str
+        return self['orient']
+
+    @property
+    def num_rows(self):
+        # type: () -> int
+        return self['num_rows']
+
+    @property
+    def num_cols(self):
+        # type: () -> int
+        return self['num_cols']
+
+    @property
+    def sp_rows(self):
+        # type: () -> float
+        return self['sp_rows']
+
+    @property
+    def sp_cols(self):
+        # type: () -> float
+        return self['sp_cols']
+
+    @property
+    def params(self):
+        # type: () -> Optional[Dict[str, Any]]
+        return self.get('params', None)
+
+    @params.setter
+    def params(self, new_params):
+        # type: (Optional[Dict[str, Any]]) -> None
+        self['params'] = new_params
+
+    @property
+    def angle_reflect(self):
+        # type: () -> Tuple[int, bool]
+        orient = self['orient']
+        if orient == 'R0':
+            return 0, False
+        elif orient == 'R180':
+            return 180, False
+        elif orient == 'MX':
+            return 0, True
+        elif orient == 'MY':
+            return 180, True
+        elif orient == 'R90':
+            return 90, False
+        elif orient == 'MXR90':
+            return 90, True
+        elif orient == 'MYR90':
+            return 270, True
+        elif orient == 'R270':
+            return 270, False
+        else:
+            raise ValueError('Unknown orientation: %s' % orient)
+
+    def copy(self):
+        """Override copy method of dictionary to return an InstanceInfo instead."""
+        return InstanceInfo(self._resolution, change_orient=False, **self)
+
+    def move_by(self, dx=0, dy=0):
+        # type: (float, float) -> None
+        """Move this instance by the given amount.
+
+        Parameters
+        ----------
+        dx : float
+            the X shift.
+        dy : float
+            the Y shift.
+        """
+        res = self._resolution
+        loc = self.loc
+        self['loc'] = [round((loc[0] + dx) / res) * res,
+                       round((loc[1] + dy) / res) * res]
+
+'''
+class PhotonicInstance(Instance):
+    """A layout instance, with optional arraying parameters.
+
+    Parameters
+    ----------
+    parent_grid : RoutingGrid
+        the parent RoutingGrid object.
+    lib_name : str
+        the layout library name.
+    master : TemplateBase
+        the master template of this instance.
+    loc : Tuple[Union[float, int], Union[float, int]]
+        the origin of this instance.
+    orient : str
+        the orientation of this instance.
+    name : Optional[str]
+        name of this instance.
+    nx : int
+        number of columns.
+    ny : int
+        number of rows.
+    spx : Union[float, int]
+        column pitch.
+    spy : Union[float, int]
+        row pitch.
+    unit_mode : bool
+        True if layout dimensions are specified in resolution units.
+    """
+
+    def __init__(self,
+                 parent_grid,  # type: RoutingGrid
+                 lib_name,  # type: str
+                 master,  # type: PhotonicTemplateBase
+                 loc,  # type: Tuple[ldim, ldim]
+                 orient,  # type: str
+                 name=None,  # type: Optional[str]
+                 nx=1,  # type: int
+                 ny=1,  # type: int
+                 spx=0,  # type: ldim
+                 spy=0,  # type: ldim
+                 unit_mode=False,  # type: bool
+                 ):
+        # type: (...) -> None
+        res = parent_grid.resolution
+        Arrayable.__init__(self, res, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
+        self._parent_grid = parent_grid
+        self._lib_name = lib_name
+        self._inst_name = name
+        self._master = master
+        if unit_mode:
+            self._loc_unit = loc[0], loc[1]
+        else:
+            self._loc_unit = int(round(loc[0] / res)), int(round(loc[1] / res))
+        self._orient = orient
+        self._photonic_port_list = {}
+        self._photonic_port_creator()
+
+    def _photonic_port_creator(self):
+        """
+        Helper for creating the photonic ports of this instance
+        Returns
+        -------
+
+        """
+        for port_name in self._master.photonic_ports_names_iter():
+            self._photonic_port_list[port_name] = self._master.get_photonic_port(port_name).transform(
+                loc=self._loc_unit,
+                orient=self._orient,
+                unit_mode=True
+            )
+
+    @property
+    def fill_box(self):
+        # type: () -> BBox
+        """Returns the array box of this instance."""
+        master_box = getattr(self._master, 'fill_box', None)  # type: BBox
+        if master_box is None:
+            raise ValueError('Master template fill box is not defined.')
+
+        box_arr = BBoxArray(master_box, nx=self.nx, ny=self.ny,
+                            spx=self._spx_unit, spy=self._spy_unit, unit_mode=True)
+        return box_arr.get_overall_bbox().transform(self.location_unit, self.orientation,
+                                                    unit_mode=True)
+
+    def get_bound_box_of(self, row=0, col=0):
+        """Returns the bounding box of an instance in this mosaic."""
+        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
+        xshift, yshift = self._loc_unit
+        xshift += dx
+        yshift += dy
+        return self._master.bound_box.transform((xshift, yshift), self.orientation, unit_mode=True)
+
+    def move_by(self, dx=0, dy=0, unit_mode=False):
+        # type: (Union[float, int], Union[float, int], bool) -> None
+        """Move this instance by the given amount.
+
+        Parameters
+        ----------
+        dx : Union[float, int]
+            the X shift.
+        dy : Union[float, int]
+            the Y shift.
+        unit_mode : bool
+            True if shifts are given in resolution units
+        """
+        if not unit_mode:
+            dx = int(round(dx / self.resolution))
+            dy = int(round(dy / self.resolution))
+        self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
+
+    def translate_master_box(self, box):
+        # type: (BBox) -> BBox
+        """Transform the bounding box in master template.
+
+        Parameters
+        ----------
+        box : BBox
+            the BBox in master template coordinate.
+
+        Returns
+        -------
+        new_box : BBox
+            the cooresponding BBox in instance coordinate.
+        """
+        return box.transform(self.location_unit, self.orientation, unit_mode=True)
+
+    def translate_master_location(self,
+                                  mloc,  # type: Tuple[Union[float, int], Union[float, int]]
+                                  unit_mode=False,  # type: bool
+                                  ):
+        # type: (...) -> Tuple[Union[float, int], Union[float, int]]
+        """Returns the actual location of the given point in master template.
+
+        Parameters
+        ----------
+        mloc : Tuple[Union[float, int], Union[float, int]]
+            the location in master coordinate.
+        unit_mode : bool
+            True if location is given in resolution units.
+
+        Returns
+        -------
+        xi : Union[float, int]
+            the actual X coordinate.  Integer if unit_mode is True.
+        yi : Union[float, int]
+            the actual Y coordinate.  Integer if unit_mode is True.
+        """
+        res = self.resolution
+        if unit_mode:
+            mx, my = mloc[0], mloc[1]
+        else:
+            mx, my = int(round(mloc[0] / res)), int(round(mloc[1] / res))
+        p = transform_point(mx, my, self.location_unit, self.orientation)
+        if unit_mode:
+            return p[0], p[1]
+        return p[0] * res, p[1] * res
+
+    def translate_master_track(self, layer_id, track_idx):
+        # type: (int, Union[float, int]) -> Union[float, int]
+        """Returns the actual track index of the given track in master template.
+
+        Parameters
+        ----------
+        layer_id : int
+            the layer ID.
+        track_idx : Union[float, int]
+            the track index.
+
+        Returns
+        -------
+        new_idx : Union[float, int]
+            the new track index.
+        """
+        dx, dy = self.location_unit
+        return self._parent_grid.transform_track(layer_id, track_idx, dx=dx, dy=dy,
+                                                 orient=self.orientation, unit_mode=True)
+
+    def get_port(self, name='', row=0, col=0):
+        # type: (Optional[str], int, int) -> Port
+        """Returns the port object of the given instance in the array.
+
+        Parameters
+        ----------
+        name : Optional[str]
+            the port terminal name.  If None or empty, check if this
+            instance has only one port, then return it.
+        row : int
+            the instance row index.  Index 0 is the bottom-most row.
+        col : int
+            the instance column index.  Index 0 is the left-most column.
+
+        Returns
+        -------
+        port : Port
+            the port object.
+        """
+        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
+        xshift, yshift = self._loc_unit
+        loc = (xshift + dx, yshift + dy)
+        return self._master.get_port(name).transform(self._parent_grid, loc=loc,
+                                                     orient=self.orientation, unit_mode=True)
+
+    def get_pin(self, name='', row=0, col=0, layer=-1):
+        # type: (Optional[str], int, int, int) -> Union[WireArray, BBox]
+        """Returns the first pin with the given name.
+
+        This is an efficient method if you know this instance has exactly one pin.
+
+        Parameters
+        ----------
+        name : Optional[str]
+            the port terminal name.  If None or empty, check if this
+            instance has only one port, then return it.
+        row : int
+            the instance row index.  Index 0 is the bottom-most row.
+        col : int
+            the instance column index.  Index 0 is the left-most column.
+        layer : int
+            the pin layer.  If negative, check to see if the given port has only one layer.
+            If so then use that layer.
+
+        Returns
+        -------
+        pin : Union[WireArray, BBox]
+            the first pin associated with the port of given name.
+        """
+        port = self.get_port(name, row, col)
+        return port.get_pins(layer)[0]
+
+    def get_all_port_pins(self, name='', layer=-1):
+        # type: (Optional[str], int) -> List[WireArray]
+        """Returns a list of all pins of all ports with the given name in this instance array.
+
+        This method gathers ports from all instances in this array with the given name,
+        then find all pins of those ports on the given layer, then return as list of WireArrays.
+
+        Parameters
+        ----------
+        name : Optional[str]
+            the port terminal name.  If None or empty, check if this
+            instance has only one port, then return it.
+        layer : int
+            the pin layer.  If negative, check to see if the given port has only one layer.
+            If so then use that layer.
+
+        Returns
+        -------
+        pin_list : List[WireArray]
+            the list of pins as WireArrays.
+        """
+        results = []
+        for col in range(self.nx):
+            for row in range(self.ny):
+                port = self.get_port(name, row, col)
+                results.extend(port.get_pins(layer))
+        return results
+
+    def port_pins_iter(self, name='', layer=-1):
+        # type: (Optional[str], int) -> Iterator[WireArray]
+        """Iterate through all pins of all ports with the given name in this instance array.
+
+        Parameters
+        ----------
+        name : Optional[str]
+            the port terminal name.  If None or empty, check if this
+            instance has only one port, then return it.
+        layer : int
+            the pin layer.  If negative, check to see if the given port has only one layer.
+            If so then use that layer.
+
+        Yields
+        ------
+        pin : WireArray
+            the pin as WireArray.
+        """
+        for col in range(self.nx):
+            for row in range(self.ny):
+                try:
+                    port = self.get_port(name, row, col)
+                except KeyError:
+                    return
+                for warr in port.get_pins(layer):
+                    yield warr
+
+    def port_names_iter(self):
+        # type: () -> Iterable[str]
+        """Iterates over port names in this instance.
+
+        Yields
+        ------
+        port_name : str
+            name of a port in this instance.
+        """
+        return self._master.port_names_iter()
+
+    def has_port(self, port_name):
+        # type: (str) -> bool
+        """Returns True if this instance has the given port."""
+        return self._master.has_port(port_name)
+
+    def has_prim_port(self, port_name):
+        # type: (str) -> bool
+        """Returns True if this instance has the given primitive port."""
+        return self._master.has_prim_port(port_name)
+
+    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
+        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+        """Transform this figure."""
+        if not unit_mode:
+            res = self.resolution
+            loc = int(round(loc[0] / res)), int(round(loc[1] / res))
+
+        if not copy:
+            self._loc_unit = loc
+            self._orient = orient
+            return self
+        else:
+            return Instance(self._parent_grid, self._lib_name, self._master, self._loc_unit,
+                            self._orient, name=self._inst_name, nx=self.nx, ny=self.ny,
+                            spx=self.spx_unit, spy=self.spy_unit, unit_mode=True)
+'''
 
 
 class PhotonicRect(Rect):

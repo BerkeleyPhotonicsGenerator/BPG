@@ -14,10 +14,12 @@ from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
 from bag.layout.objects import Instance, InstanceInfo
-from .photonics_port import PhotonicPort
-from .photonics_objects import *
+
+from BPG.photonics_port import PhotonicPort
+from BPG.photonics_objects import *
 from BPG import LumericalGenerator
 from collections import OrderedDict
+import BPG
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -318,7 +320,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=unit_mode
             )
 
-        rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
+        rect = BPG.photonics_objects.PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
         self._layout.add_rect(rect)
         self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
         return rect
@@ -399,41 +401,44 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           layer,  # type: Union[str, Tuple[str, str]]
                           resolution=None,  # type: Union[float, int]
                           unit_mode=False,  # type: bool
+                          port=None,  # type: PhotonicPort
                           force_append=False,  # type: bool
                           ):
         # TODO: Add support for renaming?
-        if resolution is None:
-            resolution = self.grid.resolution
+        # TODO: Remove force append?
 
-        if isinstance(layer, str):
-            layer = (layer, 'port')
+        # Create a temporary port object unless one is passed as an argument
+        if port is None:
+            if resolution is None:
+                resolution = self.grid.resolution
 
-        port = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
+            if isinstance(layer, str):
+                layer = (layer, 'port')
+
+            port = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
 
         # Add port to port list. If name already is taken, remap port if force_append is true
-        if name not in self._photonic_ports.keys() or force_append:
-            self._photonic_ports[name] = port
+        if port.name not in self._photonic_ports.keys() or force_append:
+            self._photonic_ports[port.name] = port
         else:
             raise ValueError('Port "{}" already exists in cell.'.format(name))
 
-        if name is not None:
+        if port.name is not None:
             self.add_label(
-                label=name,
-                layer=layer,
+                label=port.name,
+                layer=port.layer,
                 bbox=BBox(
-                    bottom=center[1],
-                    left=center[0],
-                    top=center[1] + self.grid.resolution,
-                    right=center[0] + self.grid.resolution,
-                    resolution=resolution,
-                    unit_mode=unit_mode
+                    bottom=port.center_unit[1],
+                    left=port.center_unit[0],
+                    top=port.center_unit[1] + self.grid.resolution,
+                    right=port.center_unit[0] + self.grid.resolution,
+                    resolution=port.resolution,
+                    unit_mode=True
                 ),
-
             )
 
-        # Create unit_mode coordinate
-        if not unit_mode:
-            center = (np.array(center) / resolution).astype(int)
+        # Draw port shape
+        center = port.center_unit
         orient_vec = port.orient_vec(unit_mode=True, normalized=False)
 
         self.add_polygon(
@@ -443,7 +448,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     center + 2 * orient_vec,
                     center + orient_vec // 2 - np.flip(orient_vec, 0) // 2,
                     center],
-            resolution=resolution,
+            resolution=port.resolution,
             unit_mode=True,
         )
 
@@ -623,7 +628,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        port_name : Union[str, List[str]]
+        port_names : Union[str, List[str]]
 
         Returns
         -------
@@ -686,7 +691,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             port_renaming = {}
 
         for port_name in port_names:
-            
             old_port = inst.master.get_photonic_port(port_name)  # type: PhotonicPort
             translation = inst.location_unit
             rotation = inst.orientation
@@ -697,7 +701,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                                             translation,
                                                             rotation,
                                                             )
-            new_inside, _ = transform_loc_orient(old_port.inside_point(unit_mode=True),
+            new_inside, _ = transform_loc_orient(old_port.inside_point_unit,
                                                  old_port.orientation,
                                                  translation,
                                                  rotation,
@@ -718,7 +722,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 name=new_name,
                 center=new_location,
                 inside_point=new_inside,
-                width=old_port.width(unit_mode=True),
+                width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
             )
