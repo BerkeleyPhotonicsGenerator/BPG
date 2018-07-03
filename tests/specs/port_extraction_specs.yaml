@@ -1,0 +1,38 @@
+# Test specs for ensuring port extraction works as expected
+
+
+# Directory Locations
+# Top level directory for the project
+project_dir: ~/Documents/Photonics_Data/port_extraction
+# subdirectory of project_dir where generated script files are placed
+scripts: scripts
+# subdirectory of project_dir where generated data is placed
+data: data
+# file containing technology information
+layermap: ./tech/gds_map.yaml
+
+
+# Output Settings
+lsf_filename: add_rect.lsf
+gds_filename: Output
+
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'port_extraction'
+# Layout generator class name
+layout_class: 'PortExtraction'
+
+
+# Place parameters to be passed to the generator class under here
+layout_params:
+
+
+# Cadence related parameters
+impl_lib: 'Top_Level_Lib'
+impl_cell: 'Top_Level_Cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

@@ -452,3 +452,44 @@ class WaveguideConnectTest(PhotonicTemplateBase):
             instance_name='test',
             reflect=True
         )
+
+
+class PortTest(PhotonicTemplateBase):
+
+    def __init__(self,
+                 temp_db,  # type: TemplateDB
+                 lib_name,  # type: str
+                 params,  # type: Dict[str, Any]
+                 used_names,  # type: Set[str]
+                 **kwargs,
+                 ):
+        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+
+    @classmethod
+    def get_default_param_values(cls):
+        return dict(
+            width=0.4,
+            length=1,
+        )
+
+    @classmethod
+    def get_params_info(cls):
+
+        return dict(
+            width='Waveguide width [layout units]',
+            length='Waveguide length [layout units]',
+        )
+
+    def draw_layout(self):
+        length = self.params['length']
+        width = self.params['width']
+
+        self.add_photonic_port(
+            name='PORT0',
+            center=(0, 0),
+            inside_point=(length/2, 0),
+            width=width,
+            layer=('RX', 'port'),
+            resolution=self.grid.resolution,
+            unit_mode=False
+        )

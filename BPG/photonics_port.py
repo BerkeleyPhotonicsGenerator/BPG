@@ -30,6 +30,7 @@ class PhotonicPort:
         self._center_unit = np.array([center[0], center[1]])  # type: np.array
         self._name = name  # type: str
         self._layer = layer  # type: int
+        self._matched = False
 
         # Convert to np array
         inside_point = np.array([inside_point[0], inside_point[1]])
@@ -47,6 +48,16 @@ class PhotonicPort:
                 self._inside_point_unit = self._center_unit + np.array([0, width])
             else:
                 self._inside_point_unit = self._center_unit - np.array([0, width])
+
+    @property
+    def matched(self):
+        return self._matched
+
+    @matched.setter
+    def matched(self,
+                new_match  # type: bool
+                ):
+        self._matched = new_match
 
     #@property
     def center(self,
@@ -102,16 +113,32 @@ class PhotonicPort:
     # @property
     def orient_vec(self,
                    unit_mode=True,  # type: bool
+                   normalized=True,  # type: bool
                    ):
         # type: (...) -> np.array
-        """ Returns a normalized vector pointing into the port object """
+        """Returns a normalized vector pointing into the port object
+
+        Parameters
+        ----------
+        unit_mode : bool
+            True to return vector in resolution units
+        normalized : bool
+            True to normalize the vector. If False, vector magnitude is wg width
+
+        Returns
+        -------
+
+        """
+
         vec = (self._inside_point_unit - self._center_unit)
-        vec_norm = np.round(vec / np.linalg.norm(vec)).astype(int)
+
+        if normalized:
+            vec = np.round(vec / np.linalg.norm(vec)).astype(int)
 
         if unit_mode:
-            return vec_norm
+            return vec
         else:
-            return vec_norm * self._res
+            return vec * self._res
 
     @property
     def orientation(self):
