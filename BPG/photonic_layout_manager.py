@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
-from BPG.photonics_template import PhotonicTemplateDB
+from BPG.photonic_template import PhotonicTemplateDB
 
 
 class PhotonicLayoutManager(DesignManager):

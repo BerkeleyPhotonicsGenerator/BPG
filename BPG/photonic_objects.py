@@ -9,7 +9,7 @@ from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, 
     ViaInfo, Via, PinInfo, Instance
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
-from BPG.photonics_template import PhotonicTemplateBase
+# from BPG.photonics_template import PhotonicTemplateBase
 
 
 ldim = Union[float, int]

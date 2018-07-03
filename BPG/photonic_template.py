@@ -15,11 +15,10 @@ from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orie
 from bag.util.cache import _get_unique_name, DesignMaster
 from bag.layout.objects import Instance, InstanceInfo
 
-from BPG.photonics_port import PhotonicPort
-from BPG.photonics_objects import *
+from .photonic_port import PhotonicPort
+from .photonic_objects import PhotonicRect, PhotonicPolygon
 from BPG import LumericalGenerator
 from collections import OrderedDict
-import BPG
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -320,7 +319,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=unit_mode
             )
 
-        rect = BPG.photonics_objects.PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
+        rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
         self._layout.add_rect(rect)
         self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
         return rect
@@ -696,7 +695,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             rotation = inst.orientation
 
             # Find new port location
-            new_location, new_orient = transform_loc_orient(old_port.center(unit_mode=True),
+            new_location, new_orient = transform_loc_orient(old_port.center_unit,
                                                             old_port.orientation,
                                                             translation,
                                                             rotation,
