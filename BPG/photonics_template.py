@@ -11,8 +11,9 @@ import time
 
 from bag.core import BagProject, RoutingGrid
 from bag.layout.template import TemplateBase, TemplateDB
-from bag.layout.util import transform_point, BBox, BBoxArray
+from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
+from bag.layout.objects import Instance, InstanceInfo
 from .photonics_port import PhotonicPort
 from .photonics_objects import *
 from BPG import LumericalGenerator
@@ -321,16 +322,72 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return rect
 
     def add_polygon(self,
-                    polygon,  # type: PhotonicPolygon
+                    polygon=None,  # type: Optional[PhotonicPolygon]
+                    layer=None,  # type: Union[str, Tuple[str, str]]
+                    points=None,  # type: List[coord_type]
+                    resolution=None,  # type: float
+                    unit_mode=False,  # type: bool
                     ):
+        # type: (...) -> PhotonicPolygon
+        """
+
+        Parameters
+        ----------
+        polygon : Optional[PhotonicPolygon]
+            the polygon to add
+        layer : Union[str, Tuple[str, str]]
+            the layer of the polygon
+        resolution : float
+            the layout grid resolution
+        points : List[coord_type]
+            the points defining the polygon
+        unit_mode : bool
+            True if the points are given in resolution units
+
+        Returns
+        -------
+        polygon : PhotonicPolygon
+            the added polygon object
+        """
+        # If user passes points and layer instead of polygon object, define the new polygon
+        if polygon is None:
+            # Ensure proper arguments are passed
+            if layer is None or points is None:
+                raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
+
+            if resolution is None:
+                resolution = self.grid.resolution
+
+            polygon = PhotonicPolygon(
+                resolution=resolution,
+                layer=layer,
+                points=points,
+                unit_mode=unit_mode,
+            )
+
         self._layout.add_polygon(polygon)
         return polygon
 
     def add_advancedpolygon(self,
                             polygon,  # type: PhotonicAdvancedPolygon
                             ):
+        # Maybe have an ordered list of operations like add polygon 1, subtract polygon 2, etc
         self._layout.add_polygon(polygon)
         return polygon
+
+    def finalize(self):
+        """
+
+        Returns
+        -------
+
+        """
+        # TODO: Implement port polygon adding here?
+        # Need to remove match port's polygons?
+        # Anything else?
+
+        # Call super finalize routine
+        TemplateBase.finalize(self)
 
     def add_photonic_port(self,
                           name,  # type: str
@@ -342,44 +399,50 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           unit_mode=False,  # type: bool
                           force_append=False,  # type: bool
                           ):
+        # TODO: Add support for renaming?
         if resolution is None:
             resolution = self.grid.resolution
 
         if isinstance(layer, str):
             layer = (layer, 'port')
 
-        if name not in self._photonic_ports.keys():
-            self._photonic_ports[name] = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
-        elif force_append:
+        port = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
 
-            self._photonic_ports[name] = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
+        # Add port to port list. If name already is taken, remap port if force_append is true
+        if name not in self._photonic_ports.keys() or force_append:
+            self._photonic_ports[name] = port
         else:
             raise ValueError('Port "{}" already exists in cell.'.format(name))
 
-        print('port center:' + str(center))
-        # TODO: Remove or fix this code
-        self.add_label(
-            label=name,
-            layer=layer,
-            bbox=BBox(
-                bottom=center[1],
-                left=center[0],
-                top=center[1] + self.grid.resolution,
-                right=center[0] + self.grid.resolution,
-                resolution=resolution,
-                unit_mode=unit_mode
+        if name is not None:
+            self.add_label(
+                label=name,
+                layer=layer,
+                bbox=BBox(
+                    bottom=center[1],
+                    left=center[0],
+                    top=center[1] + self.grid.resolution,
+                    right=center[0] + self.grid.resolution,
+                    resolution=resolution,
+                    unit_mode=unit_mode
+                ),
+
             )
-        )
-        self.add_rect(
+
+        # Create unit_mode coordinate
+        if not unit_mode:
+            center = (np.array(center) / resolution).astype(int)
+        orient_vec = port.orient_vec(unit_mode=True, normalized=False)
+
+        self.add_polygon(
             layer=layer,
-            bbox=BBox(
-                bottom=center[1],
-                left=center[0],
-                top=center[1] + 1,
-                right=center[0] + 1,
-                resolution=resolution,
-                unit_mode=unit_mode
-            )
+            points=[center,
+                    center + orient_vec // 2 + np.flip(orient_vec, 0) // 2,
+                    center + 2 * orient_vec,
+                    center + orient_vec // 2 - np.flip(orient_vec, 0) // 2,
+                    center],
+            resolution=resolution,
+            unit_mode=True,
         )
 
     def has_photonic_port(self,
@@ -427,38 +490,37 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         Rotates new instance about the new instance's master's ORIGIN until desired port is aligned
         Reflect effectively performs a flip about the port direction axis after rotation
+
         Parameters
         ----------
-        inst_master
-        instance_port_name
-        self_port_name
-        instance_name
-        reflect
-
+        inst_master : PhotonicTemplateBase
+            the template master to be added
+        instance_port_name : str
+            the name of the port in the added instance to connect to
+        self_port_name : str
+            the name of the port in the current structure to connect to
+        instance_name : str
+            the name to give the new instance
+        reflect : bool
+            True to flip the added instance
         Returns
         -------
 
         """
 
+        # TODO: If ports dont have same width/layer, do we return error?
+
         if not self.has_photonic_port(self_port_name):
-            raise ValueError('Photonic cell ' + self_port_name + ' does not exist in '
+            raise ValueError('Photonic port ' + self_port_name + ' does not exist in '
                              + self.__class__.__name__)
 
         if not inst_master.has_photonic_port(instance_port_name):
-            raise ValueError('Photonic cell ' + instance_port_name + ' does not exist in '
+            raise ValueError('Photonic port ' + instance_port_name + ' does not exist in '
                              + inst_master.__class__.__name__)
-
-        # TODO: think about params
-        # inst_master  # = self.new_template(temp_cls=instance)  # type: PhotonicTemplateBase
 
         my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
-
-        print('myport name:  ' + my_port.name)
-        print('newport name:  ' + new_port.name)
-
         tmp_port_point = new_port.center()
-        print('newport default center:  ' + str(tmp_port_point))
 
         # Non-zero if new port is aligned with current port
         # > 0 if ports are facing same direction (new instance must be rotated
@@ -466,7 +528,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         dp = np.dot(my_port.orient_vec(), new_port.orient_vec())
 
         # Non-zero if new port is orthogonal with current port
-        # > 0 if
+        # > 0 if new port is 90 deg CCW from original, < 0 if new port is 270 deg CCW from original
         cp = np.cross(my_port.orient_vec(), new_port.orient_vec())
 
         # new_port_orientation = my_port.orientation
@@ -505,7 +567,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     trans_str = 'R180'
         else:
             # New port orientation is perpendicular to current port
-            # TODO:  Verify the new inst rot for reflected cases here:
             if cp > 0:
                 # New port is 90 deg CCW wrt current port
 
@@ -537,38 +598,125 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     trans_str = 'R270'
 
         # Compute the new reflected/rotated port location
-        # rotated_tmp_port_point = np.dot(rot_mat, tmp_port_point)
-        print('trans_str:  ' + trans_str)
-
         rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
-
-        print('rotated new temp point:  ' + str(rotated_tmp_port_point))
 
         # Calculate and round translation vector to the resolution unit
         translation_vec = np.round(my_port.center() - rotated_tmp_port_point)
 
-        print('translation vec:  ' + str(translation_vec))
-
         new_inst = self.add_instance(
-            inst_master,
-            instance_name,
+            master=inst_master,
+            inst_name=instance_name,
             loc=(int(translation_vec[0]), int(translation_vec[1])),
             orient=trans_str,
             unit_mode=True
         )
 
-        '''
-        # Loop over the ports of the newly added structure and reexport them (translated and rotated) to current design
-        for port_name in new_inst.master.photonic_ports_names_iter():
-            port = new_inst.master.get_photonic_port(port_name)
-            (new_center, new_center_orient) = transform_loc_orient(port.center(), 'R0', translation_vec, trans_str)
-            (new_inside_point, new_inside_point_orient) = transform_loc_orient(port.inside_point(), 'R0', translation_vec, trans_str)
-            new_port = PhotonicPort(name=port.name,
-                                    center=new_center,
-                                    inside_point=new_inside_point,
-                                    width=port.width(),
-                                    layer=port.layer,
-                                    resolution=self.grid.resolution,
-                                    unit_mode=True,
-                                    )
-        '''
+        return new_inst
+
+    def delete_port(self,
+                    port_names,  # type: Union[str, List[str]]
+                    ):
+        # type: (...) -> None
+        """ Removes the given ports from this instances list of ports. Raises error if given port does not exist.
+
+        Parameters
+        ----------
+        port_name : Union[str, List[str]]
+
+        Returns
+        -------
+
+        """
+        if isinstance(port_names, str):
+            port_names = [port_names]
+
+        for port_name in port_names:
+            if self.has_photonic_port(port_name):
+                del self._photonic_ports[port_name]
+            else:
+                raise ValueError('Photonic port ' + port_name + ' does not exist in '
+                                 + self.__class__.__name__)
+
+    def update_port(self):
+        # TODO: Implement me.  Deal with matching here?
+        pass
+
+    def _get_unused_port_name(self,
+                              port_name,  # type: str
+                              ):
+        if port_name is None:
+            port_name = 'PORT'
+        new_name = port_name
+        if port_name in self._photonic_ports:
+            cnt = 0
+            new_name = port_name + '_' + str(cnt)
+            while new_name in self._photonic_ports:
+                cnt += 1
+                new_name = port_name + '_' + str(cnt)
+
+        return new_name
+
+    def extract_photonic_ports(self,
+                               inst,  # type: Instance
+                               port_names=None,  # type: Optional[Union[str, List[str]]]
+                               port_renaming=None,  # type: Dict[str, str]
+                               unmatched_only=True,  # type: bool
+                               ):
+        # type: (...) -> None
+        """
+
+        Parameters
+        ----------
+        inst :
+        port_names :
+            the port to re-export. If not given, export all unmatched ports.
+        port_renaming :
+
+        Returns
+        -------
+
+        """
+        # TODO: matched vs non-matched ports.  IE, if two ports are already matched, do we export them
+        if port_names is None:
+            port_names = inst.master.photonic_ports_names_iter()
+
+        if port_renaming is None:
+            port_renaming = {}
+
+        for port_name in port_names:
+            
+            old_port = inst.master.get_photonic_port(port_name)  # type: PhotonicPort
+            translation = inst.location_unit
+            rotation = inst.orientation
+
+            # Find new port location
+            new_location, new_orient = transform_loc_orient(old_port.center(unit_mode=True),
+                                                            old_port.orientation,
+                                                            translation,
+                                                            rotation,
+                                                            )
+            new_inside, _ = transform_loc_orient(old_port.inside_point(unit_mode=True),
+                                                 old_port.orientation,
+                                                 translation,
+                                                 rotation,
+                                                 )
+
+            # Get new desired name
+            if port_name in port_renaming.keys():
+                new_name = port_renaming[port_name]
+            else:
+                new_name = port_name
+
+            # If name is already used
+            if new_name in self._photonic_ports:
+                # Prepend instance name __   and append unique number
+                new_name = self._get_unused_port_name(inst.content.name + '__' + new_name)
+
+            new_port = self.add_photonic_port(
+                name=new_name,
+                center=new_location,
+                inside_point=new_inside,
+                width=old_port.width(unit_mode=True),
+                layer=old_port.layer,
+                unit_mode=True,
+            )

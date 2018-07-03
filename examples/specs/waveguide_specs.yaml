@@ -12,7 +12,7 @@ gds_filename: Output
 
 # Generator Params
 layout_package: 'waveguide'  # Module that contains the layout generator class
-layout_class: 'WaveguideConnectTest'  # Layout generator class name
+layout_class: 'PortTest'  # Layout generator class name
 layout_params:  # Place parameters to be passed to the generator class under here
   width: 0.5
   length: 10
