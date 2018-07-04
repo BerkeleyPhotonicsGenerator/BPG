@@ -9,7 +9,9 @@ from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, 
     ViaInfo, Via, PinInfo, Instance
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
-# from BPG.photonics_template import PhotonicTemplateBase
+
+if TYPE_CHECKING:
+    from BPG.photonic_template import PhotonicTemplateBase
 
 
 ldim = Union[float, int]
@@ -166,7 +168,7 @@ class InstanceInfo(dict):
         self['loc'] = [round((loc[0] + dx) / res) * res,
                        round((loc[1] + dy) / res) * res]
 
-'''
+
 class PhotonicInstance(Instance):
     """A layout instance, with optional arraying parameters.
 
@@ -237,6 +239,30 @@ class PhotonicInstance(Instance):
                 orient=self._orient,
                 unit_mode=True
             )
+
+    def set_port_used(self,
+                    port_name,  # type: str
+                    ):
+        # type: (...) -> None
+        if port_name not in self._photonic_port_list:
+            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
+
+        self._photonic_port_list[port_name].used(True)
+
+    def get_port_used(self,
+                      port_name,
+                      ):
+        # type: (...) -> None
+        if port_name not in self._photonic_port_list:
+            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
+
+        return self._photonic_port_list[port_name].used()
+
+    @property
+    def master(self):
+        # type: () -> PhotonicTemplateBase
+        """The master template of this instance."""
+        return self._master
 
     @property
     def fill_box(self):
@@ -487,7 +513,7 @@ class PhotonicInstance(Instance):
             return Instance(self._parent_grid, self._lib_name, self._master, self._loc_unit,
                             self._orient, name=self._inst_name, nx=self.nx, ny=self.ny,
                             spx=self.spx_unit, spy=self.spy_unit, unit_mode=True)
-'''
+
 
 
 class PhotonicRect(Rect):
@@ -573,6 +599,63 @@ class PhotonicRect(Rect):
                 lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
 
         return lsf_code
+
+    @classmethod
+    def shapely_export(cls,
+                       bbox,  # type: [[int, int], [int, int]]
+                       nx=1,  # type: int
+                       ny=1,  # type: int
+                       spx=0.0,  # type: int
+                       spy=0.0,  # type: int
+                       ):
+        # type: (...) -> Tuple[List[List[Tuple[int, int]]]]
+        """
+        Describes the current rectangle shape in terms of lsf parameters for lumerical use
+
+        Parameters
+        ----------
+        bbox : [[float, float], [float, float]]
+            lower left and upper right corner xy coordinates
+        layer_prop : dict
+            dictionary containing material properties for the desired layer
+        nx : int
+            number of arrayed rectangles in the x-direction
+        ny : int
+            number of arrayed rectangles in the y-direction
+        spx : float
+            space between arrayed rectangles in the x-direction
+        spy : float
+            space between arrayed rectangles in the y-direction
+
+        Returns
+        -------
+        lsf_code : List[str]
+            list of str containing the lsf code required to create specified rectangles
+        """
+
+        # Calculate the width and length of the rectangle
+
+        x_span = bbox[1][0] - bbox[0][0]  # type: int
+        y_span = bbox[1][1] - bbox[0][1]  # type: int
+
+        # Calculate the center of the first rectangle rounded to the nearest nm
+        x_base = bbox[0][0]  # type: int
+        y_base = bbox[0][1]  # type: int
+
+        # Write the lumerical code for each rectangle in the array
+        output_list_p = []
+        output_list_n = []
+        for x_count in range(nx):
+            for y_count in range(ny):
+
+                polygon_list = [(x_base + x_count * spx, y_base + y_count * spy),
+                                (x_base + x_span + x_count * spx, y_base + y_count * spy),
+                                (x_base + x_span + x_count * spx, y_base + y_span + y_count * spy),
+                                (x_base + x_count * spx, y_base + y_span + y_count * spy),
+                                (x_base + x_count * spx, y_base + y_count * spy)]
+                output_list_p.append(polygon_list)
+
+        return (output_list_p, output_list_n)
 
 
 class PhotonicPath(Path):
@@ -709,20 +792,14 @@ class PhotonicPolygon(Polygon):
         poly_len = len(vertices)
 
         # Write the lumerical code for each rectangle in the array
-        lsf_code = []
-        lsf_code.append('\n')
-        lsf_code.append('addpoly;\n')
-        lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-        lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-        lsf_code.append('V = matrix({},2);\n'.format(poly_len))  # Create matrix to hold x,y coords for vertices
-        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0] for point in vertices]))  # Add x coordinates
-        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1] for point in vertices]))  # Add y coordinates
-        lsf_code.append('set("vertices", V);\n')
+        lsf_code = ['\n', 'addpoly;\n', 'set("material", "{}");\n'.format(layer_prop['material']),
+                    'set("alpha", {});\n'.format(layer_prop['alpha']), 'V = matrix({},2);\n'.format(poly_len),
+                    'V(1:{},1) = {};\n'.format(poly_len, [point[0] for point in vertices]),
+                    'V(1:{},2) = {};\n'.format(poly_len, [point[1] for point in vertices]), 'set("vertices", V);\n',
+                    'set("z min", {});\n'.format(layer_prop['z_min']),
+                    'set("z max", {});\n'.format(layer_prop['z_max'])]
 
         # Extract the thickness values from the layermap file
-        lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-        lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
 
         return lsf_code
 

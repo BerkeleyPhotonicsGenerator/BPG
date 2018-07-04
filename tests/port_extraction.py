@@ -34,7 +34,7 @@ class SubObject(BPG.PhotonicTemplateBase):
         p1 = self.add_photonic_port(
             name='Port1',
             center=(0, 1),
-            inside_point=(1, 1),
+            orient='R0',
             width=1,
             layer=('Si', 'phot'),
         )
@@ -42,7 +42,7 @@ class SubObject(BPG.PhotonicTemplateBase):
         p2 = self.add_photonic_port(
             name='Port2',
             center=(0, 10),
-            inside_point=(1, 10),
+            orient='R0',
             width=1,
             layer=('Si', 'phot'),
         )
@@ -50,7 +50,7 @@ class SubObject(BPG.PhotonicTemplateBase):
         p3 = self.add_photonic_port(
             name='Port3',
             center=(5, 0),
-            inside_point=(5, 1),
+            orient='R90',
             width=1,
             layer=('Si', 'phot'),
         )
@@ -58,7 +58,7 @@ class SubObject(BPG.PhotonicTemplateBase):
         p4 = self.add_photonic_port(
             name='Port4',
             center=(8, 20),
-            inside_point=(8, 19),
+            orient='R270',
             width=1,
             layer=('Si', 'phot'),
         )
