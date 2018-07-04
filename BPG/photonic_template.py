@@ -16,8 +16,9 @@ from bag.util.cache import _get_unique_name, DesignMaster
 from bag.layout.objects import Instance, InstanceInfo
 
 from .photonic_port import PhotonicPort
-from .photonic_objects import PhotonicRect, PhotonicPolygon
+from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance
 from BPG import LumericalGenerator
+from BPG import ShapelyGenerator
 from collections import OrderedDict
 
 dim_type = Union[float, int]
@@ -217,6 +218,83 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('layout instantiation took %.4g seconds' % (end - start))
 
+    def to_shapely(self, debug=False):
+        """ Export the drawn layout to the Shapely format """
+        shapelywriter = ShapelyGenerator()
+        # lay_unit = tech_info.layout_unit
+        # res = tech_info.resolution
+
+        start = time.time()
+        for content in self.content_list:
+            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
+             path_list, blockage_list, boundary_list, polygon_list) = content
+
+            # add instances
+            for inst_info in inst_tot_list:
+                pass
+
+                # TODO: Determine how useful this section really is...
+                # if inst_info.params is not None:
+                #     raise ValueError('Cannot instantiate PCells in GDS.')
+                # num_rows = inst_info.num_rows
+                # num_cols = inst_info.num_cols
+                # angle, reflect = inst_info.angle_reflect
+                # if num_rows > 1 or num_cols > 1:
+                #     cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
+                #                                (inst_info.sp_cols, inst_info.sp_rows),
+                #                                origin=inst_info.loc, rotation=angle,
+                #                                x_reflection=reflect)
+                # else:
+                #     cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
+                #                                    rotation=angle, x_reflection=reflect)
+                # gds_cell.add(cur_inst)
+
+            # add rectangles
+            for rect in rect_list:
+                nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
+                if nx > 1 or ny > 1:
+                    shapely_representation = PhotonicRect.shapely_export(rect['bbox'], nx, ny,
+                                                       spx=rect['arr_spx'], spy=rect['arr_spy'])
+                else:
+                    shapely_representation = PhotonicRect.shapely_export(rect['bbox'])
+
+                shapelywriter.add_shapes(shapely_representation)
+
+            # add vias
+            for via in via_list:
+                pass
+
+            # add pins
+            for pin in pin_list:
+                pass
+
+            for path in path_list:
+                pass
+
+            for blockage in blockage_list:
+                pass
+
+            for boundary in boundary_list:
+                pass
+
+            # for polygon in polygon_list:
+            #     layer_prop = prop_map[tuple(polygon['layer'])]
+            #     shapely_representation = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
+            #     lsfwriter.add_code(shapely_representation)
+
+
+                # lay_id, purp_id = lay_map[polygon['layer']]
+                # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
+                #                          verbose=False)
+                # gds_cell.add(cur_poly.fracture(precision=res))
+
+        end = time.time()
+        if debug:
+            print('layout instantiation took %.4g seconds' % (end - start))
+
+        return shapelywriter.final_shapes_export()
+
+
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
@@ -393,11 +471,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         TemplateBase.finalize(self)
 
     def add_photonic_port(self,
-                          name,  # type: str
-                          center,  # type: coord_type
-                          inside_point,  # type: coord_type
-                          width,  # type: dim_type
-                          layer,  # type: Union[str, Tuple[str, str]]
+                          name=None,  # type: str
+                          center=None,  # type: coord_type
+                          orient=None,  # type: str
+                          width=None,  # type: dim_type
+                          layer=None,  # type: Union[str, Tuple[str, str]]
                           resolution=None,  # type: Union[float, int]
                           unit_mode=False,  # type: bool
                           port=None,  # type: PhotonicPort
@@ -414,7 +492,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if isinstance(layer, str):
                 layer = (layer, 'port')
 
-            port = PhotonicPort(name, center, inside_point, width, layer, resolution, unit_mode)
+            # Check arguments for validity
+            if all([name, center, orient, width, layer]) is None:
+                raise ValueError('User must define name, center, orient, width, and layer')
+
+            port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
 
         # Add port to port list. If name already is taken, remap port if force_append is true
         if port.name not in self._photonic_ports.keys() or force_append:
@@ -438,7 +520,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # Draw port shape
         center = port.center_unit
-        orient_vec = port.orient_vec(unit_mode=True, normalized=False)
+        orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
 
         self.add_polygon(
             layer=layer,
@@ -531,11 +613,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # Non-zero if new port is aligned with current port
         # > 0 if ports are facing same direction (new instance must be rotated
         # < 0 if ports are facing opposite direction (new instance should not be rotated)
-        dp = np.dot(my_port.orient_vec(), new_port.orient_vec())
+        dp = np.dot(my_port.width_vec(), new_port.width_vec())
 
         # Non-zero if new port is orthogonal with current port
         # > 0 if new port is 90 deg CCW from original, < 0 if new port is 270 deg CCW from original
-        cp = np.cross(my_port.orient_vec(), new_port.orient_vec())
+        cp = np.cross(my_port.width_vec(), new_port.width_vec())
 
         # new_port_orientation = my_port.orientation
 
@@ -663,7 +745,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_name
 
     def extract_photonic_ports(self,
-                               inst,  # type: Instance
+                               inst,  # type: PhotonicInstance
                                port_names=None,  # type: Optional[Union[str, List[str]]]
                                port_renaming=None,  # type: Dict[str, str]
                                unmatched_only=True,  # type: bool
@@ -690,7 +772,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             port_renaming = {}
 
         for port_name in port_names:
-            old_port = inst.master.get_photonic_port(port_name)  # type: PhotonicPort
+            old_port = inst.master.get_photonic_port(port_name)
             translation = inst.location_unit
             rotation = inst.orientation
 
@@ -700,11 +782,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                                             translation,
                                                             rotation,
                                                             )
-            new_inside, _ = transform_loc_orient(old_port.inside_point_unit,
-                                                 old_port.orientation,
-                                                 translation,
-                                                 rotation,
-                                                 )
 
             # Get new desired name
             if port_name in port_renaming.keys():
@@ -720,7 +797,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             new_port = self.add_photonic_port(
                 name=new_name,
                 center=new_location,
-                inside_point=new_inside,
+                orient=new_orient,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,

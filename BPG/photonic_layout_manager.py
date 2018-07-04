@@ -97,6 +97,11 @@ class PhotonicLayoutManager(DesignManager):
         print('Generating .lsf file')
         self.tdb.to_lumerical()
 
+    def generate_shapely(self):
+        return self.tdb.to_shapely()
+
+
+
     @staticmethod
     def load_yaml(filepath):
         """ Setup standardized method for yaml loading """
