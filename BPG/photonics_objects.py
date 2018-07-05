@@ -84,14 +84,14 @@ class PhotonicRect(Rect):
                 lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
                 # Compute the x and y coordinates for each rectangle
-                lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + spx * x_count))
-                lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + spy * y_count))
+                lsf_code.append('set("x span", {}e-6);\n'.format(x_span))
+                lsf_code.append('set("x", {}e-6);\n'.format(base_x_center + spx * x_count))
+                lsf_code.append('set("y span", {}e-6);\n'.format(y_span))
+                lsf_code.append('set("y", {}e-6);\n'.format(base_y_center + spy * y_count))
 
                 # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-                lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+                lsf_code.append('set("z min", {}e-6);\n'.format(layer_prop['z_min']))
+                lsf_code.append('set("z max", {}e-6);\n'.format(layer_prop['z_max']))
 
         return lsf_code
 
@@ -200,9 +200,9 @@ class PhotonicPolygon(Polygon):
     """
 
     def __init__(self,
-                 resolution,  # type: float
                  layer,  # type: Union[str, Tuple[str, str]]
                  points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
+                 resolution=.001,  # type: float
                  unit_mode=False,  # type: bool
                  ):
         if isinstance(layer, str):
@@ -237,13 +237,13 @@ class PhotonicPolygon(Polygon):
         lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
         lsf_code.append('V = matrix({},2);\n'.format(poly_len))  # Create matrix to hold x,y coords for vertices
-        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0] for point in vertices]))  # Add x coordinates
-        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1] for point in vertices]))  # Add y coordinates
+        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]))  # Add x coordinates
+        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]))  # Add y coordinates
         lsf_code.append('set("vertices", V);\n')
 
         # Extract the thickness values from the layermap file
-        lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-        lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+        lsf_code.append('set("z min", {}e-6);\n'.format(layer_prop['z_min']))
+        lsf_code.append('set("z max", {}e-6);\n'.format(layer_prop['z_max']))
 
         return lsf_code
 

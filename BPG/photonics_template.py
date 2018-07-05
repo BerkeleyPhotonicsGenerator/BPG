@@ -319,14 +319,26 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
         self._layout.add_rect(rect)
-        self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
+        #self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
         return rect
 
     def add_polygon(self,
-                    polygon,  # type: PhotonicPolygon
+                    layer,  # type: Union[str, Tuple[str, str]]
+                    points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
                     ):
-        self._layout.add_polygon(polygon)
-        return polygon
+        """
+        Adds a new polygon to the layout
+
+        Parameters
+        ----------
+        layer : str
+            str representing the abstract design layer
+        points : List[Tuple[Union[float, int], Union[float, int]]]
+            list of points representing the vertices of the polygon
+        """
+        poly = PhotonicPolygon(layer, points)
+        self._layout.add_polygon(poly)
+        return poly
 
     def add_advancedpolygon(self,
                             polygon,  # type: PhotonicAdvancedPolygon
