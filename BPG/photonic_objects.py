@@ -9,9 +9,12 @@ from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, 
     ViaInfo, Via, PinInfo, Instance
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
+import bag.io
+from bag.layout.util import transform_loc_orient, transform_point
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
+    from BPG.photonic_port import PhotonicPort
 
 
 ldim = Union[float, int]
@@ -227,6 +230,7 @@ class PhotonicInstance(Instance):
         self._photonic_port_creator()
 
     def _photonic_port_creator(self):
+        # type: (...) -> None
         """
         Helper for creating the photonic ports of this instance
         Returns
@@ -241,8 +245,8 @@ class PhotonicInstance(Instance):
             )
 
     def set_port_used(self,
-                    port_name,  # type: str
-                    ):
+                      port_name,  # type: str
+                      ):
         # type: (...) -> None
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
@@ -250,32 +254,46 @@ class PhotonicInstance(Instance):
         self._photonic_port_list[port_name].used(True)
 
     def get_port_used(self,
-                      port_name,
+                      port_name,  # type: str
                       ):
-        # type: (...) -> None
+        # type: (...) -> bool
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
 
         return self._photonic_port_list[port_name].used()
+
+    def get_photonic_port(self,
+                          name,  # type: str
+                          row=0,  # type: int
+                          col=0,  # type: int
+                          ):
+        # type: (...) -> PhotonicPort
+        """
+
+        Parameters
+        ----------
+        name
+        row
+        col
+
+        Returns
+        -------
+
+        """
+        # TODO: Incomplete
+        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
+        xshift, yshift = self._loc_unit
+        loc = (xshift + dx, yshift + dy)
+        return self._photonic_port_list[name].transform(
+            loc=loc,
+            orient='R0'
+        )
 
     @property
     def master(self):
         # type: () -> PhotonicTemplateBase
         """The master template of this instance."""
         return self._master
-
-    @property
-    def fill_box(self):
-        # type: () -> BBox
-        """Returns the array box of this instance."""
-        master_box = getattr(self._master, 'fill_box', None)  # type: BBox
-        if master_box is None:
-            raise ValueError('Master template fill box is not defined.')
-
-        box_arr = BBoxArray(master_box, nx=self.nx, ny=self.ny,
-                            spx=self._spx_unit, spy=self._spy_unit, unit_mode=True)
-        return box_arr.get_overall_bbox().transform(self.location_unit, self.orientation,
-                                                    unit_mode=True)
 
     def get_bound_box_of(self, row=0, col=0):
         """Returns the bounding box of an instance in this mosaic."""
@@ -303,72 +321,10 @@ class PhotonicInstance(Instance):
             dy = int(round(dy / self.resolution))
         self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
 
-    def translate_master_box(self, box):
-        # type: (BBox) -> BBox
-        """Transform the bounding box in master template.
+        # TODO: Incomplete
+        for port in self._photonic_port_list:
+            port.transform()
 
-        Parameters
-        ----------
-        box : BBox
-            the BBox in master template coordinate.
-
-        Returns
-        -------
-        new_box : BBox
-            the cooresponding BBox in instance coordinate.
-        """
-        return box.transform(self.location_unit, self.orientation, unit_mode=True)
-
-    def translate_master_location(self,
-                                  mloc,  # type: Tuple[Union[float, int], Union[float, int]]
-                                  unit_mode=False,  # type: bool
-                                  ):
-        # type: (...) -> Tuple[Union[float, int], Union[float, int]]
-        """Returns the actual location of the given point in master template.
-
-        Parameters
-        ----------
-        mloc : Tuple[Union[float, int], Union[float, int]]
-            the location in master coordinate.
-        unit_mode : bool
-            True if location is given in resolution units.
-
-        Returns
-        -------
-        xi : Union[float, int]
-            the actual X coordinate.  Integer if unit_mode is True.
-        yi : Union[float, int]
-            the actual Y coordinate.  Integer if unit_mode is True.
-        """
-        res = self.resolution
-        if unit_mode:
-            mx, my = mloc[0], mloc[1]
-        else:
-            mx, my = int(round(mloc[0] / res)), int(round(mloc[1] / res))
-        p = transform_point(mx, my, self.location_unit, self.orientation)
-        if unit_mode:
-            return p[0], p[1]
-        return p[0] * res, p[1] * res
-
-    def translate_master_track(self, layer_id, track_idx):
-        # type: (int, Union[float, int]) -> Union[float, int]
-        """Returns the actual track index of the given track in master template.
-
-        Parameters
-        ----------
-        layer_id : int
-            the layer ID.
-        track_idx : Union[float, int]
-            the track index.
-
-        Returns
-        -------
-        new_idx : Union[float, int]
-            the new track index.
-        """
-        dx, dy = self.location_unit
-        return self._parent_grid.transform_track(layer_id, track_idx, dx=dx, dy=dy,
-                                                 orient=self.orientation, unit_mode=True)
 
     def get_port(self, name='', row=0, col=0):
         # type: (Optional[str], int, int) -> Port
@@ -515,6 +471,351 @@ class PhotonicInstance(Instance):
                             spx=self.spx_unit, spy=self.spy_unit, unit_mode=True)
 
 
+class PhotonicRound(Arrayable):
+    """A layout round object, with optional arraying parameters.
+
+    Parameters
+    ----------
+    layer : string or (string, string)
+        the layer name, or a tuple of layer name and purpose name.
+        If pupose name not given, defaults to 'drawing'.
+    rout :
+    rin :
+    theta0 :
+    theta1 :
+
+    nx : int
+        number of columns.
+    ny : int
+        number of rows.
+    spx : float
+        column pitch.
+    spy : float
+        row pitch.
+    unit_mode : bool
+        True if layout dimensions are specified in resolution units.
+    """
+
+    def __init__(self,
+                 layer,
+                 resolution,
+                 center,
+                 rout,
+                 rin=0,
+                 theta0=0,
+                 theta1=360,
+                 nx=1,
+                 ny=1,
+                 spx=0,
+                 spy=0,
+                 unit_mode=False,
+                 ):
+        # python 2/3 compatibility: convert raw bytes to string.
+        layer = bag.io.fix_string(layer)
+        if isinstance(layer, str):
+            layer = (layer, 'phot')
+        self._layer = layer[0], layer[1]
+
+        self._res = resolution
+
+        if not unit_mode:
+            self._rout_unit = int(round(rout / resolution))
+            self._rin_unit = int(round(rin / resolution))
+            self._center_unit = (int(round(center[0] / resolution)), int(round(center[1] / resolution)))
+        else:
+            self._rout_unit = int(round(rout))
+            self._rin_unit = int(round(rin))
+            self._center_unit = (int(round(center[0])), int(round(center[1])))
+
+        self._theta0 = theta0
+        self._theta1 = theta1
+
+        Arrayable.__init__(self, self._res, nx=nx, ny=ny,
+                           spx=spx, spy=spy, unit_mode=unit_mode)
+
+    @property
+    def rout(self):
+        """The outer radius in layout units"""
+        return self._rout_unit * self._res
+
+    @property
+    def rout_unit(self):
+        """The outer radius in resolution units"""
+        return self._rout_unit
+
+    @rout.setter
+    def rout(self,
+             val,  # type: Union[float, int]
+             ):
+        """Sets the outer radius in layout units"""
+        self._rout_unit = int(round(val / self._res))
+
+
+    @rout_unit.setter
+    def rout_unit(self,
+                  val,  # type: int
+                  ):
+        """Sets the outer radius in resolution units"""
+        self._rout_unit = int(round(val))
+
+    @property
+    def center(self):
+        """The center in layout units"""
+        return self._center_unit[0] * self._res, self._center_unit[1] * self._res
+
+    @property
+    def center_unit(self):
+        """The center in resolution units"""
+        return self._center_unit
+
+    @center.setter
+    def center(self,
+               val,  # type: coord_type
+               ):
+        """Sets the center in layout units"""
+        self._center_unit = (int(round(val[0] / self._res)), int(round(val[1] / self._res)))
+
+    @center_unit.setter
+    def center_unit(self,
+                    val,  # type: coord_type
+                    ):
+        """Sets the center in resolution units"""
+        self._center_unit = (int(round(val[0])), int(round(val[1])))
+
+    @property
+    def rin(self):
+        """The inner radius in layout units"""
+        return self._rin_unit * self._res
+
+    @property
+    def rin_unit(self):
+        """The inner radius in resolution units"""
+        return self._rin_unit
+
+    @rin.setter
+    def rin(self,
+            val,  # type: Union[float, int]
+            ):
+        """Sets the inner radius in layout units"""
+        self._rin_unit = int(round(val / self._res))
+
+    @rin_unit.setter
+    def rin_unit(self,
+                 val,  # type: int
+                 ):
+        """Sets the inner radius in resolution units"""
+        self._rin_unit = int(round(val))
+
+    @property
+    def theta0(self):
+        """The starting angle, in degrees"""
+        return self._theta0
+
+    @theta0.setter
+    def theta0(self,
+               val,  # type: Union[float, int]
+               ):
+        """Sets the start angle in degrees"""
+        self._theta0 = val
+
+    @property
+    def theta1(self):
+        """The ending angle, in degrees"""
+        return self._theta1
+
+    @theta1.setter
+    def theta1(self,
+               val,  # type: Union[float, int]
+               ):
+        """Sets the start angle in degrees"""
+        self._theta1 = val
+
+    @property
+    def layer(self):
+        """The rectangle (layer, purpose) pair."""
+        return self._layer
+
+    @layer.setter
+    def layer(self, val):
+        """Sets the rectangle layer."""
+        self.check_destroyed()
+        # python 2/3 compatibility: convert raw bytes to string.
+        val = bag.io.fix_string(val)
+        if isinstance(val, str):
+            val = (val, 'drawing')
+        self._layer = val[0], val[1]
+        print("WARNING: USING THIS BREAKS POWER FILL ALGORITHM.")
+
+    @property
+    def content(self):
+        """A dictionary representation of this rectangle."""
+        content = dict(layer=list(self.layer),
+                       rout=self.rout,
+                       rin=self.rin,
+                       theta0=self.theta0,
+                       theta1=self.theta1,
+                       center=self.center,
+                       )
+        if self.nx > 1 or self.ny > 1:
+            content['arr_nx'] = self.nx
+            content['arr_ny'] = self.ny
+            content['arr_spx'] = self.spx
+            content['arr_spy'] = self.spy
+
+        return content
+    
+    def move_by(self,
+                dx=0,  # type: dim_type
+                dy=0,  # type: dim_type
+                unit_mode=False,  # type: bool
+                ):
+        """Moves the round object"""
+        if unit_mode:
+            self.center_unit = (self.center_unit[0] + int(round(dx)), self.center_unit[1] + int(round(dy)))
+        else:
+            self.center_unit = (self.center_unit[0] + int(round(dx / self._res)),
+                                self.center_unit[1] + int(round(dy / self._res))
+                                )
+
+    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
+        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+        """Transform this figure."""
+
+        if not unit_mode:
+            loc = int(round(loc[0] / self._res)), int(round(loc[1] / self._res))
+
+        new_center_unit = transform_point(self.center_unit[0], self.center_unit[1], loc=loc, orient=orient)
+
+        if orient == 'R0':
+            new_theta0 = self.theta0
+            new_theta1 = self.theta1
+        elif orient == 'R90':
+            new_theta0 = self.theta0 + 90
+            new_theta1 = self.theta1 + 90
+        elif orient == 'R180':
+            new_theta0 = self.theta0 + 180
+            new_theta1 = self.theta1 + 180
+        elif orient == 'R270':
+            new_theta0 = self.theta0 + 270
+            new_theta1 = self.theta1 + 270
+        elif orient == 'MX':
+            new_theta0 = -1 * self.theta1
+            new_theta1 = -1 * self.theta0
+        elif orient == 'MY':
+            new_theta0 = 180 - self.theta1
+            new_theta1 = 180 - self.theta0
+        elif orient == 'MXR90':
+            # MX, then R90
+            new_theta0 = -1 * self.theta1 + 90
+            new_theta1 = -1 * self.theta0 + 90
+        else: # orient == 'MYR90'
+            new_theta0 = 180 - self.theta1 + 90
+            new_theta1 = 180 - self.theta0 + 90
+
+        if copy:
+            print("WARNING: USING THIS BREAKS POWER FILL ALGORITHM.")
+            self.center_unit = new_center_unit
+            self.theta0 = new_theta0
+            self.theta1 = new_theta1
+            return self
+        else:
+            return PhotonicRound(
+                layer=self.layer,
+                resolution=self.resolution,
+                rout=self.rout_unit,
+                center=new_center_unit,
+                rin=self.rin_unit,
+                theta0=new_theta0,
+                theta1=new_theta1,
+                nx=self.nx,
+                ny=self.ny,
+                spx=self.spx_unit,
+                spy=self.spy_unit,
+                unit_mode=True
+            )
+
+    @classmethod
+    def lsf_export(cls,
+                   rout,  # type: dim_type
+                   rin,  # type: dim_type
+                   theta0,  # type: dim_type
+                   theta1,  # type: dim_type
+                   layer_prop,
+                   center,  # type: coord_type
+                   nx=1,  # type: int
+                   ny=1,  # type: int
+                   spx=0.0,  # type: dim_type
+                   spy=0.0,  # type: dim_type
+                   ):
+        # type: (...) -> List(str)
+        """
+
+        Parameters
+        ----------
+        rout
+        rin
+        theta0
+        theta1
+        layer_prop
+        center
+        nx
+        ny
+        spx
+        spy
+
+        Returns
+        -------
+
+        """
+        x0, y0 = center[0], center[1]
+        lsf_code = []
+
+        if rin == 0:
+            for x_count in range(nx):
+                for y_count in range(ny):
+                    lsf_code.append('\n')
+                    lsf_code.append('addcircle;\n')
+
+                    # Set material properties
+                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+
+                    # Set radius
+                    lsf_code.append('set(radius, {});\n'.format(rout))
+
+                    # Compute the x and y coordinates for each rectangle
+                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
+                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
+
+                    # Extract the thickness values from the layermap file
+                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
+                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+        else:
+            for x_count in range(nx):
+                for y_count in range(ny):
+                    lsf_code.append('\n')
+                    lsf_code.append('addring;\n')
+
+                    # Set material properties
+                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+
+                    # Set dimensions/angles
+                    lsf_code.append('set(outer radius, {});\n'.format(rout))
+                    lsf_code.append('set("innter radius", {});\n'.format(rin))
+                    lsf_code.append('set("theta start", {});\n'.format(theta0))
+                    lsf_code.append('set("theta stop", {});\n'.format(theta1))
+
+                    # Compute the x and y coordinates for each rectangle
+                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
+                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
+
+                    # Extract the thickness values from the layermap file
+                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
+                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+
+        return lsf_code
+
 
 class PhotonicRect(Rect):
     """
@@ -608,7 +909,7 @@ class PhotonicRect(Rect):
                        spx=0.0,  # type: int
                        spy=0.0,  # type: int
                        ):
-        # type: (...) -> Tuple[List[List[Tuple[int, int]]]]
+        # type: (...) -> Tuple[Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List], Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List]]
         """
         Describes the current rectangle shape in terms of lsf parameters for lumerical use
 
@@ -616,8 +917,6 @@ class PhotonicRect(Rect):
         ----------
         bbox : [[float, float], [float, float]]
             lower left and upper right corner xy coordinates
-        layer_prop : dict
-            dictionary containing material properties for the desired layer
         nx : int
             number of arrayed rectangles in the x-direction
         ny : int
