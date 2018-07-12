@@ -99,6 +99,14 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_shapely(self):
         return self.tdb.to_shapely()
+    
+    def generate_flat_gds(self, debug=False):
+        self.tdb.flatten(debug=debug)
+
+        self.tdb._create_gds(lib_name=self.specs['impl_lib'] + '_flattened',
+                             content_list=self.tdb.flat_content_list,
+                             debug=debug)
+
 
 
 

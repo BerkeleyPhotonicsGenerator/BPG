@@ -1,9 +1,14 @@
+import bag
+import bag.io
 from bag.core import BagProject
 from bag.layout.core import BagLayout
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
+from itertools import chain
 
 if TYPE_CHECKING:
     from BPG.photonic_objects import PhotonicRound
+    from bag.layout.objects import InstanceInfo
+
 
 try:
     import cybagoa
@@ -11,6 +16,7 @@ except ImportError:
     cybagoa = None
 
 
+# From bag/core
 class PhotonicBagProject(BagProject):
     """The main bag controller class.
 
@@ -24,21 +30,13 @@ class PhotonicBagProject(BagProject):
         environment variable BAG_CONFIG_PATH.
     port : Optional[int]
         the BAG server process port number.  If not given, will read from port file.
-
-    Attributes
-    ----------
-    bag_config : Dict[str, Any]
-        the BAG configuration parameters dictionary.
-    tech_info : bag.layout.core.TechInfo
-        the BAG process technology class.
     """
 
     def __init__(self, bag_config_path=None, port=None):
         self.tech_info = PTech()
 
-    # TODO: Add support for rounds shapes from gdspy
 
-
+# From bag/layout/core
 class PhotonicBagLayout(BagLayout):
     """This class contains layout information of a cell.
 
@@ -216,7 +214,7 @@ class PhotonicBagLayout(BagLayout):
         self._round_list.append(round_obj)
 
 
-class PTech():
+class PTech:
     def __init__(self):
         self.resolution = 0.001
         self.layout_unit = 0.000001
@@ -225,7 +223,6 @@ class PTech():
 
     def get_layer_id(self, layer):
         pass
-
 
     def finalize_template(self, a):
         pass
