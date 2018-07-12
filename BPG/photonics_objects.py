@@ -237,8 +237,8 @@ class PhotonicPolygon(Polygon):
         lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
         lsf_code.append('V = matrix({},2);\n'.format(poly_len))  # Create matrix to hold x,y coords for vertices
-        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]))  # Add x coordinates
-        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]))  # Add y coordinates
+        lsf_code.append('V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]))  # Add x coord
+        lsf_code.append('V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]))  # Add y coord
         lsf_code.append('set("vertices", V);\n')
 
         # Extract the thickness values from the layermap file
