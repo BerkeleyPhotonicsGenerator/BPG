@@ -10,12 +10,12 @@ from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, 
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
-from bag.layout.util import transform_loc_orient, transform_point
+from bag.layout.util import transform_loc_orient, transform_point, BBox
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
     from BPG.photonic_port import PhotonicPort
-
+    from bag.layout.objects import Figure
 
 ldim = Union[float, int]
 dim_type = Union[float, int]
@@ -325,137 +325,9 @@ class PhotonicInstance(Instance):
         for port in self._photonic_port_list:
             port.transform()
 
-
-    def get_port(self, name='', row=0, col=0):
-        # type: (Optional[str], int, int) -> Port
-        """Returns the port object of the given instance in the array.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        row : int
-            the instance row index.  Index 0 is the bottom-most row.
-        col : int
-            the instance column index.  Index 0 is the left-most column.
-
-        Returns
-        -------
-        port : Port
-            the port object.
-        """
-        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
-        xshift, yshift = self._loc_unit
-        loc = (xshift + dx, yshift + dy)
-        return self._master.get_port(name).transform(self._parent_grid, loc=loc,
-                                                     orient=self.orientation, unit_mode=True)
-
-    def get_pin(self, name='', row=0, col=0, layer=-1):
-        # type: (Optional[str], int, int, int) -> Union[WireArray, BBox]
-        """Returns the first pin with the given name.
-
-        This is an efficient method if you know this instance has exactly one pin.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        row : int
-            the instance row index.  Index 0 is the bottom-most row.
-        col : int
-            the instance column index.  Index 0 is the left-most column.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Returns
-        -------
-        pin : Union[WireArray, BBox]
-            the first pin associated with the port of given name.
-        """
-        port = self.get_port(name, row, col)
-        return port.get_pins(layer)[0]
-
-    def get_all_port_pins(self, name='', layer=-1):
-        # type: (Optional[str], int) -> List[WireArray]
-        """Returns a list of all pins of all ports with the given name in this instance array.
-
-        This method gathers ports from all instances in this array with the given name,
-        then find all pins of those ports on the given layer, then return as list of WireArrays.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Returns
-        -------
-        pin_list : List[WireArray]
-            the list of pins as WireArrays.
-        """
-        results = []
-        for col in range(self.nx):
-            for row in range(self.ny):
-                port = self.get_port(name, row, col)
-                results.extend(port.get_pins(layer))
-        return results
-
-    def port_pins_iter(self, name='', layer=-1):
-        # type: (Optional[str], int) -> Iterator[WireArray]
-        """Iterate through all pins of all ports with the given name in this instance array.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Yields
-        ------
-        pin : WireArray
-            the pin as WireArray.
-        """
-        for col in range(self.nx):
-            for row in range(self.ny):
-                try:
-                    port = self.get_port(name, row, col)
-                except KeyError:
-                    return
-                for warr in port.get_pins(layer):
-                    yield warr
-
-    def port_names_iter(self):
-        # type: () -> Iterable[str]
-        """Iterates over port names in this instance.
-
-        Yields
-        ------
-        port_name : str
-            name of a port in this instance.
-        """
-        return self._master.port_names_iter()
-
-    def has_port(self, port_name):
-        # type: (str) -> bool
-        """Returns True if this instance has the given port."""
-        return self._master.has_port(port_name)
-
-    def has_prim_port(self, port_name):
-        # type: (str) -> bool
-        """Returns True if this instance has the given primitive port."""
-        return self._master.has_prim_port(port_name)
-
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
         # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+        # TODO: Change this?
         """Transform this figure."""
         if not unit_mode:
             res = self.resolution
@@ -533,6 +405,23 @@ class PhotonicRound(Arrayable):
         Arrayable.__init__(self, self._res, nx=nx, ny=ny,
                            spx=spx, spy=spy, unit_mode=unit_mode)
 
+    @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicRound(
+            layer=content['layer'],
+            rout=content['rout'],
+            rin=content['rin'],
+            theta0=content['theta0'],
+            theta1=content['theta1'],
+            center=content['center'],
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            unit_mode=False,
+            resolution=resolution
+        )
+
     @property
     def rout(self):
         """The outer radius in layout units"""
@@ -549,7 +438,6 @@ class PhotonicRound(Arrayable):
              ):
         """Sets the outer radius in layout units"""
         self._rout_unit = int(round(val / self._res))
-
 
     @rout_unit.setter
     def rout_unit(self,
@@ -708,7 +596,7 @@ class PhotonicRound(Arrayable):
             # MX, then R90
             new_theta0 = -1 * self.theta1 + 90
             new_theta1 = -1 * self.theta0 + 90
-        else: # orient == 'MYR90'
+        else:  # orient == 'MYR90'
             new_theta0 = 180 - self.theta1 + 90
             new_theta1 = 180 - self.theta0 + 90
 
@@ -847,6 +735,25 @@ class PhotonicRect(Rect):
         Rect.__init__(self, layer, bbox, nx, ny, spx, spy, unit_mode)
 
     @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicRect(
+            layer=content['layer'],
+            bbox=BBox(
+                left=content['bbox'][0][0],
+                bottom=content['bbox'][0][1],
+                right=content['bbox'][1][0],
+                top=content['bbox'][1][1],
+                unit_mode=False,
+                resolution=resolution,
+            ),
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            unit_mode=False,
+        )
+
+    @classmethod
     def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
         """
         Describes the current rectangle shape in terms of lsf parameters for lumerical use
@@ -954,7 +861,7 @@ class PhotonicRect(Rect):
                                 (x_base + x_count * spx, y_base + y_count * spy)]
                 output_list_p.append(polygon_list)
 
-        return (output_list_p, output_list_n)
+        return output_list_p, output_list_n
 
 
 class PhotonicPath(Path):
@@ -1069,6 +976,15 @@ class PhotonicPolygon(Polygon):
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
+
+    @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicPolygon(
+            resolution=resolution,
+            layer=content['layer'],
+            points=content['points'],
+            unit_mode=False,
+        )
 
     @classmethod
     def lsf_export(cls, vertices, layer_prop) -> List[str]:

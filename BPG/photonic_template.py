@@ -24,6 +24,9 @@ from collections import OrderedDict
 
 from numpy import pi
 
+if TYPE_CHECKING:
+    from bag.layout.objects import ViaInfo, PinInfo
+
 try:
     import gdspy
 except ImportError:
@@ -55,6 +58,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.content_list = None  # Variable where all generated layout content will be stored
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
+        self.flat_content_list = None  # Variable where flattened layout content will be stored
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -432,6 +436,422 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('layout instantiation took %.4g seconds' % (end - start))
 
+    def instantiate_flat_masters(self,
+                                 master_list,  # type: Sequence[DesignMaster]
+                                 name_list=None,  # type: Optional[Sequence[Optional[str]]]
+                                 lib_name='',  # type: str
+                                 debug=False,  # type: bool
+                                 rename_dict=None,  # type: Optional[Dict[str, str]]
+                                 ) -> None:
+        """
+        Create all given masters in the database to a flat hierarchy.
+
+        Parameters
+        ----------
+        master_list : Sequence[DesignMaster]
+            list of masters to instantiate.
+        name_list : Optional[Sequence[Optional[str]]]
+            list of master cell names.  If not given, default names will be used.
+        lib_name : str
+            Library to create the masters in.  If empty or None, use default library.
+        debug : bool
+            True to print debugging messages
+        rename_dict : Optional[Dict[str, str]]
+            optional master cell renaming dictionary.
+        """
+        if name_list is None:
+            name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
+        else:
+            if len(name_list) != len(master_list):
+                raise ValueError("Master list and name list length mismatch.")
+
+        # configure renaming dictionary.  Verify that renaming dictionary is one-to-one.
+        rename = self._rename_dict
+        rename.clear()
+        reverse_rename = {}
+        if rename_dict:
+            for key, val in rename_dict.items():
+                if key != val:
+                    if val in reverse_rename:
+                        raise ValueError('Both %s and %s are renamed '
+                                         'to %s' % (key, reverse_rename[val], val))
+                    rename[key] = val
+                    reverse_rename[val] = key
+
+        for master, name in zip(master_list, name_list):
+            if name is not None and name != master.cell_name:
+                cur_name = master.cell_name
+                if name in reverse_rename:
+                    raise ValueError('Both %s and %s are renamed '
+                                     'to %s' % (cur_name, reverse_rename[name], name))
+                rename[cur_name] = name
+                reverse_rename[name] = cur_name
+
+                if name in self._used_cell_names:
+                    # name is an already used name, so we need to rename it to something else
+                    name2 = _get_unique_name(name, self._used_cell_names, reverse_rename)
+                    rename[name] = name2
+                    reverse_rename[name2] = name
+
+        if debug:
+            print('Retrieving master contents')
+
+        # use ordered dict so that children are created before parents.
+        info_dict = OrderedDict()  # type: Dict[str, DesignMaster]
+        start = time.time()
+        for master, top_name in zip(master_list, name_list):
+            self._flatten_instantiate_master_helper(info_dict, master)
+        end = time.time()
+
+        if not lib_name:
+            lib_name = self.lib_name
+        if not lib_name:
+            raise ValueError('master library name is not specified.')
+
+        self.content_list = [master.get_content(lib_name, self.format_cell_name)
+                             for master in info_dict.values()]
+
+        if debug:
+            print('master content retrieval took %.4g seconds' % (end - start))
+
+        self.create_masters_in_db(lib_name, self.content_list, debug=debug)
+
+    def _flatten_instantiate_master_helper(self,
+                                           info_dict,
+                                           master,
+                                           loc=(0, 0),
+                                           orient='R0'
+                                           ):
+        """
+        For each passed master:
+           get content
+           for each child instance:
+              call _flatten instantiate again
+
+           transform all content by the child position & orientation
+
+
+        Parameters
+        ----------
+        info_dict
+        master
+
+        Returns
+        -------
+
+        """
+        for child_master_key in master.children:
+            print("in _flatten_instance_master_helper")
+
+            child_content = self._master_lookup[child_master_key].get_content()
+
+
+
+            print("content_list: ")
+
+            input_content_list = content_list
+
+            if debug:
+                print('Flattening design')
+
+            start = time.time()
+
+            # Need to loop over content_list.
+            # For each content, if it has instances, need to add the polygons of that instance at the transformed loc
+
+            new_rect_list = []
+            new_via_list = []
+            new_pin_list = []
+            new_path_list = []
+            new_blockage_list = []
+            new_polygon_list = []
+            new_round_list = []
+
+            # content_list is a list of content structures. Each content is the content of a particular instance
+            for content in input_content_list:
+                print("in content loop")
+                (cell_name, inst_tot_list, rect_list, via_list, pin_list,
+                 path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
+
+                asdf
+                self.register_master()
+                for inst_info in inst_tot_list:
+                    print("in inst loop")
+                    # Need to flatten this cell too after it has been transformed
+                    # Get the polygons from the subcell
+                    (sub_rect_list, sub_via_list, sub_pin_list, sub_path_list,
+                     sub_blockage_list, sub_polygon_list, sub_round_list) = self._flatten_helper(
+                        content_list=inst_info.,
+                        loc=inst_info.loc,
+                        orient=inst_info.orient,
+                        unit_mode=False,
+                        debug=debug
+                    )
+
+                    rect_list.extend(sub_rect_list)
+                    via_list.extend(sub_via_list)
+                    pin_list.extend(sub_pin_list)
+                    path_list.extend(sub_path_list)
+                    blockage_list.extend(sub_blockage_list)
+                    polygon_list.extend(sub_polygon_list)
+                    round_list.extend(sub_round_list)
+
+                # add rectangles
+                for rect in rect_list:
+                    new_rect_list.append(
+                        PhotonicRect.from_content(
+                            content=rect,
+                            resolution=self.grid.resolution
+                        ).transform(
+                            loc=loc,
+                            orient=orient,
+                            unit_mode=unit_mode,
+                            copy=False
+                        ).content
+                    )
+
+                # add vias
+                for via in via_list:
+                    pass
+
+                # add pins
+                for pin in pin_list:
+                    pass
+
+                for path in path_list:
+                    pass
+
+                for blockage in blockage_list:
+                    pass
+
+                for boundary in boundary_list:
+                    pass
+
+                for polygon in polygon_list:
+                    # new_poly = PhotonicPolygon.from_content(
+                    #         content=polygon,
+                    #         resolution=self.grid.resolution
+                    #     )
+                    # new_poly = new_poly.transform(
+                    #         loc=loc,
+                    #         orient=orient,
+                    #         unit_mode=unit_mode,
+                    #         copy=False
+                    #     )
+                    # new_poly_content = new_poly.content
+                    #
+                    # new_polygon_list.append(new_poly_content)
+
+                    new_polygon_list.append(
+                        PhotonicPolygon.from_content(
+                            content=polygon,
+                            resolution=self.grid.resolution
+                        ).transform(
+                            loc=loc,
+                            orient=orient,
+                            unit_mode=unit_mode,
+                            copy=False
+                        ).content
+                    )
+
+                for round_obj in round_list:
+                    new_round_list.append(
+                        PhotonicRound.from_content(
+                            content=round_obj,
+                            resolution=self.grid.resolution
+                        ).transform(
+                            loc=loc,
+                            orient=orient,
+                            unit_mode=unit_mode,
+                            copy=False
+                        ).content
+                    )
+
+                new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
+                                    new_blockage_list, new_polygon_list, new_round_list)
+
+                return new_content_list
+
+    def flatten(self,
+                debug=False
+                ):
+        print("in flatten")
+        self.flat_content_list = self._flatten_helper(
+            content_list=self.content_list,
+            loc=(0, 0),
+            orient='R0',
+            unit_mode=False,
+            debug=debug
+        )
+
+    def _flatten_helper(self,
+                        content_list,  # type: List[Tuple]
+                        loc,
+                        orient='R0',
+                        unit_mode=False,
+                        debug=False,
+                        ):
+        # type: (...) -> Tuple
+        """Flattens all elements in the design hierarchy
+
+        Parameters
+        ----------
+        content_list
+        loc
+        orient
+        unit_mode
+        debug
+
+        Returns
+        -------
+
+        """
+        print("in _flatten_helper")
+        print("content_list: ")
+        print(content_list)
+
+        input_content_list = content_list
+
+        if debug:
+            print('Flattening design')
+
+        start = time.time()
+
+        # Need to loop over content_list.
+        # For each content, if it has instances, need to add the polygons of that instance at the transformed loc
+
+        new_rect_list = []
+        new_via_list = []
+        new_pin_list = []
+        new_path_list = []
+        new_blockage_list = []
+        new_polygon_list = []
+        new_round_list = []
+
+        # content_list is a list of content structures. Each content is the content of a particular instance
+        for content in input_content_list:
+            print("in content loop")
+            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
+             path_list, blockage_list, boundary_list, polygon_list, round_list, ) = content
+
+            asdf
+            self.register_master()
+            for inst_info in inst_tot_list:
+                print("in inst loop")
+                # Need to flatten this cell too after it has been transformed
+                # Get the polygons from the subcell
+                (sub_rect_list, sub_via_list, sub_pin_list, sub_path_list,
+                 sub_blockage_list, sub_polygon_list, sub_round_list) = self._flatten_helper(
+                    content_list=inst_info.,
+                    loc=inst_info.loc,
+                    orient=inst_info.orient,
+                    unit_mode=False,
+                    debug=debug
+                )
+
+                rect_list.extend(sub_rect_list)
+                via_list.extend(sub_via_list)
+                pin_list.extend(sub_pin_list)
+                path_list.extend(sub_path_list)
+                blockage_list.extend(sub_blockage_list)
+                polygon_list.extend(sub_polygon_list)
+                round_list.extend(sub_round_list)
+
+            # add rectangles
+            for rect in rect_list:
+                new_rect_list.append(
+                    PhotonicRect.from_content(
+                        content=rect,
+                        resolution=self.grid.resolution
+                    ).transform(
+                        loc=loc,
+                        orient=orient,
+                        unit_mode=unit_mode,
+                        copy=False
+                    ).content
+                )
+
+            # add vias
+            for via in via_list:
+                pass
+
+            # add pins
+            for pin in pin_list:
+                pass
+
+            for path in path_list:
+                pass
+
+            for blockage in blockage_list:
+                pass
+
+            for boundary in boundary_list:
+                pass
+
+            for polygon in polygon_list:
+                # new_poly = PhotonicPolygon.from_content(
+                #         content=polygon,
+                #         resolution=self.grid.resolution
+                #     )
+                # new_poly = new_poly.transform(
+                #         loc=loc,
+                #         orient=orient,
+                #         unit_mode=unit_mode,
+                #         copy=False
+                #     )
+                # new_poly_content = new_poly.content
+                #
+                # new_polygon_list.append(new_poly_content)
+
+                new_polygon_list.append(
+                    PhotonicPolygon.from_content(
+                        content=polygon,
+                        resolution=self.grid.resolution
+                    ).transform(
+                        loc=loc,
+                        orient=orient,
+                        unit_mode=unit_mode,
+                        copy=False
+                    ).content
+                )
+
+            for round_obj in round_list:
+                new_round_list.append(
+                    PhotonicRound.from_content(
+                        content=round_obj,
+                        resolution=self.grid.resolution
+                    ).transform(
+                        loc=loc,
+                        orient=orient,
+                        unit_mode=unit_mode,
+                        copy=False
+                    ).content
+                )
+
+            new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
+                                new_blockage_list, new_polygon_list, new_round_list)
+
+            return new_content_list
+
+        end = time.time()
+        if debug:
+            print('layout instantiation took %.4g seconds' % (end - start))
+
+    def get_layer_shapes(self,
+                         layer,  # type: Tuple[str, str]
+                         ):
+        # type: (...) -> List
+        """Returns only the content that exists on a given layer
+
+        Parameters
+        ----------
+        layer
+
+        Returns
+        -------
+
+        """
+
     def to_shapely(self, debug=False):
         """ Export the drawn layout to the Shapely format """
         shapelywriter = ShapelyGenerator()
@@ -441,34 +861,18 @@ class PhotonicTemplateDB(TemplateDB):
         start = time.time()
         for content in self.content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list) = content
 
             # add instances
             for inst_info in inst_tot_list:
                 pass
-
-                # TODO: Determine how useful this section really is...
-                # if inst_info.params is not None:
-                #     raise ValueError('Cannot instantiate PCells in GDS.')
-                # num_rows = inst_info.num_rows
-                # num_cols = inst_info.num_cols
-                # angle, reflect = inst_info.angle_reflect
-                # if num_rows > 1 or num_cols > 1:
-                #     cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
-                #                                (inst_info.sp_cols, inst_info.sp_rows),
-                #                                origin=inst_info.loc, rotation=angle,
-                #                                x_reflection=reflect)
-                # else:
-                #     cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
-                #                                    rotation=angle, x_reflection=reflect)
-                # gds_cell.add(cur_inst)
 
             # add rectangles
             for rect in rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 if nx > 1 or ny > 1:
                     shapely_representation = PhotonicRect.shapely_export(rect['bbox'], nx, ny,
-                                                       spx=rect['arr_spx'], spy=rect['arr_spy'])
+                                                                         spx=rect['arr_spx'], spy=rect['arr_spy'])
                 else:
                     shapely_representation = PhotonicRect.shapely_export(rect['bbox'])
 
@@ -496,18 +900,16 @@ class PhotonicTemplateDB(TemplateDB):
             #     shapely_representation = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
             #     lsfwriter.add_code(shapely_representation)
 
-
-                # lay_id, purp_id = lay_map[polygon['layer']]
-                # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-                #                          verbose=False)
-                # gds_cell.add(cur_poly.fracture(precision=res))
+            #     lay_id, purp_id = lay_map[polygon['layer']]
+            #     cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
+            #                          verbose=False)
+            #     gds_cell.add(cur_poly.fracture(precision=res))
 
         end = time.time()
         if debug:
             print('layout instantiation took %.4g seconds' % (end - start))
 
         return shapelywriter.final_shapes_export()
-
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
