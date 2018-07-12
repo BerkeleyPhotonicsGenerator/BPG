@@ -72,4 +72,6 @@ if __name__ == '__main__':
     spec_file = './specs/add_rect_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
-    # PLM.generate_lsf()
+    test = PLM.generate_shapely()
+
+    asdf
