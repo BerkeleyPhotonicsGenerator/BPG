@@ -7,7 +7,7 @@ import sys
 
 from bag.core import BagProject
 from bag.layout import RoutingGrid, TemplateDB
-from BPG.photonics_template import PhotonicTemplateBase, PhotonicPort, PhotonicTemplateDB
+from BPG.photonic_template import PhotonicTemplateBase, PhotonicPort, PhotonicTemplateDB
 from BPG.photonic_core import PhotonicBagProject
 
 
