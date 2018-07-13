@@ -22,6 +22,7 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
+'''
 class InstanceInfo(dict):
     """A dictionary that represents a layout instance.
     """
@@ -61,6 +62,8 @@ class InstanceInfo(dict):
                 self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
             elif orient != 'R0':
                 raise ValueError('Unknown orientation: %s' % orient)
+
+        print("in instanceinfo of photonic_objects")
 
     @property
     def lib(self):
@@ -170,7 +173,7 @@ class InstanceInfo(dict):
         loc = self.loc
         self['loc'] = [round((loc[0] + dx) / res) * res,
                        round((loc[1] + dy) / res) * res]
-
+'''
 
 class PhotonicInstance(Instance):
     """A layout instance, with optional arraying parameters.
@@ -900,6 +903,21 @@ class PhotonicPath(Path):
             layer = (layer, 'phot')
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
 
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicPath(
+            resolution=resolution,
+            layer=content['layer'],
+            width=content['width'],
+            points=content['points'],
+            end_style=content['end_style'],
+            join_style=content['join_style'],
+            unit_mode=False,
+        )
+
 
 class PhotonicPathCollection(PathCollection):
     """
@@ -1078,6 +1096,19 @@ class PhotonicBlockage(Blockage):
         # type: (float, str, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
         Blockage.__init__(self, resolution, block_type, block_layer, points, unit_mode)
 
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicBlockage(
+            resolution=resolution,
+            block_type=content['btype'],
+            block_layer=content['blayer'],
+            points=content['points'],
+            unit_mode=False,
+        )
+
 
 class PhotonicBoundary(Boundary):
     """
@@ -1100,6 +1131,18 @@ class PhotonicBoundary(Boundary):
     def __init__(self, resolution, boundary_type, points, unit_mode=False):
         # type: (float, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
         Boundary.__init__(self, resolution, boundary_type, points, unit_mode)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicBoundary(
+            resolution=resolution,
+            boundary_type=content['btype'],
+            points=content['points'],
+            unit_mode=False,
+        )
 
 
 class PhotonicViaInfo(ViaInfo):
@@ -1152,6 +1195,25 @@ class PhotonicVia(Via):
     def __init__(self, tech, bbox, bot_layer, top_layer, bot_dir,
                  nx=1, ny=1, spx=0, spy=0, extend=True, top_dir=None, unit_mode=False):
         Via.__init__(self, tech, bbox, bot_layer, top_layer, bot_dir, nx, ny, spx, spy, extend, top_dir, unit_mode)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     ):
+        return PhotonicVia(
+            tech=content['tech'],
+            bbox=content['bbox'],
+            bot_layer=content['bot_layer'],
+            top_layer=content['top_layer'],
+            bot_dir=content['bot_dir'],
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            extend=content['extend'],
+            top_dir=content['top_dir'],
+            unit_mode=False,
+        )
 
 
 class PhotonicPinInfo(PinInfo):

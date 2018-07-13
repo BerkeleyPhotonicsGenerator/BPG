@@ -99,16 +99,45 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_shapely(self):
         return self.tdb.to_shapely()
-    
-    def generate_flat_gds(self, debug=False):
-        self.tdb.flatten(debug=debug)
 
-        self.tdb._create_gds(lib_name=self.specs['impl_lib'] + '_flattened',
-                             content_list=self.tdb.flat_content_list,
-                             debug=debug)
+    def generate_flat_gds(self, layout_params_list=None, cell_name_list=None, debug=False) -> None:
+        """
+        Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
+        layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
+        new layout
 
+        Parameters
+        ----------
+        layout_params_list : List[dict]
+            Optional list of dicts corresponding to layout parameters passed to the generator class
+        cell_name_list : List[str]
+            Optional list of strings corresponding to the names given to each generated layout
+        """
+        # If no list is provided, extract layout params from the provided spec file
+        if layout_params_list is None:
+            layout_params_list = [self.specs['layout_params']]
+        if cell_name_list is None:
+            cell_name_list = [self.specs['impl_cell']]
 
+        print('Generating flat .gds file')
+        cls_package = self.specs['layout_package']
+        cls_name = self.specs['layout_class']
 
+        lay_module = importlib.import_module(cls_package)
+        temp_cls = getattr(lay_module, cls_name)
+
+        temp_list = []
+        for lay_params in layout_params_list:
+            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            temp_list.append(template)
+
+        self.tdb._prj = self.prj
+        self.tdb.instantiate_flat_masters(master_list=temp_list,
+                                          name_list=cell_name_list,
+                                          lib_name='',
+                                          debug=debug,
+                                          rename_dict=None
+                                          )
 
     @staticmethod
     def load_yaml(filepath):
