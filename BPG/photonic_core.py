@@ -131,6 +131,7 @@ class PhotonicBagLayout(BagLayout):
         content : Union[List[Any], Tuple[str, 'cybagoa.PyOALayout']]
             a list describing this layout, or PyOALayout if cybagoa package is enabled.
         """
+
         if not self._finalized:
             raise Exception('Layout is not finalized.')
 
