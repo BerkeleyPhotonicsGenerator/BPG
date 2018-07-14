@@ -855,6 +855,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    ):
         # type: (...) -> None
         """
+        Instanitations an instance with instance_port_name aligned to self_port name
         Rotates new instance about the new instance's master's ORIGIN until desired port is aligned
         Reflect effectively performs a flip about the port direction axis after rotation
 
@@ -1046,6 +1047,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # TODO: matched vs non-matched ports.  IE, if two ports are already matched, do we export them
         if port_names is None:
             port_names = inst.master.photonic_ports_names_iter()
+
+        if isinstance(port_names, str):
+            port_names = [port_names]
 
         if port_renaming is None:
             port_renaming = {}
