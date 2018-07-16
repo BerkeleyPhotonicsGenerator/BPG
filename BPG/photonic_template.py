@@ -617,7 +617,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         rect = PhotonicRect(layer, bbox, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
         self._layout.add_rect(rect)
-        #self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
+        self._used_tracks.record_rect(self.grid, layer, rect.bbox_array)
         return rect
 
     def add_polygon(self,
