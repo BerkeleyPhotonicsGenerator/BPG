@@ -1,5 +1,6 @@
 import yaml
 import importlib
+import os
 
 from pathlib import Path
 from bag.layout import RoutingGrid
@@ -25,11 +26,19 @@ class PhotonicLayoutManager(DesignManager):
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
 
-        # Setup relevant files and directories
+        # Setup relevant output files and directories
         self.project_dir = Path(self.specs['project_dir']).expanduser()
-        self.scripts_dir = self.project_dir / self.specs['scripts']
-        self.data_dir = self.project_dir / self.specs['data']
-        self.layermap = self.specs['layermap']  # layermap is not assumed to be in project dir
+        self.scripts_dir = self.project_dir / 'scripts'
+        self.data_dir = self.project_dir / 'data'
+
+        # Setup the technology files
+        if 'layermap' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.layermap = bag_work_dir / self.specs['layermap']
+        elif 'BAG_PHOT_LAYERMAP' in os.environ:
+            self.layermap = os.environ['BAG_PHOT_LAYERMAP']
+        else:
+            raise EnvironmentError('Technology layermap not provided')
 
         # Make the directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
@@ -99,8 +108,6 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_shapely(self):
         return self.tdb.to_shapely()
-
-
 
     @staticmethod
     def load_yaml(filepath):
