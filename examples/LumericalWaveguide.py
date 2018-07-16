@@ -80,7 +80,7 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/example_spec_file.yaml'
+    spec_file = 'BPG/examples/specs/example_spec_file.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     PLM.generate_lsf()

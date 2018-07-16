@@ -509,7 +509,6 @@ class PhotonicTemplateDB(TemplateDB):
         return shapelywriter.final_shapes_export()
 
 
-
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
                  temp_db,  # type: TemplateDB
