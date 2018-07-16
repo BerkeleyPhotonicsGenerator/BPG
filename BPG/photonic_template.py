@@ -13,11 +13,11 @@ from bag.core import BagProject, RoutingGrid
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
-from bag.layout.objects import Instance, InstanceInfo
 from BPG.photonic_core import PhotonicBagLayout
 
 from .photonic_port import PhotonicPort
-from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPinInfo, PhotonicPath
+from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
+    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPinInfo, PhotonicPath
 from BPG import LumericalGenerator
 from BPG import ShapelyGenerator
 from collections import OrderedDict
@@ -26,6 +26,7 @@ from numpy import pi
 
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo
+    from bag.layout.objects import InstanceInfo, Instance
 
 try:
     import gdspy
@@ -524,25 +525,15 @@ class PhotonicTemplateDB(TemplateDB):
         self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
 
     def _flatten_instantiate_master_helper(self,
-                                           master,
-                                           loc=(0, 0),
-                                           orient='R0',
+                                           master,  # type:
                                            debug=False,
                                            ):
-        """
-        For each passed master:
-           get content
-           for each child instance:
-              call _flatten instantiate again
-
-           transform all content by the child position & orientation
-
+        """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
+        elements to create a flat design
 
         Parameters
         ----------
-        master
-        loc
-        orient
+        master :
         debug
 
         Returns
@@ -560,21 +551,19 @@ class PhotonicTemplateDB(TemplateDB):
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
 
         # For each instance in this level, recurse to get all its content
-        for child_instanceinfo in master_subisntances:
-            child_master_key = child_instanceinfo['master_key']
+        for child_instance_info in master_subisntances:
+            child_master_key = child_instance_info['master_key']
             child_master = self._master_lookup[child_master_key]
 
-            childs_content = self._flatten_instantiate_master_helper(
+            child_content = self._flatten_instantiate_master_helper(
                 master=child_master,
-                loc=child_instanceinfo['loc'],
-                orient=child_instanceinfo['orient'],
                 debug=debug
             )
 
             transformed_child_content = self._transform_child_content(
-                content=childs_content,
-                loc=child_instanceinfo['loc'],
-                orient=child_instanceinfo['orient'],
+                content=child_content,
+                loc=child_instance_info['loc'],
+                orient=child_instance_info['orient'],
                 debug=debug,
             )
 
@@ -726,9 +715,9 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
-    def get_layer_shapes(self,
-                         layer,  # type: Tuple[str, str]
-                         ):
+    def get_shapes_on_layer(self,
+                            layer,  # type: Tuple[str, str]
+                            ):
         # type: (...) -> List
         """Returns only the content that exists on a given layer
 
@@ -1009,8 +998,39 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           resolution=None,  # type: Union[float, int]
                           unit_mode=False,  # type: bool
                           port=None,  # type: PhotonicPort
-                          force_append=False,  # type: bool
+                          overwrite=False,  # type: bool
                           ):
+        # type: (...) -> PhotonicPort
+        """Adds a photonic port to the current hierarchy.
+        A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
+
+        Parameters
+        ----------
+        name : str
+            name to give the new port
+        center : coord_type
+            (x, y) location of the port
+        orient : str
+            orientation pointing INTO the port
+        width : dim_type
+            the port width
+        layer : Union[str, Tuple[str, str]]
+            the layer on which the port should be added. If only a string, the purpose is defaulted to 'port'
+        resolution : Union[float, int]
+            the grid resolution
+        unit_mode : bool
+            True if layout dimensions are specified in resolution units
+        port : Optional[PhotonicPort]
+            the PhotonicPort object to add. This argument can be provided in lieu of all the others.
+        overwrite : bool
+            True to add the port with the specified name even if another port with that name already exists in this
+            level of the design hierarchy.
+
+        Returns
+        -------
+        port : PhotonicPort
+            the added photonic port object
+        """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
 
@@ -1028,8 +1048,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
 
-        # Add port to port list. If name already is taken, remap port if force_append is true
-        if port.name not in self._photonic_ports.keys() or force_append:
+        # Add port to port list. If name already is taken, remap port if overwrite is true
+        if port.name not in self._photonic_ports.keys() or overwrite:
             self._photonic_ports[port.name] = port
         else:
             raise ValueError('Port "{}" already exists in cell.'.format(name))
@@ -1063,26 +1083,41 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             unit_mode=True,
         )
 
+        return port
+
     def has_photonic_port(self,
                           port_name,  # type: str
                           ):
+        # type: (...) -> bool
+        """Checks if the given port name exists in the current hierarchy level.
+
+        Parameters
+        ----------
+        port_name : str
+            the name of the port
+
+        Returns
+        -------
+            : boolean
+            true if port exists in current hierarchy level
+        """
         return port_name in self._photonic_ports
 
     def get_photonic_port(self,
-                          port_name='',  # type: str
+                          port_name='',  # type: Optional[str]
                           ):
         # type: (...) -> PhotonicPort
         """ Returns the photonic port object with the given name
 
         Parameters
         ----------
-        port_name : str
+        port_name : Optional[str]
             the photonic port terminal name. If None or empty, check if this photonic template has only one port,
             and return it
 
         Returns
         -------
-        port : PhotonicsPort
+        port : PhotonicPort
             The photonic port object
         """
         if not self.has_photonic_port(port_name):
@@ -1104,11 +1139,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    instance_name=None,  # type: str
                                    reflect=False,  # type: bool
                                    ):
-        # type: (...) -> None
+        # type: (...) -> PhotonicInstance
         """
-        Instanitations an instance with instance_port_name aligned to self_port name
-        Rotates new instance about the new instance's master's ORIGIN until desired port is aligned
-        Reflect effectively performs a flip about the port direction axis after rotation
+        Instantiates a new instance of the inst_master template.
+        The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
+        'self_port_name' port of the current hierarchy level.
+
+        The new instance is rotated about the new instance's master's origin until desired port is aligned.
+        Optional reflection is performed after rotation, about the port axis.
 
         Parameters
         ----------
@@ -1117,14 +1155,15 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         instance_port_name : str
             the name of the port in the added instance to connect to
         self_port_name : str
-            the name of the port in the current structure to connect to
+            the name of the port in the current hierarchy to connect to
         instance_name : str
             the name to give the new instance
         reflect : bool
-            True to flip the added instance
+            True to flip the added instance after rotation
         Returns
         -------
-
+        new_inst : PhotonicInstance
+            the newly added instance
         """
 
         # TODO: If ports dont have same width/layer, do we return error?
@@ -1261,8 +1300,22 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         pass
 
     def _get_unused_port_name(self,
-                              port_name,  # type: str
+                              port_name,  # type: Optional[str]
                               ):
+        # type: (...) -> str
+        """Returns a new unique name for a port in the current hierarchy level
+
+        Parameters
+        ----------
+        port_name : Optional[str]
+            base port name. If no value is supplied, 'PORT' is used as the base name
+
+        Returns
+        -------
+        new_name : str
+            new unique port name
+        """
+
         if port_name is None:
             port_name = 'PORT'
         new_name = port_name
@@ -1278,19 +1331,22 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def extract_photonic_ports(self,
                                inst,  # type: PhotonicInstance
                                port_names=None,  # type: Optional[Union[str, List[str]]]
-                               port_renaming=None,  # type: Dict[str, str]
+                               port_renaming=None,  # type: Optional[Dict[str, str]]
                                unmatched_only=True,  # type: bool
                                ):
         # type: (...) -> None
-        """
+        """Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
         ----------
-        inst :
-        port_names :
-            the port to re-export. If not given, export all unmatched ports.
-        port_renaming :
-
+        inst : PhotonicInstance
+            the instance that contains the ports to be extracted
+        port_names : Optional[Union[str, List[str]]
+            the port name or list of port names re-export. If not supplied, all ports of the inst will be extracted
+        port_renaming : Optional[Dict[str, str]]
+            a dictionary containing key-value pairs mapping inst's port names (key)
+            to the new desired port names (value).
+            If not supplied, extracted ports will be given their original names
         Returns
         -------
 
@@ -1325,10 +1381,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             # If name is already used
             if new_name in self._photonic_ports:
-                # Prepend instance name __   and append unique number
+                # Prepend instance name __  and append unique number
                 new_name = self._get_unused_port_name(inst.content.name + '__' + new_name)
 
-            new_port = self.add_photonic_port(
+            self.add_photonic_port(
                 name=new_name,
                 center=new_location,
                 orient=new_orient,

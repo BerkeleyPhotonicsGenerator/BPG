@@ -113,6 +113,13 @@ class TopLevel(BPG.PhotonicTemplateBase):
             orient='R0',
         )
 
+        self.add_instance(
+            master=sub_master,
+            inst_name='sub2',
+            loc=(20, 20),
+            orient='MXR90'
+        )
+
 
 if __name__ == '__main__':
     # Load a previous BPG Project if it exists, otherwise create a new one

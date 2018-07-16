@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, Itera
     Generator
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
-    ViaInfo, Via, PinInfo, Instance
+    ViaInfo, Via, PinInfo, Instance, InstanceInfo
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
@@ -22,158 +22,22 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-'''
-class InstanceInfo(dict):
+
+class PhotonicInstanceInfo(InstanceInfo):
     """A dictionary that represents a layout instance.
     """
 
-    param_list = ['lib', 'cell', 'view', 'name', 'loc', 'orient', 'num_rows',
-                  'num_cols', 'sp_rows', 'sp_cols']
-
     def __init__(self, res, change_orient=True, **kwargs):
-        kv_iter = ((key, kwargs[key]) for key in self.param_list)
-        dict.__init__(self, kv_iter)
-        self._resolution = res
-        if 'params' in kwargs:
-            self.params = kwargs['params']
+        InstanceInfo.__init__(self, res, change_orient, **kwargs)
 
-        # skill/OA array before rotation, while we're doing the opposite.
-        # this is supposed to fix it.
-        if change_orient:
-            orient = self['orient']
-            if orient == 'R180':
-                self['sp_rows'] *= -1
-                self['sp_cols'] *= -1
-            elif orient == 'MX':
-                self['sp_rows'] *= -1
-            elif orient == 'MY':
-                self['sp_cols'] *= -1
-            elif orient == 'R90':
-                self['sp_rows'], self['sp_cols'] = self['sp_cols'], -self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'MXR90':
-                self['sp_rows'], self['sp_cols'] = self['sp_cols'], self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'MYR90':
-                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], -self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'R270':
-                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient != 'R0':
-                raise ValueError('Unknown orientation: %s' % orient)
-
-        print("in instanceinfo of photonic_objects")
+        if 'master_key' in kwargs:
+            self['master_key'] = kwargs['master_key']
 
     @property
-    def lib(self):
-        # type: () -> str
-        return self['lib']
+    def master_key(self):
+        # type: () -> Tuple
+        return self['master_key']
 
-    @property
-    def cell(self):
-        # type: () -> str
-        return self['cell']
-
-    @property
-    def view(self):
-        # type: () -> str
-        return self['view']
-
-    @property
-    def name(self):
-        # type: () -> str
-        return self['name']
-
-    @name.setter
-    def name(self, new_name):
-        # type: (str) -> None
-        self['name'] = new_name
-
-    @property
-    def loc(self):
-        # type: () -> Tuple[float, float]
-        loc_list = self['loc']
-        return loc_list[0], loc_list[1]
-
-    @property
-    def orient(self):
-        # type: () -> str
-        return self['orient']
-
-    @property
-    def num_rows(self):
-        # type: () -> int
-        return self['num_rows']
-
-    @property
-    def num_cols(self):
-        # type: () -> int
-        return self['num_cols']
-
-    @property
-    def sp_rows(self):
-        # type: () -> float
-        return self['sp_rows']
-
-    @property
-    def sp_cols(self):
-        # type: () -> float
-        return self['sp_cols']
-
-    @property
-    def params(self):
-        # type: () -> Optional[Dict[str, Any]]
-        return self.get('params', None)
-
-    @params.setter
-    def params(self, new_params):
-        # type: (Optional[Dict[str, Any]]) -> None
-        self['params'] = new_params
-
-    @property
-    def angle_reflect(self):
-        # type: () -> Tuple[int, bool]
-        orient = self['orient']
-        if orient == 'R0':
-            return 0, False
-        elif orient == 'R180':
-            return 180, False
-        elif orient == 'MX':
-            return 0, True
-        elif orient == 'MY':
-            return 180, True
-        elif orient == 'R90':
-            return 90, False
-        elif orient == 'MXR90':
-            return 90, True
-        elif orient == 'MYR90':
-            return 270, True
-        elif orient == 'R270':
-            return 270, False
-        else:
-            raise ValueError('Unknown orientation: %s' % orient)
-
-    def copy(self):
-        """Override copy method of dictionary to return an InstanceInfo instead."""
-        return InstanceInfo(self._resolution, change_orient=False, **self)
-
-    def move_by(self, dx=0, dy=0):
-        # type: (float, float) -> None
-        """Move this instance by the given amount.
-
-        Parameters
-        ----------
-        dx : float
-            the X shift.
-        dy : float
-            the Y shift.
-        """
-        res = self._resolution
-        loc = self.loc
-        self['loc'] = [round((loc[0] + dx) / res) * res,
-                       round((loc[1] + dy) / res) * res]
-'''
 
 class PhotonicInstance(Instance):
     """A layout instance, with optional arraying parameters.
@@ -218,19 +82,29 @@ class PhotonicInstance(Instance):
                  unit_mode=False,  # type: bool
                  ):
         # type: (...) -> None
-        res = parent_grid.resolution
-        Arrayable.__init__(self, res, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
-        self._parent_grid = parent_grid
-        self._lib_name = lib_name
-        self._inst_name = name
-        self._master = master
-        if unit_mode:
-            self._loc_unit = loc[0], loc[1]
-        else:
-            self._loc_unit = int(round(loc[0] / res)), int(round(loc[1] / res))
-        self._orient = orient
+        Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
+                          name, nx, ny, spx, spy, unit_mode)
+
         self._photonic_port_list = {}
         self._photonic_port_creator()
+
+    @property
+    def content(self):
+        # type: () -> PhotonicInstanceInfo
+        """A dictionary representation of this instance."""
+        return PhotonicInstanceInfo(self.resolution,
+                                    lib=self._lib_name,
+                                    cell=self.master.cell_name,
+                                    view='layout',
+                                    name=self._inst_name,
+                                    loc=list(self.location),
+                                    orient=self.orientation,
+                                    num_rows=self.ny,
+                                    num_cols=self.nx,
+                                    sp_rows=self.spy,
+                                    sp_cols=self.spx,
+                                    master_key=self.master.key
+                                    )
 
     def _photonic_port_creator(self):
         # type: (...) -> None
