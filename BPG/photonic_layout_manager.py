@@ -4,7 +4,7 @@ import importlib
 from pathlib import Path
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
-from BPG.photonics_template import PhotonicTemplateDB
+from BPG.photonic_template import PhotonicTemplateDB
 
 
 class PhotonicLayoutManager(DesignManager):
@@ -96,6 +96,11 @@ class PhotonicLayoutManager(DesignManager):
         """ Converts generated layout to lsf format for lumerical import """
         print('Generating .lsf file')
         self.tdb.to_lumerical()
+
+    def generate_shapely(self):
+        return self.tdb.to_shapely()
+
+
 
     @staticmethod
     def load_yaml(filepath):

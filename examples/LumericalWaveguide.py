@@ -68,8 +68,6 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
                                       unit_mode=False)
                             )
 
-        poly_test = self.add_polygon()
-
 
 if __name__ == '__main__':
     # Load a previous BPG Project if it exists, otherwise create a new one
