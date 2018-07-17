@@ -2,7 +2,7 @@ import BPG
 from bag.layout.util import BBox
 
 
-class SingleModeWaveguide(BPG.PhotonicTemplateBase):
+class TestPolygon(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
                  params,
@@ -48,25 +48,13 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
                                       unit_mode=False)
                             )
 
-        # Add waveguide
-        wg0 = self.add_rect(layer='Si',
-                            bbox=BBox(left=-3,
-                                      bottom=-2,
-                                      right=-2,
-                                      top=2,
-                                      resolution=self.grid.resolution,
-                                      unit_mode=False)
-                            )
-
-        # Add waveguide
-        wg1 = self.add_rect(layer='Si',
-                            bbox=BBox(left=2,
-                                      bottom=-2,
-                                      right=3,
-                                      top=2,
-                                      resolution=self.grid.resolution,
-                                      unit_mode=False)
-                            )
+        # Add a Si polygon
+        poly_test = self.add_polygon(layer='Si',
+                                     points=[
+                                         (0, 0),
+                                         (2, 0),
+                                         (2, 3)
+                                     ])
 
 
 if __name__ == '__main__':
@@ -80,7 +68,7 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = 'BPG/examples/specs/example_spec_file.yaml'
+    spec_file = './specs/LumericalPolygon_spec_file.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     PLM.generate_lsf()
