@@ -28,7 +28,7 @@ class PhotonicPort:
             center = (int(round(center[0] / resolution)), int(round(center[1] / resolution)))
             width = int(round(width / resolution))
 
-        self._center_unit = np.array([center[0], center[1]])  # type: np.array
+        self._center_unit = np.array(center)  # type: np.array
         self._name = name
         self._layer = layer
         self._used = False
