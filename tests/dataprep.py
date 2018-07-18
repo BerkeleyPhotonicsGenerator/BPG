@@ -5,15 +5,14 @@ from math import ceil, floor
 from matplotlib import pyplot
 from shapely.geometry import Point, Polygon, MultiPolygon
 from descartes import PolygonPatch
-from shapely.ops import union, cascaded_union
+from shapely.ops import cascaded_union
 from shapely.ops import polygonize, polygonize_full
 
 import importlib
 
-module_name = input('manh')
-importlib.import_module(module_name)
 
-import
+
+
 
 #### define parameters for testing
 global_grid_size = 0.001
@@ -25,12 +24,30 @@ global_min_space = 0.05
 # from figures import SIZE, BLUE, GRAY, set_limits
 
 
+def dataprep_coord_to_poly(pos_neg_list_list,
+                           # type: list[list[list[tuple[float, float]]], list[list[tuple[float, float]]]]
+                           ):
 
-def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon, list[Polygon, MultiPolygon]
+    pos_coord_list_list = pos_neg_list_list[0]
+    neg_coord_list_list = pos_neg_list_list[1]
+
+    polygon_out = Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
+    if (len(pos_coord_list_list) > 1):
+        for pos_coord_list in pos_coord_list_list[1:]:
+            polygon_pos = Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
+            polygon_out = polygon_out.union(polygon_pos)
+    if (len(neg_coord_list_list)):
+        for neg_coord_list in neg_coord_list_list:
+            polygon_neg = Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
+            polygon_out = polygon_out.buffer(polygon_neg)
+
+    return polygon_out
+
+
+def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon
                      size_amount,   # type: float
                      do_manh,       # type: bool
                      ):
-    if (all(isinstance(poly_member, (Polygon, MultiPolygon)) for poly_member in Polygon)):
 
     rough_grid_size = global_rough_grid_size
 
@@ -39,9 +56,9 @@ def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon, list[Polygon,
     polygon_oouu = polyop_undersize(polygon_oo, 2 * rough_grid_size)
     polygon_oouuo = polyop_oversize(polygon_oouu, rough_grid_size)
 
-    # extract the coordinate list and do manhattanization
-    polygon_oouuo_coords = polygon_oouuo.list(zip(*polygon_oouuo.exterior.coords.xy))
-    polygon_oouuo_rough = Polygon(manh_skill(polygon_oouuo_coords, rough_grid_size, do_manh))
+    # manhattanize to the rough grid
+    polygon_oouuo_rough = polyop_manh(polygon_oouuo, rough_grid_size, do_manh)
+
 
     # undersize then oversize
     polygon_roughsized = polyop_oversize(polyop_undersize(polygon_oouuo_rough, global_grid_size), global_grid_size)
@@ -131,6 +148,7 @@ def poly_operation(polygon1,        # type: Polygon, Multipolygon
             polygon_ref = polygon2
             polygon_out = polyop_extend(polygon_toextend, polygon_ref, size_amount)
         else:
+            pass
             # if (debug_text == True):
             #     print("Extension skipped on %L over %s by %s." %(LppIn, LppOut, list(SizeAmount)))
             # else:
@@ -138,7 +156,7 @@ def poly_operation(polygon1,        # type: Polygon, Multipolygon
     #### TODO
     elif (operation == 'ouo'):
         # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-        if True
+        if True:
             # if (debug_text == True and length(ShapesIn) > 0):
             #     print("Performing Over of Under of Under of Over on %s."  %LppIn)
             # if ():
