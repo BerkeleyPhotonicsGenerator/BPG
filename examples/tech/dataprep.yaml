@@ -1,0 +1,9 @@
+
+
+dataprep:
+  lpp_in:
+    - !!python/tuple ['SI', 'phot']
+    - !!python/tuple ['SI2', 'phot']
+  lpp_ops:
+    - !!python/tuple ['SI', 'drawing', 'add', 0.0]
+    - !!python/tuple ['SI', 'exclude', 'rad', 2.0]

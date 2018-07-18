@@ -40,6 +40,14 @@ class PhotonicLayoutManager(DesignManager):
         else:
             raise EnvironmentError('Technology layermap not provided')
 
+        if 'dataprep' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.dataprep = bag_work_dir / self.specs['dataprep']
+        elif 'BAG_PHOT_DATAPREP' in os.environ:
+            self.dataprep = os.environ['BAG_PHOT_DATAPREP']
+        else:
+            self.dataprep = None
+
         # Make the directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
@@ -48,6 +56,7 @@ class PhotonicLayoutManager(DesignManager):
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
         self.gds_path = str(self.data_dir / self.specs['gds_filename'])
+
 
         # Make the PhotonicTemplateDB
         self.make_tdb()
@@ -66,7 +75,7 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
                                       gds_lay_file=self.layermap, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path)
+                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep)
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """

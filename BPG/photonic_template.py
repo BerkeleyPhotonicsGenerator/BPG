@@ -50,6 +50,7 @@ class PhotonicTemplateDB(TemplateDB):
                  flatten=False,  # type: bool
                  gds_filepath='',  # type: str
                  lsf_filepath='',  # type: str
+                 dataprep_file='',  # type: str
                  **kwargs,
                  ):
         TemplateDB.__init__(self, lib_defs, routing_grid, libname, prj,
@@ -61,6 +62,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.lsf_filepath = lsf_filepath
         self.flat_content_list = None  # Variable where flattened layout content will be stored
         self.flat_content_by_layer = {}  # type: Dict[Tuple(str, str), List]
+        self.dataprep_file = dataprep_file
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -873,6 +875,9 @@ class PhotonicTemplateDB(TemplateDB):
             print('layout instantiation took %.4g seconds' % (end - start))
 
         return shapelywriter.final_shapes_export()
+
+    def dataprep(self):
+        pass
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
