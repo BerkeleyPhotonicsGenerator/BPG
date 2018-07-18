@@ -136,6 +136,7 @@ def manh_skill(poly_coords,     # type: list[tuple[float, float]]
     Convert a polygon into the polygon with orthogonal edges,
     detailed flavors are the same as it is in the SKILL code
 
+
     Parameters
     ----------
     poly_coords : list[tuple[float, float]]
@@ -231,6 +232,7 @@ def manh_skill(poly_coords,     # type: list[tuple[float, float]]
                     else:
                         poly_coords_orth.append((x0      , y0+ystep))
                         poly_coords_orth.append((x0+xstep, y0+ystep))
+
         #### clean up the coords
         return coords_cleanup(poly_coords_orth)
     else:
@@ -260,26 +262,24 @@ def polyop_manh(geom,               # type: Polygon, MultiPolygon
             manh_type_ext = 'non'
             manh_type_int = 'non'
 
-
+        # for each Polygon object(not MultiPolygon), first get the exterior shape
         coords_ext_orig = list(zip(*geom.exterior.coords.xy))
         coords_ext_manh = manh_skill(coords_ext_orig, manh_grid_size, manh_type=manh_type_ext)
-
+        # MUST buffer by 0 since other tools might give another type of coord list
         poly_ext_manh = Polygon(coords_ext_manh).buffer(0, cap_style=3, join_style=2)
-        # print(len(geom.interiors))
+
+        # take poly_ext_manh as the initial poly_manh
+        poly_manh = poly_ext_manh
         if (len(geom.interiors)):
             for interior in geom.interiors:
+                # for each interior coord list, convert to polygon, buffer by 0 to clean up, and take a subtraction
                 coords_int_orig = list(zip(*interior.coords.xy))
                 coords_int_manh = manh_skill(coords_int_orig, manh_grid_size, manh_type=manh_type_int)
                 poly_int_manh = Polygon(coords_int_manh).buffer(0, cap_style=3, join_style=2)
 
-                if (interior == geom.interiors[0]):
-                    poly_int_union_manh = poly_int_manh
-                else:
-                    poly_int_union_manh = poly_int_union_manh.union(poly_int_manh)
-
-            poly_manh = poly_ext_manh.difference(poly_int_union_manh)
+                poly_manh = poly_manh.difference(poly_int_manh)
         else:
-            poly_manh = poly_ext_manh
+            pass
 
         return poly_manh
 
