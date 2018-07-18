@@ -6,170 +6,39 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, Itera
     Generator
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
-    ViaInfo, Via, PinInfo, Instance
+    ViaInfo, Via, PinInfo, Instance, InstanceInfo
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
-from bag.layout.util import transform_loc_orient, transform_point
+from bag.layout.util import transform_loc_orient, transform_point, BBox
+import gdspy
+import numpy as np
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
     from BPG.photonic_port import PhotonicPort
-
+    from bag.layout.objects import Figure
 
 ldim = Union[float, int]
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-class InstanceInfo(dict):
+
+class PhotonicInstanceInfo(InstanceInfo):
     """A dictionary that represents a layout instance.
     """
 
-    param_list = ['lib', 'cell', 'view', 'name', 'loc', 'orient', 'num_rows',
-                  'num_cols', 'sp_rows', 'sp_cols']
-
     def __init__(self, res, change_orient=True, **kwargs):
-        kv_iter = ((key, kwargs[key]) for key in self.param_list)
-        dict.__init__(self, kv_iter)
-        self._resolution = res
-        if 'params' in kwargs:
-            self.params = kwargs['params']
+        InstanceInfo.__init__(self, res, change_orient, **kwargs)
 
-        # skill/OA array before rotation, while we're doing the opposite.
-        # this is supposed to fix it.
-        if change_orient:
-            orient = self['orient']
-            if orient == 'R180':
-                self['sp_rows'] *= -1
-                self['sp_cols'] *= -1
-            elif orient == 'MX':
-                self['sp_rows'] *= -1
-            elif orient == 'MY':
-                self['sp_cols'] *= -1
-            elif orient == 'R90':
-                self['sp_rows'], self['sp_cols'] = self['sp_cols'], -self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'MXR90':
-                self['sp_rows'], self['sp_cols'] = self['sp_cols'], self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'MYR90':
-                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], -self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient == 'R270':
-                self['sp_rows'], self['sp_cols'] = -self['sp_cols'], self['sp_rows']
-                self['num_rows'], self['num_cols'] = self['num_cols'], self['num_rows']
-            elif orient != 'R0':
-                raise ValueError('Unknown orientation: %s' % orient)
+        if 'master_key' in kwargs:
+            self['master_key'] = kwargs['master_key']
 
     @property
-    def lib(self):
-        # type: () -> str
-        return self['lib']
-
-    @property
-    def cell(self):
-        # type: () -> str
-        return self['cell']
-
-    @property
-    def view(self):
-        # type: () -> str
-        return self['view']
-
-    @property
-    def name(self):
-        # type: () -> str
-        return self['name']
-
-    @name.setter
-    def name(self, new_name):
-        # type: (str) -> None
-        self['name'] = new_name
-
-    @property
-    def loc(self):
-        # type: () -> Tuple[float, float]
-        loc_list = self['loc']
-        return loc_list[0], loc_list[1]
-
-    @property
-    def orient(self):
-        # type: () -> str
-        return self['orient']
-
-    @property
-    def num_rows(self):
-        # type: () -> int
-        return self['num_rows']
-
-    @property
-    def num_cols(self):
-        # type: () -> int
-        return self['num_cols']
-
-    @property
-    def sp_rows(self):
-        # type: () -> float
-        return self['sp_rows']
-
-    @property
-    def sp_cols(self):
-        # type: () -> float
-        return self['sp_cols']
-
-    @property
-    def params(self):
-        # type: () -> Optional[Dict[str, Any]]
-        return self.get('params', None)
-
-    @params.setter
-    def params(self, new_params):
-        # type: (Optional[Dict[str, Any]]) -> None
-        self['params'] = new_params
-
-    @property
-    def angle_reflect(self):
-        # type: () -> Tuple[int, bool]
-        orient = self['orient']
-        if orient == 'R0':
-            return 0, False
-        elif orient == 'R180':
-            return 180, False
-        elif orient == 'MX':
-            return 0, True
-        elif orient == 'MY':
-            return 180, True
-        elif orient == 'R90':
-            return 90, False
-        elif orient == 'MXR90':
-            return 90, True
-        elif orient == 'MYR90':
-            return 270, True
-        elif orient == 'R270':
-            return 270, False
-        else:
-            raise ValueError('Unknown orientation: %s' % orient)
-
-    def copy(self):
-        """Override copy method of dictionary to return an InstanceInfo instead."""
-        return InstanceInfo(self._resolution, change_orient=False, **self)
-
-    def move_by(self, dx=0, dy=0):
-        # type: (float, float) -> None
-        """Move this instance by the given amount.
-
-        Parameters
-        ----------
-        dx : float
-            the X shift.
-        dy : float
-            the Y shift.
-        """
-        res = self._resolution
-        loc = self.loc
-        self['loc'] = [round((loc[0] + dx) / res) * res,
-                       round((loc[1] + dy) / res) * res]
+    def master_key(self):
+        # type: () -> Tuple
+        return self['master_key']
 
 
 class PhotonicInstance(Instance):
@@ -215,19 +84,29 @@ class PhotonicInstance(Instance):
                  unit_mode=False,  # type: bool
                  ):
         # type: (...) -> None
-        res = parent_grid.resolution
-        Arrayable.__init__(self, res, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=unit_mode)
-        self._parent_grid = parent_grid
-        self._lib_name = lib_name
-        self._inst_name = name
-        self._master = master
-        if unit_mode:
-            self._loc_unit = loc[0], loc[1]
-        else:
-            self._loc_unit = int(round(loc[0] / res)), int(round(loc[1] / res))
-        self._orient = orient
-        self._photonic_port_list = {}
+        Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
+                          name, nx, ny, spx, spy, unit_mode)
+
+        self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
         self._photonic_port_creator()
+
+    @property
+    def content(self):
+        # type: () -> PhotonicInstanceInfo
+        """A dictionary representation of this instance."""
+        return PhotonicInstanceInfo(self.resolution,
+                                    lib=self._lib_name,
+                                    cell=self.master.cell_name,
+                                    view='layout',
+                                    name=self._inst_name,
+                                    loc=list(self.location),
+                                    orient=self.orientation,
+                                    num_rows=self.ny,
+                                    num_cols=self.nx,
+                                    sp_rows=self.spy,
+                                    sp_cols=self.spx,
+                                    master_key=self.master.key
+                                    )
 
     def _photonic_port_creator(self):
         # type: (...) -> None
@@ -321,138 +200,13 @@ class PhotonicInstance(Instance):
             dy = int(round(dy / self.resolution))
         self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
 
-        # TODO: Incomplete
-        for port in self._photonic_port_list:
-            port.transform()
-
-
-    def get_port(self, name='', row=0, col=0):
-        # type: (Optional[str], int, int) -> Port
-        """Returns the port object of the given instance in the array.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        row : int
-            the instance row index.  Index 0 is the bottom-most row.
-        col : int
-            the instance column index.  Index 0 is the left-most column.
-
-        Returns
-        -------
-        port : Port
-            the port object.
-        """
-        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
-        xshift, yshift = self._loc_unit
-        loc = (xshift + dx, yshift + dy)
-        return self._master.get_port(name).transform(self._parent_grid, loc=loc,
-                                                     orient=self.orientation, unit_mode=True)
-
-    def get_pin(self, name='', row=0, col=0, layer=-1):
-        # type: (Optional[str], int, int, int) -> Union[WireArray, BBox]
-        """Returns the first pin with the given name.
-
-        This is an efficient method if you know this instance has exactly one pin.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        row : int
-            the instance row index.  Index 0 is the bottom-most row.
-        col : int
-            the instance column index.  Index 0 is the left-most column.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Returns
-        -------
-        pin : Union[WireArray, BBox]
-            the first pin associated with the port of given name.
-        """
-        port = self.get_port(name, row, col)
-        return port.get_pins(layer)[0]
-
-    def get_all_port_pins(self, name='', layer=-1):
-        # type: (Optional[str], int) -> List[WireArray]
-        """Returns a list of all pins of all ports with the given name in this instance array.
-
-        This method gathers ports from all instances in this array with the given name,
-        then find all pins of those ports on the given layer, then return as list of WireArrays.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Returns
-        -------
-        pin_list : List[WireArray]
-            the list of pins as WireArrays.
-        """
-        results = []
-        for col in range(self.nx):
-            for row in range(self.ny):
-                port = self.get_port(name, row, col)
-                results.extend(port.get_pins(layer))
-        return results
-
-    def port_pins_iter(self, name='', layer=-1):
-        # type: (Optional[str], int) -> Iterator[WireArray]
-        """Iterate through all pins of all ports with the given name in this instance array.
-
-        Parameters
-        ----------
-        name : Optional[str]
-            the port terminal name.  If None or empty, check if this
-            instance has only one port, then return it.
-        layer : int
-            the pin layer.  If negative, check to see if the given port has only one layer.
-            If so then use that layer.
-
-        Yields
-        ------
-        pin : WireArray
-            the pin as WireArray.
-        """
-        for col in range(self.nx):
-            for row in range(self.ny):
-                try:
-                    port = self.get_port(name, row, col)
-                except KeyError:
-                    return
-                for warr in port.get_pins(layer):
-                    yield warr
-
-    def port_names_iter(self):
-        # type: () -> Iterable[str]
-        """Iterates over port names in this instance.
-
-        Yields
-        ------
-        port_name : str
-            name of a port in this instance.
-        """
-        return self._master.port_names_iter()
-
-    def has_port(self, port_name):
-        # type: (str) -> bool
-        """Returns True if this instance has the given port."""
-        return self._master.has_port(port_name)
-
-    def has_prim_port(self, port_name):
-        # type: (str) -> bool
-        """Returns True if this instance has the given primitive port."""
-        return self._master.has_prim_port(port_name)
+        # Translate each port in the instance as well
+        for port in self._photonic_port_list.values():
+            port.transform(
+                loc=(dx, dy),
+                orient='R0',
+                unit_mode=True
+            )
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
         # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
@@ -533,6 +287,23 @@ class PhotonicRound(Arrayable):
         Arrayable.__init__(self, self._res, nx=nx, ny=ny,
                            spx=spx, spy=spy, unit_mode=unit_mode)
 
+    @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicRound(
+            layer=content['layer'],
+            rout=content['rout'],
+            rin=content['rin'],
+            theta0=content['theta0'],
+            theta1=content['theta1'],
+            center=content['center'],
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            unit_mode=False,
+            resolution=resolution
+        )
+
     @property
     def rout(self):
         """The outer radius in layout units"""
@@ -549,7 +320,6 @@ class PhotonicRound(Arrayable):
              ):
         """Sets the outer radius in layout units"""
         self._rout_unit = int(round(val / self._res))
-
 
     @rout_unit.setter
     def rout_unit(self,
@@ -708,7 +478,7 @@ class PhotonicRound(Arrayable):
             # MX, then R90
             new_theta0 = -1 * self.theta1 + 90
             new_theta1 = -1 * self.theta0 + 90
-        else: # orient == 'MYR90'
+        else:  # orient == 'MYR90'
             new_theta0 = 180 - self.theta1 + 90
             new_theta1 = 180 - self.theta0 + 90
 
@@ -816,6 +586,42 @@ class PhotonicRound(Arrayable):
 
         return lsf_code
 
+    @classmethod
+    def shapely_export(cls,
+                       rout,  # type: dim_type
+                       rin,  # type: dim_type
+                       theta0,  # type: dim_type
+                       theta1,  # type: dim_type
+                       center,  # type: coord_type
+                       nx=1,  # type: int
+                       ny=1,  # type: int
+                       spx=0.0,  # type: dim_type
+                       spy=0.0,  # type: dim_type
+                       resolution=0.0  # type: float
+                       ):
+        # Get the base polygons
+        round_polygons = gdspy.Round(radius=rout,
+                                     inner_radius=rin,
+                                     initial_angle=theta0 * np.pi / 180,
+                                     final_angle=theta1 * np.pi / 180,
+                                     number_of_points=resolution,
+                                     layer=0,
+                                     datatype=0).polygons
+
+        output_list_p = []
+        output_list_n = []
+        for x_count in range(nx):
+            for y_count in range(ny):
+                for polygon in round_polygons:
+                    polygon_points = polygon.points
+                    polygon_points[:, 0] += center[0] + x_count * spx
+                    polygon_points[:, 1] += center[1] + y_count * spy
+                    polygon_points = np.vstack([polygon_points, polygon_points[0]])
+
+                    output_list_p.append(polygon_points.copy())
+
+        return output_list_p, output_list_n
+
 
 class PhotonicRect(Rect):
     """
@@ -845,6 +651,25 @@ class PhotonicRect(Rect):
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Rect.__init__(self, layer, bbox, nx, ny, spx, spy, unit_mode)
+
+    @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicRect(
+            layer=content['layer'],
+            bbox=BBox(
+                left=content['bbox'][0][0],
+                bottom=content['bbox'][0][1],
+                right=content['bbox'][1][0],
+                top=content['bbox'][1][1],
+                unit_mode=False,
+                resolution=resolution,
+            ),
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            unit_mode=False,
+        )
 
     @classmethod
     def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
@@ -910,7 +735,8 @@ class PhotonicRect(Rect):
                        spx=0.0,  # type: int
                        spy=0.0,  # type: int
                        ):
-        # type: (...) -> Tuple[Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List], Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List]]
+        # type: (...) -> Tuple
+        # TODO: documentation and docstring/typing
         """
         Describes the current rectangle shape in terms of lsf parameters for lumerical use
 
@@ -929,7 +755,7 @@ class PhotonicRect(Rect):
 
         Returns
         -------
-        lsf_code : List[str]
+        shapely_shapes : Tuple
             list of str containing the lsf code required to create specified rectangles
         """
 
@@ -955,7 +781,7 @@ class PhotonicRect(Rect):
                                 (x_base + x_count * spx, y_base + y_count * spy)]
                 output_list_p.append(polygon_list)
 
-        return (output_list_p, output_list_n)
+        return output_list_p, output_list_n
 
 
 class PhotonicPath(Path):
@@ -993,6 +819,21 @@ class PhotonicPath(Path):
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicPath(
+            resolution=resolution,
+            layer=content['layer'],
+            width=content['width'],
+            points=content['points'],
+            end_style=content['end_style'],
+            join_style=content['join_style'],
+            unit_mode=False,
+        )
 
 
 class PhotonicPathCollection(PathCollection):
@@ -1072,6 +913,15 @@ class PhotonicPolygon(Polygon):
         Polygon.__init__(self, resolution, layer, points, unit_mode)
 
     @classmethod
+    def from_content(cls, content, resolution):
+        return PhotonicPolygon(
+            resolution=resolution,
+            layer=content['layer'],
+            points=content['points'],
+            unit_mode=False,
+        )
+
+    @classmethod
     def lsf_export(cls, vertices, layer_prop) -> List[str]:
         """
         Describes the current polygon shape in terms of lsf parameters for lumerical use
@@ -1108,6 +958,14 @@ class PhotonicPolygon(Polygon):
                     'set("z max", {}e-6);\n'.format(layer_prop['z_max'])]
 
         return lsf_code
+
+    @classmethod
+    def shapely_export(cls,
+                       vertices,  # type: List[Tuple[float, float]]
+                       ):
+        # type: (...) -> Tuple
+        # TODO: documentation and docstring/typing
+        return vertices, []
 
 
 class PhotonicAdvancedPolygon(Polygon):
@@ -1169,6 +1027,19 @@ class PhotonicBlockage(Blockage):
         # type: (float, str, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
         Blockage.__init__(self, resolution, block_type, block_layer, points, unit_mode)
 
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicBlockage(
+            resolution=resolution,
+            block_type=content['btype'],
+            block_layer=content['blayer'],
+            points=content['points'],
+            unit_mode=False,
+        )
+
 
 class PhotonicBoundary(Boundary):
     """
@@ -1191,6 +1062,18 @@ class PhotonicBoundary(Boundary):
     def __init__(self, resolution, boundary_type, points, unit_mode=False):
         # type: (float, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
         Boundary.__init__(self, resolution, boundary_type, points, unit_mode)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution,
+                     ):
+        return PhotonicBoundary(
+            resolution=resolution,
+            boundary_type=content['btype'],
+            points=content['points'],
+            unit_mode=False,
+        )
 
 
 class PhotonicViaInfo(ViaInfo):
@@ -1243,6 +1126,25 @@ class PhotonicVia(Via):
     def __init__(self, tech, bbox, bot_layer, top_layer, bot_dir,
                  nx=1, ny=1, spx=0, spy=0, extend=True, top_dir=None, unit_mode=False):
         Via.__init__(self, tech, bbox, bot_layer, top_layer, bot_dir, nx, ny, spx, spy, extend, top_dir, unit_mode)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     ):
+        return PhotonicVia(
+            tech=content['tech'],
+            bbox=content['bbox'],
+            bot_layer=content['bot_layer'],
+            top_layer=content['top_layer'],
+            bot_dir=content['bot_dir'],
+            nx=content.get('arr_nx', 1),
+            ny=content.get('arr_ny', 1),
+            spx=content.get('arr_spx', 0),
+            spy=content.get('arr_spy', 0),
+            extend=content['extend'],
+            top_dir=content['top_dir'],
+            unit_mode=False,
+        )
 
 
 class PhotonicPinInfo(PinInfo):

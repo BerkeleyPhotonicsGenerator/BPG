@@ -13,16 +13,20 @@ from bag.core import BagProject, RoutingGrid
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
-from bag.layout.objects import Instance, InstanceInfo
 from BPG.photonic_core import PhotonicBagLayout
 
 from .photonic_port import PhotonicPort
-from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound
+from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
+    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPinInfo, PhotonicPath
 from BPG import LumericalGenerator
 from BPG import ShapelyGenerator
 from collections import OrderedDict
 
 from numpy import pi
+
+if TYPE_CHECKING:
+    from bag.layout.objects import ViaInfo, PinInfo
+    from bag.layout.objects import InstanceInfo, Instance
 
 try:
     import gdspy
@@ -55,6 +59,8 @@ class PhotonicTemplateDB(TemplateDB):
         self.content_list = None  # Variable where all generated layout content will be stored
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
+        self.flat_content_list = None  # Variable where flattened layout content will be stored
+        self.flat_content_by_layer = {}  # type: Dict[Tuple(str, str), List]
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -432,47 +438,397 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('layout instantiation took %.4g seconds' % (end - start))
 
-    def to_shapely(self, debug=False):
-        """ Export the drawn layout to the Shapely format """
+    def instantiate_flat_masters(self,
+                                 master_list,  # type: Sequence[DesignMaster]
+                                 name_list=None,  # type: Optional[Sequence[Optional[str]]]
+                                 lib_name='',  # type: str
+                                 debug=False,  # type: bool
+                                 rename_dict=None,  # type: Optional[Dict[str, str]]
+                                 ) -> None:
+        """
+        Create all given masters in the database to a flat hierarchy.
+
+        Parameters
+        ----------
+        master_list : Sequence[DesignMaster]
+            list of masters to instantiate.
+        name_list : Optional[Sequence[Optional[str]]]
+            list of master cell names.  If not given, default names will be used.
+        lib_name : str
+            Library to create the masters in.  If empty or None, use default library.
+        debug : bool
+            True to print debugging messages
+        rename_dict : Optional[Dict[str, str]]
+            optional master cell renaming dictionary.
+        """
+        if name_list is None:
+            name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
+        else:
+            if len(name_list) != len(master_list):
+                raise ValueError("Master list and name list length mismatch.")
+
+        # configure renaming dictionary.  Verify that renaming dictionary is one-to-one.
+        rename = self._rename_dict
+        rename.clear()
+        reverse_rename = {}
+        if rename_dict:
+            for key, val in rename_dict.items():
+                if key != val:
+                    if val in reverse_rename:
+                        raise ValueError('Both %s and %s are renamed '
+                                         'to %s' % (key, reverse_rename[val], val))
+                    rename[key] = val
+                    reverse_rename[val] = key
+
+        for master, name in zip(master_list, name_list):
+            if name is not None and name != master.cell_name:
+                cur_name = master.cell_name
+                if name in reverse_rename:
+                    raise ValueError('Both %s and %s are renamed '
+                                     'to %s' % (cur_name, reverse_rename[name], name))
+                rename[cur_name] = name
+                reverse_rename[name] = cur_name
+
+                if name in self._used_cell_names:
+                    # name is an already used name, so we need to rename it to something else
+                    name2 = _get_unique_name(name, self._used_cell_names, reverse_rename)
+                    rename[name] = name2
+                    reverse_rename[name2] = name
+
+        if debug:
+            print('Retrieving master contents')
+
+        content_list = []
+        start = time.time()
+        for master, top_name in zip(master_list, name_list):
+            content_list.append(
+                (
+                    master.cell_name,
+                    [],
+                    *self._flatten_instantiate_master_helper(
+                        master=master,
+                        debug=debug
+                    )
+                )
+            )
+        end = time.time()
+
+        if not lib_name:
+            lib_name = self.lib_name + '_flattened'
+        if not lib_name:
+            raise ValueError('master library name is not specified.')
+
+        list_of_contents = [('', [], [], [], [], [], [], [], [], []),]
+        for content in content_list:
+            for i, data in enumerate(content):
+                list_of_contents[0][i] += data
+
+        self.flat_content_list = list_of_contents
+
+        self._sort_flat_shapes_to_layers()
+
+        if debug:
+            print('master content retrieval took %.4g seconds' % (end - start))
+
+        self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
+
+    def _flatten_instantiate_master_helper(self,
+                                           master,  # type:
+                                           debug=False,
+                                           ):
+        """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
+        elements to create a flat design
+
+        Parameters
+        ----------
+        master :
+        debug
+
+        Returns
+        -------
+
+        """
+        start = time.time()
+
+        master_content = master.get_content(self.lib_name, self.format_cell_name)
+
+        (master_name, master_subisntances, new_rect_list, new_via_list, new_pin_list, new_path_list,
+         new_blockage_list, new_boundary_list, new_polygon_list, new_round_list) = master_content
+
+        new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
+                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
+
+        # For each instance in this level, recurse to get all its content
+        for child_instance_info in master_subisntances:
+            child_master_key = child_instance_info['master_key']
+            child_master = self._master_lookup[child_master_key]
+
+            child_content = self._flatten_instantiate_master_helper(
+                master=child_master,
+                debug=debug
+            )
+
+            transformed_child_content = self._transform_child_content(
+                content=child_content,
+                loc=child_instance_info['loc'],
+                orient=child_instance_info['orient'],
+                debug=debug,
+            )
+
+            # We got the children's info. Now append it to polygons within the current master
+            for master_shapes, child_shapes in zip(new_content_list, transformed_child_content):
+                master_shapes.extend(child_shapes)
+
+        end = time.time()
+
+        if debug:
+            print("Done with _flatten_instance_master_helper.  Took " + str(end-start) + "s")
+
+        return new_content_list
+
+    def _transform_child_content(self,
+                                 content,  # type: Tuple
+                                 loc=(0, 0),  # type: coord_type
+                                 orient='R0',  # type: str
+                                 unit_mode=False,  # type: bool
+                                 debug=False,  # type: bool
+                                 ):
+        """
+
+        Parameters
+        ----------
+        content
+        loc
+        orient
+        unit_mode
+        debug
+
+        Returns
+        -------
+
+        """
+        if debug:
+            print('In _transform_child_content')
+
+        (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
+
+        new_rect_list = []
+        new_via_list = []
+        new_pin_list = []
+        new_path_list = []
+        new_blockage_list = []
+        new_boundary_list = []
+        new_polygon_list = []
+        new_round_list = []
+
+        # add rectangles
+        for rect in rect_list:
+            new_rect_list.append(
+                PhotonicRect.from_content(
+                    content=rect,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        # add vias
+        for via in via_list:
+            new_via_list.append(
+                PhotonicVia.from_content(
+                    content=via,
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        # add pins
+        for pin in pin_list:
+            # TODO: pins...
+            new_pin_list.append(pin)
+
+        for path in path_list:
+            new_path_list.append(
+                PhotonicPath.from_content(
+                    content=path,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        for blockage in blockage_list:
+            new_blockage_list.append(
+                PhotonicBlockage.from_content(
+                    content=blockage,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        for boundary in boundary_list:
+            new_boundary_list.append(
+                PhotonicBoundary.from_content(
+                    content=boundary,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+            
+        for polygon in polygon_list:
+            new_polygon_list.append(
+                PhotonicPolygon.from_content(
+                    content=polygon,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        for round_obj in round_list:
+            new_round_list.append(
+                PhotonicRound.from_content(
+                    content=round_obj,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                ).content
+            )
+
+        new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
+                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
+
+        return new_content_list
+
+    def get_shapely_on_layer(self,
+                             layer,  # type: Tuple[str, str]
+                             debug=False,  # type: bool
+                             ):
+        """
+        Returns a list of all shapes
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            the layer purpose pair to get all shapes in shapely format
+        debug : bool
+            true to print debug info
+
+        Returns
+        -------
+
+        """
+        content = [self.get_shapes_on_layer(layer)]
+        return self.to_shapely(content_list=content, debug=debug)
+
+    def get_shapes_on_layer(self,
+                            layer,  # type: Tuple[str, str]
+                            ):
+        # type: (...) -> Tuple
+        """Returns only the content that exists on a given layer
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            the layer whose content is desired
+
+        Returns
+        -------
+        content : Tuple
+            the shape content on the provided layer
+        """
+        if layer not in self.flat_content_by_layer.keys():
+            return ()
+        else:
+            return self.flat_content_by_layer[layer]
+
+    def _sort_flat_shapes_to_layers(self):
+        """
+        Sorts the flattened shape list into a dictionary of lists, with keys corresponding to a given lpp
+
+        Returns
+        -------
+
+        """
+
+        (cell_name, _, rect_list, via_list, pin_list, path_list,
+         blockage_list, boundary_list, polygon_list, round_list) = self.flat_content_list
+
+        used_layers = []
+        offset = 2
+
+        for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
+                                                      blockage_list, boundary_list, polygon_list, round_list]):
+            for content_item in list_content:
+                layer = content_item['layer']
+                if layer not in used_layers:
+                    used_layers.append(layer)
+                    self.flat_content_list[layer] = (cell_name, [], [], [], [], [], [], [], [], [])
+                self.flat_content_by_layer[layer][offset + list_type_ind].append(content_item)
+
+    def to_shapely(self,
+                   content_list,  # type: List
+                   debug=False,  # type: bool
+                   ):
+        # type: (...) -> Tuple[List, List]
+        """
+        Export the drawn layout to the Shapely format
+
+        Parameters
+        ----------
+        content_list : List
+        debug : bool
+
+        Returns
+        -------
+
+        """
         shapelywriter = ShapelyGenerator()
         # lay_unit = tech_info.layout_unit
         # res = tech_info.resolution
 
         start = time.time()
-        for content in self.content_list:
+        for content in content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list) = content
 
             # add instances
             for inst_info in inst_tot_list:
                 pass
-
-                # TODO: Determine how useful this section really is...
-                # if inst_info.params is not None:
-                #     raise ValueError('Cannot instantiate PCells in GDS.')
-                # num_rows = inst_info.num_rows
-                # num_cols = inst_info.num_cols
-                # angle, reflect = inst_info.angle_reflect
-                # if num_rows > 1 or num_cols > 1:
-                #     cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
-                #                                (inst_info.sp_cols, inst_info.sp_rows),
-                #                                origin=inst_info.loc, rotation=angle,
-                #                                x_reflection=reflect)
-                # else:
-                #     cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
-                #                                    rotation=angle, x_reflection=reflect)
-                # gds_cell.add(cur_inst)
 
             # add rectangles
             for rect in rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 if nx > 1 or ny > 1:
                     shapely_representation = PhotonicRect.shapely_export(rect['bbox'], nx, ny,
-                                                       spx=rect['arr_spx'], spy=rect['arr_spy'])
+                                                                         spx=rect['arr_spx'], spy=rect['arr_spy'])
                 else:
                     shapely_representation = PhotonicRect.shapely_export(rect['bbox'])
 
-                shapelywriter.add_shapes(shapely_representation)
+                shapelywriter.add_shapes(*shapely_representation)
 
             # add vias
             for via in via_list:
@@ -491,16 +847,26 @@ class PhotonicTemplateDB(TemplateDB):
             for boundary in boundary_list:
                 pass
 
-            # for polygon in polygon_list:
-            #     layer_prop = prop_map[tuple(polygon['layer'])]
-            #     shapely_representation = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
-            #     lsfwriter.add_code(shapely_representation)
+            for polygon in polygon_list:
+                shapely_representation = PhotonicPolygon.shapely_export(polygon['points'])
+                shapelywriter.add_shapes(*shapely_representation)
 
+            for round_obj in round_list:
 
-                # lay_id, purp_id = lay_map[polygon['layer']]
-                # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-                #                          verbose=False)
-                # gds_cell.add(cur_poly.fracture(precision=res))
+                shapely_representation = PhotonicRound.shapely_export(
+                    rout=round_obj['rout'],
+                    rin=round_obj['rin'],
+                    theta0=round_obj['theta0'],
+                    theta1=round_obj['theta1'],
+                    center=round_obj['center'],
+                    nx=round_obj.get('nx', 1),
+                    ny=round_obj.get('ny',1),
+                    spx=round_obj.get('spx', 0.0),
+                    spy=round_obj.get('spy', 0.0),
+                    resolution=self.grid.resolution,
+                )
+
+                shapelywriter.add_shapes(*shapely_representation)
 
         end = time.time()
         if debug:
@@ -627,7 +993,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     unit_mode=False,  # type: bool
                     ):
         # type: (...) -> PhotonicPolygon
-        """
+        """Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
+        create a new photonic polygon.
 
         Parameters
         ----------
@@ -667,15 +1034,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return polygon
 
     def add_round(self,
-                  round_obj=None,  # type: Optional[PhotonicRound]
-                  layer=None,  # type: Union[str, Tuple[str, str]]
-                  center=None,  # type: coord_type
-                  rout=None,  # type: dim_type
-                  rin=None,  # type: Optional[dim_type]
-                  theta0=None,  # type: Optional[dim_type]
-                  theta1=None,  # type: Optional[dim_type]
-                  resolution=None,  # type: float
-                  unit_mode=False,  # type: bool
+                  round_obj,  # type: PhotonicRound
                   ):
         # type: (...) -> PhotonicRound
         """
@@ -684,45 +1043,12 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         ----------
         round_obj : Optional[PhotonicRound]
             the polygon to add
-        layer : Union[str, Tuple[str, str]]
-            the layer of the polygon
-        rout : dim_type
-            the outer radius
-        rin : dim_type
-            Optional: the inner radius
-        theta0 : dim_type
-            Optional: the starting angle
-        theta1 : dim_type
-            Optional: the ending angle
-        resolution : float
-            the layout grid resolution
-        unit_mode : bool
-            True if the points are given in resolution units
 
         Returns
         -------
         polygon : PhotonicRound
             the added round object
         """
-        # If user passes points and layer instead of polygon object, define the new polygon
-        if round_obj is None:
-            # Ensure proper arguments are passed
-            if all([layer, rout]) is None:
-                raise ValueError("If adding round by radius, then layer and radius must be defined.")
-
-            if resolution is None:
-                resolution = self.grid.resolution
-
-            round_obj = PhotonicRound(
-                layer=layer,
-                resolution=resolution,
-                center=center,
-                rout=rout,
-                rin=rin,
-                theta0=theta0,
-                theta1=theta1,
-                unit_mode=unit_mode,
-            )
 
         self._layout.add_round(round_obj)
         return round_obj
@@ -757,8 +1083,39 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           resolution=None,  # type: Union[float, int]
                           unit_mode=False,  # type: bool
                           port=None,  # type: PhotonicPort
-                          force_append=False,  # type: bool
+                          overwrite=False,  # type: bool
                           ):
+        # type: (...) -> PhotonicPort
+        """Adds a photonic port to the current hierarchy.
+        A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
+
+        Parameters
+        ----------
+        name : str
+            name to give the new port
+        center : coord_type
+            (x, y) location of the port
+        orient : str
+            orientation pointing INTO the port
+        width : dim_type
+            the port width
+        layer : Union[str, Tuple[str, str]]
+            the layer on which the port should be added. If only a string, the purpose is defaulted to 'port'
+        resolution : Union[float, int]
+            the grid resolution
+        unit_mode : bool
+            True if layout dimensions are specified in resolution units
+        port : Optional[PhotonicPort]
+            the PhotonicPort object to add. This argument can be provided in lieu of all the others.
+        overwrite : bool
+            True to add the port with the specified name even if another port with that name already exists in this
+            level of the design hierarchy.
+
+        Returns
+        -------
+        port : PhotonicPort
+            the added photonic port object
+        """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
 
@@ -776,8 +1133,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
 
-        # Add port to port list. If name already is taken, remap port if force_append is true
-        if port.name not in self._photonic_ports.keys() or force_append:
+        # Add port to port list. If name already is taken, remap port if overwrite is true
+        if port.name not in self._photonic_ports.keys() or overwrite:
             self._photonic_ports[port.name] = port
         else:
             raise ValueError('Port "{}" already exists in cell.'.format(name))
@@ -811,26 +1168,41 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             unit_mode=True,
         )
 
+        return port
+
     def has_photonic_port(self,
                           port_name,  # type: str
                           ):
+        # type: (...) -> bool
+        """Checks if the given port name exists in the current hierarchy level.
+
+        Parameters
+        ----------
+        port_name : str
+            the name of the port
+
+        Returns
+        -------
+            : boolean
+            true if port exists in current hierarchy level
+        """
         return port_name in self._photonic_ports
 
     def get_photonic_port(self,
-                          port_name='',  # type: str
+                          port_name='',  # type: Optional[str]
                           ):
         # type: (...) -> PhotonicPort
         """ Returns the photonic port object with the given name
 
         Parameters
         ----------
-        port_name : str
+        port_name : Optional[str]
             the photonic port terminal name. If None or empty, check if this photonic template has only one port,
             and return it
 
         Returns
         -------
-        port : PhotonicsPort
+        port : PhotonicPort
             The photonic port object
         """
         if not self.has_photonic_port(port_name):
@@ -852,11 +1224,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    instance_name=None,  # type: str
                                    reflect=False,  # type: bool
                                    ):
-        # type: (...) -> None
+        # type: (...) -> PhotonicInstance
         """
-        Instanitations an instance with instance_port_name aligned to self_port name
-        Rotates new instance about the new instance's master's ORIGIN until desired port is aligned
-        Reflect effectively performs a flip about the port direction axis after rotation
+        Instantiates a new instance of the inst_master template.
+        The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
+        'self_port_name' port of the current hierarchy level.
+
+        The new instance is rotated about the new instance's master's origin until desired port is aligned.
+        Optional reflection is performed after rotation, about the port axis.
 
         Parameters
         ----------
@@ -865,14 +1240,15 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         instance_port_name : str
             the name of the port in the added instance to connect to
         self_port_name : str
-            the name of the port in the current structure to connect to
+            the name of the port in the current hierarchy to connect to
         instance_name : str
             the name to give the new instance
         reflect : bool
-            True to flip the added instance
+            True to flip the added instance after rotation
         Returns
         -------
-
+        new_inst : PhotonicInstance
+            the newly added instance
         """
 
         # TODO: If ports dont have same width/layer, do we return error?
@@ -1009,8 +1385,22 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         pass
 
     def _get_unused_port_name(self,
-                              port_name,  # type: str
+                              port_name,  # type: Optional[str]
                               ):
+        # type: (...) -> str
+        """Returns a new unique name for a port in the current hierarchy level
+
+        Parameters
+        ----------
+        port_name : Optional[str]
+            base port name. If no value is supplied, 'PORT' is used as the base name
+
+        Returns
+        -------
+        new_name : str
+            new unique port name
+        """
+
         if port_name is None:
             port_name = 'PORT'
         new_name = port_name
@@ -1026,19 +1416,22 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def extract_photonic_ports(self,
                                inst,  # type: PhotonicInstance
                                port_names=None,  # type: Optional[Union[str, List[str]]]
-                               port_renaming=None,  # type: Dict[str, str]
+                               port_renaming=None,  # type: Optional[Dict[str, str]]
                                unmatched_only=True,  # type: bool
                                ):
         # type: (...) -> None
-        """
+        """Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
         ----------
-        inst :
-        port_names :
-            the port to re-export. If not given, export all unmatched ports.
-        port_renaming :
-
+        inst : PhotonicInstance
+            the instance that contains the ports to be extracted
+        port_names : Optional[Union[str, List[str]]
+            the port name or list of port names re-export. If not supplied, all ports of the inst will be extracted
+        port_renaming : Optional[Dict[str, str]]
+            a dictionary containing key-value pairs mapping inst's port names (key)
+            to the new desired port names (value).
+            If not supplied, extracted ports will be given their original names
         Returns
         -------
 
@@ -1073,10 +1466,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             # If name is already used
             if new_name in self._photonic_ports:
-                # Prepend instance name __   and append unique number
+                # Prepend instance name __  and append unique number
                 new_name = self._get_unused_port_name(inst.content.name + '__' + new_name)
 
-            new_port = self.add_photonic_port(
+            self.add_photonic_port(
                 name=new_name,
                 center=new_location,
                 orient=new_orient,
@@ -1084,3 +1477,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 layer=old_port.layer,
                 unit_mode=True,
             )
+
+    def waveguide_from_path(self,
+                            layer,
+                            path):
+        
+        pass
