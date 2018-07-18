@@ -22,6 +22,28 @@ class PhotonicPort:
                  unit_mode=False,  # type: bool
                  ):
         # type: (...) -> None
+        """Creates a new PhotonicPort object
+
+        Parameters
+        ----------
+        name : str
+            the name of the port
+        center : Tuple[Union[float, int], Union[float, int]]
+            the (x, y) point of the port
+        orientation : str
+            the orientation pointing into the object of the port
+        width : Union[float, int]
+            the port width
+        layer : Tuple[str, str]
+            the layer / layer purpose pair on which the port should be drawn
+        resolution : float
+            the grid resolution
+        unit_mode : bool
+            True if layout dimensions are specified in resolution units
+
+        Returns
+        -------
+        """
 
         self._res = resolution
         if not unit_mode:
@@ -37,12 +59,15 @@ class PhotonicPort:
 
     @property
     def used(self):
+        """Returns True if port is used"""
+        # TODO: Implement?
         return self._used
 
     @used.setter
     def used(self,
              new_used  # type: bool
              ):
+        # type: (...) -> None
         self._used = new_used
 
     @property
@@ -69,10 +94,12 @@ class PhotonicPort:
         """ Returns the name of the port """
         return self._name
 
-    def set_name(self,
-                 name,  # type: str
-                 ):
+    @name.setter
+    def name(self,
+             name,  # type: str
+             ):
         # type: (...) -> None
+        """Sets the port name"""
         self._name = name
 
     @property
@@ -117,11 +144,12 @@ class PhotonicPort:
         unit_mode : bool
             True to return vector in resolution units
         normalized : bool
-            True to normalize the vector. If False, vector magnitude is wg width
+            True to normalize the vector. If False, vector magnitude is the port width
 
         Returns
         -------
-
+        vec : np.array
+            a vector whos orientation points into the port and whos magnitude is either 1 or the waveguide port width
         """
 
         # Create R0 vector of proper magnitude
@@ -145,12 +173,16 @@ class PhotonicPort:
         return self._orientation
 
     def is_horizontal(self):
+        # type: () -> bool
+        """Returns True if port orientation is R0 or R180"""
         if self.orientation == 'R0' or self.orientation == 'R180':
             return True
         else:
             return False
 
     def is_vertical(self):
+        # type: () -> bool
+        """Returns True if port orientation is vertical (R90 or R270)"""
         return not self.is_horizontal()
 
     def transform(self,
@@ -158,17 +190,22 @@ class PhotonicPort:
                   orient='R0',  # type: str
                   unit_mode=False,  # type: bool
                   ):
+        # type: (...) -> PhotonicPort
         """Return a new transformed photonic port
 
         Parameters
         ----------
-        loc
-        orient
-        unit_mode
+        loc : Tuple[Union[float, int], Union[float, int]]
+            the x, y coordinate to move the port
+        orient : str
+            the orientation to rotate the port
+        unit_mode : bool
+            true if layout dimensions are specified in resolution units
 
         Returns
         -------
-
+        port : PhotonicPort
+            the transformed photonic port object
         """
         # Convert to nearest int unit mode value
         if not unit_mode:
@@ -201,7 +238,31 @@ class PhotonicPort:
                   unit_mode=True,  # type: bool
                   ):
         # type: (...) -> PhotonicPort
+        """Creates a new PhotonicPort object from a set of arguments
 
+        Parameters
+        ----------
+        center : Tuple[Union[float, int], Union[float, int]]
+            the (x, y) point of the port
+        name : str
+            the name of the port
+        orient : str
+            the orientation pointing into the object of the port
+        port_width : Union[float, int]
+            the port width
+        layer : Union[Tuple[str, str], str]
+            the layer / layer purpose pair on which the port should be drawn. If the purpose is not specified, it is
+            defaulted to the 'port' purpose
+        resolution : float
+            the grid resolution
+        unit_mode : bool
+            True if layout dimensions are specified in resolution units
+
+        Returns
+        -------
+        port : PhotonicPort
+            the generated port
+        """
         if isinstance(layer, str):
             layer = (layer, 'port')
 
