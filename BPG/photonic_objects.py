@@ -11,6 +11,8 @@ from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_loc_orient, transform_point, BBox
+import gdspy
+import numpy as np
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
@@ -85,7 +87,7 @@ class PhotonicInstance(Instance):
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
 
-        self._photonic_port_list = {}
+        self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
         self._photonic_port_creator()
 
     @property
@@ -198,13 +200,16 @@ class PhotonicInstance(Instance):
             dy = int(round(dy / self.resolution))
         self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
 
-        # TODO: Incomplete
-        for port in self._photonic_port_list:
-            port.transform()
+        # Translate each port in the instance as well
+        for port in self._photonic_port_list.values():
+            port.transform(
+                loc=(dx, dy),
+                orient='R0',
+                unit_mode=True
+            )
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
         # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
-        # TODO: Change this?
         """Transform this figure."""
         if not unit_mode:
             res = self.resolution
@@ -581,6 +586,42 @@ class PhotonicRound(Arrayable):
 
         return lsf_code
 
+    @classmethod
+    def shapely_export(cls,
+                       rout,  # type: dim_type
+                       rin,  # type: dim_type
+                       theta0,  # type: dim_type
+                       theta1,  # type: dim_type
+                       center,  # type: coord_type
+                       nx=1,  # type: int
+                       ny=1,  # type: int
+                       spx=0.0,  # type: dim_type
+                       spy=0.0,  # type: dim_type
+                       resolution=0.0  # type: float
+                       ):
+        # Get the base polygons
+        round_polygons = gdspy.Round(radius=rout,
+                                     inner_radius=rin,
+                                     initial_angle=theta0 * np.pi / 180,
+                                     final_angle=theta1 * np.pi / 180,
+                                     number_of_points=resolution,
+                                     layer=0,
+                                     datatype=0).polygons
+
+        output_list_p = []
+        output_list_n = []
+        for x_count in range(nx):
+            for y_count in range(ny):
+                for polygon in round_polygons:
+                    polygon_points = polygon.points
+                    polygon_points[:, 0] += center[0] + x_count * spx
+                    polygon_points[:, 1] += center[1] + y_count * spy
+                    polygon_points = np.vstack([polygon_points, polygon_points[0]])
+
+                    output_list_p.append(polygon_points.copy())
+
+        return output_list_p, output_list_n
+
 
 class PhotonicRect(Rect):
     """
@@ -693,7 +734,8 @@ class PhotonicRect(Rect):
                        spx=0.0,  # type: int
                        spy=0.0,  # type: int
                        ):
-        # type: (...) -> Tuple[Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List], Union[List[List[Tuple[int, int]]], List[Tuple[int,int]], List]]
+        # type: (...) -> Tuple
+        # TODO: documentation and docstring/typing
         """
         Describes the current rectangle shape in terms of lsf parameters for lumerical use
 
@@ -712,7 +754,7 @@ class PhotonicRect(Rect):
 
         Returns
         -------
-        lsf_code : List[str]
+        shapely_shapes : Tuple
             list of str containing the lsf code required to create specified rectangles
         """
 
@@ -909,6 +951,14 @@ class PhotonicPolygon(Polygon):
         # Extract the thickness values from the layermap file
 
         return lsf_code
+
+    @classmethod
+    def shapely_export(cls,
+                       vertices,  # type: List[Tuple[float, float]]
+                       ):
+        # type: (...) -> Tuple
+        # TODO: documentation and docstring/typing
+        return vertices, []
 
 
 class PhotonicAdvancedPolygon(Polygon):

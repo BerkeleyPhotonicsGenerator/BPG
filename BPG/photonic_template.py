@@ -60,6 +60,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
         self.flat_content_list = None  # Variable where flattened layout content will be stored
+        self.flat_content_by_layer = {}  # type: Dict[Tuple(str, str), List]
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -517,7 +518,14 @@ class PhotonicTemplateDB(TemplateDB):
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        self.flat_content_list = content_list
+        list_of_contents = [('', [], [], [], [], [], [], [], [], []),]
+        for content in content_list:
+            for i, data in enumerate(content):
+                list_of_contents[0][i] += data
+
+        self.flat_content_list = list_of_contents
+
+        self._sort_flat_shapes_to_layers()
 
         if debug:
             print('master content retrieval took %.4g seconds' % (end - start))
@@ -715,29 +723,95 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
+    def get_shapely_on_layer(self,
+                             layer,  # type: Tuple[str, str]
+                             debug=False,  # type: bool
+                             ):
+        """
+        Returns a list of all shapes
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            the layer purpose pair to get all shapes in shapely format
+        debug : bool
+            true to print debug info
+
+        Returns
+        -------
+
+        """
+        content = [self.get_shapes_on_layer(layer)]
+        return self.to_shapely(content_list=content, debug=debug)
+
     def get_shapes_on_layer(self,
                             layer,  # type: Tuple[str, str]
                             ):
-        # type: (...) -> List
+        # type: (...) -> Tuple
         """Returns only the content that exists on a given layer
 
         Parameters
         ----------
-        layer
+        layer : Tuple[str, str]
+            the layer whose content is desired
+
+        Returns
+        -------
+        content : Tuple
+            the shape content on the provided layer
+        """
+        if layer not in self.flat_content_by_layer.keys():
+            return ()
+        else:
+            return self.flat_content_by_layer[layer]
+
+    def _sort_flat_shapes_to_layers(self):
+        """
+        Sorts the flattened shape list into a dictionary of lists, with keys corresponding to a given lpp
 
         Returns
         -------
 
         """
 
-    def to_shapely(self, debug=False):
-        """ Export the drawn layout to the Shapely format """
+        (cell_name, _, rect_list, via_list, pin_list, path_list,
+         blockage_list, boundary_list, polygon_list, round_list) = self.flat_content_list
+
+        used_layers = []
+        offset = 2
+
+        for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
+                                                      blockage_list, boundary_list, polygon_list, round_list]):
+            for content_item in list_content:
+                layer = content_item['layer']
+                if layer not in used_layers:
+                    used_layers.append(layer)
+                    self.flat_content_list[layer] = (cell_name, [], [], [], [], [], [], [], [], [])
+                self.flat_content_by_layer[layer][offset + list_type_ind].append(content_item)
+
+    def to_shapely(self,
+                   content_list,  # type: List
+                   debug=False,  # type: bool
+                   ):
+        # type: (...) -> Tuple[List, List]
+        """
+        Export the drawn layout to the Shapely format
+
+        Parameters
+        ----------
+        content_list : List
+        debug : bool
+
+        Returns
+        -------
+
+        """
         shapelywriter = ShapelyGenerator()
         # lay_unit = tech_info.layout_unit
         # res = tech_info.resolution
 
         start = time.time()
-        for content in self.content_list:
+        for content in content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list) = content
 
@@ -754,7 +828,7 @@ class PhotonicTemplateDB(TemplateDB):
                 else:
                     shapely_representation = PhotonicRect.shapely_export(rect['bbox'])
 
-                shapelywriter.add_shapes(shapely_representation)
+                shapelywriter.add_shapes(*shapely_representation)
 
             # add vias
             for via in via_list:
@@ -773,15 +847,26 @@ class PhotonicTemplateDB(TemplateDB):
             for boundary in boundary_list:
                 pass
 
-            # for polygon in polygon_list:
-            #     layer_prop = prop_map[tuple(polygon['layer'])]
-            #     shapely_representation = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
-            #     lsfwriter.add_code(shapely_representation)
+            for polygon in polygon_list:
+                shapely_representation = PhotonicPolygon.shapely_export(polygon['points'])
+                shapelywriter.add_shapes(*shapely_representation)
 
-            #     lay_id, purp_id = lay_map[polygon['layer']]
-            #     cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-            #                          verbose=False)
-            #     gds_cell.add(cur_poly.fracture(precision=res))
+            for round_obj in round_list:
+
+                shapely_representation = PhotonicRound.shapely_export(
+                    rout=round_obj['rout'],
+                    rin=round_obj['rin'],
+                    theta0=round_obj['theta0'],
+                    theta1=round_obj['theta1'],
+                    center=round_obj['center'],
+                    nx=round_obj.get('nx', 1),
+                    ny=round_obj.get('ny',1),
+                    spx=round_obj.get('spx', 0.0),
+                    spy=round_obj.get('spy', 0.0),
+                    resolution=self.grid.resolution,
+                )
+
+                shapelywriter.add_shapes(*shapely_representation)
 
         end = time.time()
         if debug:
