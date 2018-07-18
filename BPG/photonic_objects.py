@@ -674,7 +674,8 @@ class PhotonicRect(Rect):
     @classmethod
     def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
         """
-        Describes the current rectangle shape in terms of lsf parameters for lumerical use
+        Describes the current rectangle shape in terms of lsf parameters for lumerical use.
+        Note that Lumerical uses meters as the base unit, so all coords are multiplied by 1e-6
 
         Parameters
         ----------
@@ -698,12 +699,12 @@ class PhotonicRect(Rect):
         """
 
         # Calculate the width and length of the rectangle
-        x_span = bbox[1][0] - bbox[0][0]
-        y_span = bbox[1][1] - bbox[0][1]
+        x_span = (bbox[1][0] - bbox[0][0]) * 1e-6
+        y_span = (bbox[1][1] - bbox[0][1]) * 1e-6
 
         # Calculate the center of the first rectangle rounded to the nearest nm
-        base_x_center = round((bbox[1][0] + bbox[0][0]) / 2, 3)
-        base_y_center = round((bbox[1][1] + bbox[0][1]) / 2, 3)
+        base_x_center = round((bbox[1][0] + bbox[0][0]) / 2, 3) * 1e-6
+        base_y_center = round((bbox[1][1] + bbox[0][1]) / 2, 3) * 1e-6
 
         # Write the lumerical code for each rectangle in the array
         lsf_code = []
@@ -940,15 +941,21 @@ class PhotonicPolygon(Polygon):
         # Grab the number of vertices in the polygon to preallocate Lumerical matrix size
         poly_len = len(vertices)
 
-        # Write the lumerical code for each rectangle in the array
-        lsf_code = ['\n', 'addpoly;\n', 'set("material", "{}");\n'.format(layer_prop['material']),
-                    'set("alpha", {});\n'.format(layer_prop['alpha']), 'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [point[0] for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [point[1] for point in vertices]), 'set("vertices", V);\n',
-                    'set("z min", {});\n'.format(layer_prop['z_min']),
-                    'set("z max", {});\n'.format(layer_prop['z_max'])]
+        # Write the lumerical code for the polygon
+        lsf_code = ['\n',
+                    'addpoly;\n',
+                    'set("material", "{}");\n'.format(layer_prop['material']),
+                    'set("alpha", {});\n'.format(layer_prop['alpha']),
 
-        # Extract the thickness values from the layermap file
+                    # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
+                    'V = matrix({},2);\n'.format(poly_len),
+                    'V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]),
+                    'V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]),
+                    'set("vertices", V);\n',
+
+                    # Set the thickness values from the layermap file
+                    'set("z min", {}e-6);\n'.format(layer_prop['z_min']),
+                    'set("z max", {}e-6);\n'.format(layer_prop['z_max'])]
 
         return lsf_code
 
