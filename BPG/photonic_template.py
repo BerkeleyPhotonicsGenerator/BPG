@@ -400,11 +400,6 @@ class PhotonicTemplateDB(TemplateDB):
                 lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
                 lsfwriter.add_code(lsf_repr)
 
-                # lay_id, purp_id = lay_map[polygon['layer']]
-                # cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-                #                          verbose=False)
-                # gds_cell.add(cur_poly.fracture(precision=res))
-
             for round_obj in round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
                 layer_prop = prop_map[tuple(round_obj['layer'])]
