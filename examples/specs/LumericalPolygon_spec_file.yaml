@@ -3,9 +3,7 @@
 
 # Directory Locations
 project_dir: ~/Photonics_Data/Generated_Poly  # Top level directory for the project
-scripts: scripts  # subdirectory of project_dir where generated script files are placed
-data: data  # subdirectory of project_dir where generated data is placed
-layermap: ./tech/gds_map.yaml  # file containing technology information
+#layermap: ./tech/gds_map.yaml  # file containing technology information
 
 # Output Settings
 lsf_filename: Polygon.lsf
