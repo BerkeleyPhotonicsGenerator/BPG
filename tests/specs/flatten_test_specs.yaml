@@ -1,0 +1,35 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+# Top level directory for the project
+project_dir: ~/Documents/Photonics_Data/flatten
+# subdirectory of project_dir where generated script files are placed
+scripts: scripts
+# subdirectory of project_dir where generated data is placed
+data: data
+# file containing technology information
+layermap: ./tech/gds_map.yaml
+
+# Output Settings
+lsf_filename: add_round.lsf
+gds_filename: Output
+
+# Cadence related parameters
+impl_lib: 'flatten_lib'
+impl_cell: 'flatten_cell'
+
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'flatten_test'
+# Layout generator class name
+layout_class: 'TopLevel'
+
+
+layout_params:  # Place parameters to be passed to the generator class under here
+
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

@@ -10,22 +10,21 @@ class ShapelyGenerator:
         self._boundary_list_n = []
 
     def add_shapes(self,
-                   tuple_of_lists,
+                   positive_shape_list,  # type: list
+                   negative_shape_list,  # type: list
                    ):
         # type: (...) -> None
-        """
-        Adds provided code to running list to be written to the final lsf file
 
-        Parameters
-        ----------
-        code : List[str]
-            List of strings containing lumerical script
-        """
         # TODO: Make this a generator statement to speed up compute time for large codebases
-        self._boundary_list_p.append(tuple_of_lists[0])
-        self._boundary_list_n.append(tuple_of_lists[1])
+        self._boundary_list_p.append(positive_shape_list)
+        self._boundary_list_n.append(negative_shape_list)
 
     def final_shapes_export(self):
-        """ Take all code in the database and export it to a lumerical script file """
+        """
+        Export a two flat lists of the positive and negative spaces as polygons
 
-        return (self._boundary_list_p, self._boundary_list_n)
+        Returns
+        -------
+
+        """
+        return self._boundary_list_p, self._boundary_list_n
