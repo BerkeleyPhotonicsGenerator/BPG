@@ -1260,9 +1260,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         new_port = inst_master.get_photonic_port(instance_port_name)
         tmp_port_point = new_port.center
 
-        print(my_port.center)
-        print(tmp_port_point)
-
         # Non-zero if new port is aligned with current port
         # > 0 if ports are facing same direction (new instance must be rotated
         # < 0 if ports are facing opposite direction (new instance should not be rotated)
@@ -1344,7 +1341,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # Calculate and round translation vector to the resolution unit
         #translation_vec = np.round(my_port.center - rotated_tmp_port_point)
         translation_vec = my_port.center - rotated_tmp_port_point
-        print(translation_vec)
 
         # new_inst = self.add_instance(
         #     master=inst_master,
