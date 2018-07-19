@@ -44,6 +44,9 @@ def dataprep_coord_to_poly(
     neg_coord_list_list = pos_neg_list_list[1]
 
     polygon_out = Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
+
+    print(pos_coord_list_list)
+    # asgege
     if len(pos_coord_list_list) > 1:
         for pos_coord_list in pos_coord_list_list[1:]:
             polygon_pos = Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)

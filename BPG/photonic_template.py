@@ -942,12 +942,28 @@ class PhotonicTemplateDB(TemplateDB):
 
         for layer, shapely_polygons in self.flat_shapely_content_by_layer.items():
             output_shapes = polyop_shapely2gdspy(shapely_polygons)
-            output_shapes = tuple(map(tuple, output_shapes))
-            output_shapes = [shape for shape in output_shapes]
-            self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
+            new_shapes = []
+            for shape in output_shapes:
+                shape = tuple(map(tuple, shape))
+                new_shapes.append([coord for coord in shape])
+
+            #     new_shapes.append(shape)
+            #
+            # if isinstance(output_shapes, list):
+            #     for shape in output_shapes:
+            #         shape = tuple(map(tuple, shape))
+            #         shape = [coord for coord in shape]
+            #         new_shapes.append(shape)
+            self.final_post_shapely_gdspy_points_content_by_layer[layer] = new_shapes
+
+            # else:
+            #     output_shapes = tuple(map(tuple, output_shapes))
+            #     output_shapes = [shape for shape in output_shapes]
+            #     self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
 
 
         self.by_layer_polygon_list_to_flat_for_gds_export()
+        # icisisf
 
 
 
