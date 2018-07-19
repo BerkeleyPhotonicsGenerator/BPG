@@ -1,10 +1,11 @@
 from math import ceil, floor
 from matplotlib import pyplot
-from descartes import PolygonPatch
+# from descartes import PolygonPatch
 # from shapely.ops import cascaded_union
 # from shapely.ops import polygonize_full, polygonize
 import shapely.geometry
 import gdspy
+import numpy as np
 import os
 
 # from figures import SIZE, BLUE, GRAY, set_limits
@@ -19,6 +20,30 @@ def plot_line(ax, ob, color='r'):
         ax.plot(x, y, color=color, linewidth=3, solid_capstyle='round', zorder=1)
 
 
+def polyop_shapely2gdspy_Polygon(polygon_shapely,   # type: Polygon
+                                 ):
+    # type: (...) -> gdspy.Polygon
+
+    if polygon_shapely.type != 'Polygon':
+        raise ValueError('Unhandled geometry type: ' + repr(polygon_shapely.type) + ', type should be Polygon')
+
+    coords_ext_shapely = list(zip(*polygon_shapely.exterior.coords.xy))
+    # delete the last coord in the shapely coord list which is the same as the first coord,
+    # since it is not needed in gdspy
+    coords_ext_gdspy = coords_ext_shapely[:-1]
+    # create the initial polygon in gdspy
+    polygon_gdspy = gdspy.Polygon(coords_ext_gdspy)
+
+    # do subtract for each hole in the polygon
+    if len(polygon_shapely.interiors):
+        for interior in polygon_shapely.interiors:
+            coords_int_shapely = list(zip(*interior.coords.xy))
+            coords_int_gdspy = coords_int_shapely[:-1]
+            polygon_int_gdspy = gdspy.Polygon(coords_int_gdspy)
+            polygon_gdspy = gdspy.fast_boolean(polygon_gdspy, polygon_int_gdspy, 'not')
+
+    return polygon_gdspy
+
 
 def polyop_shapely2gdspy(geom_shapely,  # type: Polygon, MultiPolygon
                          ):
@@ -26,54 +51,25 @@ def polyop_shapely2gdspy(geom_shapely,  # type: Polygon, MultiPolygon
     """
     This function converts a Shapely Polygon/MultiPolygon object to a gdspy Polygon/PolygonSet object
     """
-
-    def polyop_shapely2gdspy_Polygon(polygon_shapely,   # type: Polygon
-                                     ):
-
-        # print(geom)
-        if (polygon_shapely.type != 'Polygon'):
-            raise ValueError('Unhandled geometry type: ' + repr(geom.type) + ', type should be Polygon')
-
-
-        coords_ext_shapely = list(zip(*polygon_shapely.exterior.coords.xy))
-        # delete the last coord in the shapely coord list which is the same as the first coord,
-        # since it is not needed in gdspy
-        coords_ext_gdspy = coords_ext_shapely[:-1]
-        # create the initial polygon in gdspy
-        polygon_gdspy = gdspy.Polygon(coords_ext_gdspy)
-
-        # do subtract for each hole in the polygon
-        if (len(polygon_shapely.interiors)):
-            for interior in polygon_shapely.interiors:
-                coords_int_shapely = list(zip(*interior.coords.xy))
-                coords_int_gdspy = coords_int_shapely[:-1]
-                polygon_int_gdspy = gdspy.Polygon(coords_int_gdspy)
-                polygon_gdspy = gdspy.fast_boolean(polygon_gdspy, polygon_int_gdspy, 'not')
-
-        return polygon_gdspy
-
-
-
-    if (geom_shapely.type == 'Polygon'):
-        return polyop_shapely2gdspy_Polygon(geom_shapely)
-    elif (geom_shapely.type == 'MultiPolygon'):
+    # TODO: round properly
+    if geom_shapely.type == 'Polygon':
+        return np.round(polyop_shapely2gdspy_Polygon(geom_shapely).points, 3)
+    elif geom_shapely.type == 'MultiPolygon':
         geom_gdspy = polyop_shapely2gdspy_Polygon(geom_shapely[0])
         for polygon_shapely in geom_shapely[1:]:
             geom_new = polyop_shapely2gdspy_Polygon(polygon_shapely)
             geom_gdspy = gdspy.fast_boolean(geom_gdspy, geom_new, 'or')
-        return geom_gdspy
+        return np.round(geom_gdspy.points, 3)
     else:
         raise ValueError('Unhandled geometry type: ' + repr(geom_shapely.type) +
                          'type should be either "Polygon" or "MultiPolygon"')
 
-
-
+'''
 ring_ext = gdspy.Polygon([(0, -8), (0, -4), (4, -4), (4, 4), (-4, 4), (-4, -4), (0, -4),
                        (0, -8), (-8, -8), (-8, 8), (8, 8), (8, -8)])
 ring_origin = ring_ext
 ring_int = gdspy.Polygon([(-6, -6), (-6, 6), (6, 6), (6, -6)])
 ring_origin = gdspy.fast_boolean(ring_origin, ring_int, 'not')
-
 
 ring_origin = gdspy.fast_boolean(gdspy.Round((8, 8), 4), gdspy.Round((8, 8), 2), 'not')
 
@@ -224,3 +220,4 @@ gdslib.write_gds('gds_ring.gds', unit=1.0e-6, precision=1.0e-9)
 #
 #
 # pyplot.show()
+'''

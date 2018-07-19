@@ -492,8 +492,8 @@ class PhotonicRound(Arrayable):
             return PhotonicRound(
                 layer=self.layer,
                 resolution=self.resolution,
-                rout=self.rout_unit,
                 center=new_center_unit,
+                rout=self.rout_unit,
                 rin=self.rin_unit,
                 theta0=new_theta0,
                 theta1=new_theta1,
@@ -600,12 +600,13 @@ class PhotonicRound(Arrayable):
                        resolution=0.0  # type: float
                        ):
         # Get the base polygons
-        round_polygons = gdspy.Round(radius=rout,
+        round_polygons = gdspy.Round(center=center,
+                                     layer=0,
+                                     radius=rout,
                                      inner_radius=rin,
                                      initial_angle=theta0 * np.pi / 180,
                                      final_angle=theta1 * np.pi / 180,
                                      number_of_points=resolution,
-                                     layer=0,
                                      datatype=0).polygons
 
         output_list_p = []
@@ -613,9 +614,9 @@ class PhotonicRound(Arrayable):
         for x_count in range(nx):
             for y_count in range(ny):
                 for polygon in round_polygons:
-                    polygon_points = polygon.points
-                    polygon_points[:, 0] += center[0] + x_count * spx
-                    polygon_points[:, 1] += center[1] + y_count * spy
+                    polygon_points = polygon
+                    polygon_points[:, 0] += x_count * spx
+                    polygon_points[:, 1] += y_count * spy
                     polygon_points = np.vstack([polygon_points, polygon_points[0]])
 
                     output_list_p.append(polygon_points.copy())
