@@ -34,7 +34,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             theta1=60,
             unit_mode=False
         )
-        self.add_round(circ)
+        # self.add_round(circ)
 
         self.add_rect(
             layer='SI',
@@ -46,6 +46,11 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             layer='POLY',
             coord1=(0, 0),
             coord2=(1, 2),
+        )
+
+        self.add_polygon(
+            layer='POLY',
+            points=[(0, 0), (10, 0), (0, 5)]
         )
 
 

@@ -53,13 +53,24 @@ def polyop_shapely2gdspy(geom_shapely,  # type: Polygon, MultiPolygon
     """
     # TODO: round properly
     if geom_shapely.type == 'Polygon':
-        return np.round(polyop_shapely2gdspy_Polygon(geom_shapely).points, 3)
+        return [np.round(polyop_shapely2gdspy_Polygon(geom_shapely).points, 3)]
     elif geom_shapely.type == 'MultiPolygon':
-        geom_gdspy = polyop_shapely2gdspy_Polygon(geom_shapely[0])
-        for polygon_shapely in geom_shapely[1:]:
-            geom_new = polyop_shapely2gdspy_Polygon(polygon_shapely)
-            geom_gdspy = gdspy.fast_boolean(geom_gdspy, geom_new, 'or')
-        return np.round(geom_gdspy.points, 3)
+        # geom_gdspy = polyop_shapely2gdspy_Polygon(geom_shapely[0])
+        # for polygon_shapely in geom_shapely[1:]:
+        #     geom_new = polyop_shapely2gdspy_Polygon(polygon_shapely)
+        #     geom_gdspy = gdspy.fast_boolean(geom_gdspy, geom_new, 'or')
+        #
+        # coords_out = []
+        # for coords in geom_gdspy.polygons:
+        #     coords_out.append(np.round(coords, 3))
+        # return coords_out
+        coords_out = []
+        for polygon_shapely in geom_shapely:
+            polygon_gdspy = polyop_shapely2gdspy_Polygon(polygon_shapely)
+            coords_gdspy = np.round(polygon_gdspy.points, 3)
+            coords_out.append(coords_gdspy)
+        return coords_out
+
     else:
         raise ValueError('Unhandled geometry type: ' + repr(geom_shapely.type) +
                          'type should be either "Polygon" or "MultiPolygon"')

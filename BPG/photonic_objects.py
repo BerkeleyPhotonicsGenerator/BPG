@@ -966,7 +966,7 @@ class PhotonicPolygon(Polygon):
                        ):
         # type: (...) -> Tuple
         # TODO: documentation and docstring/typing
-        return vertices, []
+        return [vertices], []
 
 
 class PhotonicAdvancedPolygon(Polygon):
