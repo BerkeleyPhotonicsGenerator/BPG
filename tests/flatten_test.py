@@ -25,7 +25,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
         """ Specifies the creation of the lumerical shapes """
 
         circ = BPG.photonic_objects.PhotonicRound(
-            layer='Si',
+            layer='SI',
             resolution=self.grid.resolution,
             center=(3,3),
             rout=2,
@@ -60,7 +60,7 @@ class SubLevel1(BPG.PhotonicTemplateBase):
         """ Specifies the creation of the lumerical shapes """
 
         self.add_polygon(
-            layer='Si',
+            layer='SI',
             points=[(0, 0), (3, 0), (2, 6), (0, 4)]
         )
 
@@ -98,7 +98,7 @@ class TopLevel(BPG.PhotonicTemplateBase):
         """ Specifies the creation of the lumerical shapes """
 
         self.add_rect(
-            layer='Si',
+            layer='SI',
             coord1=(5, 3),
             coord2=(6, 6),
             unit_mode=False
@@ -132,7 +132,7 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/flatten_test_specs.yaml'
+    spec_file = 'BPG/tests/specs/flatten_test_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     # PLM.generate_lsf()

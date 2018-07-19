@@ -24,7 +24,6 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-
 class PhotonicInstanceInfo(InstanceInfo):
     """A dictionary that represents a layout instance.
     """
@@ -39,6 +38,10 @@ class PhotonicInstanceInfo(InstanceInfo):
     def master_key(self):
         # type: () -> Tuple
         return self['master_key']
+
+    def copy(self):
+        """Override copy method of dictionary to return an InstanceInfo instead."""
+        return PhotonicInstanceInfo(self._resolution, change_orient=False, **self)
 
 
 class PhotonicInstance(Instance):
@@ -433,7 +436,7 @@ class PhotonicRound(Arrayable):
             content['arr_spy'] = self.spy
 
         return content
-    
+
     def move_by(self,
                 dx=0,  # type: dim_type
                 dy=0,  # type: dim_type
@@ -537,7 +540,8 @@ class PhotonicRound(Arrayable):
         -------
 
         """
-        x0, y0 = center[0], center[1]
+        x0, y0 = center[0] * 1e-6, center[1] * 1e-6
+        spx, spy = spx * 1e-6, spy * 1e-6
         lsf_code = []
 
         if rin == 0:
@@ -551,15 +555,15 @@ class PhotonicRound(Arrayable):
                     lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
                     # Set radius
-                    lsf_code.append('set(radius, {});\n'.format(rout))
+                    lsf_code.append('set(radius, {});\n'.format(rout * 1e-6))
 
                     # Compute the x and y coordinates for each rectangle
                     lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
                     lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
 
                     # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
+                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
         else:
             for x_count in range(nx):
                 for y_count in range(ny):
@@ -571,8 +575,8 @@ class PhotonicRound(Arrayable):
                     lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
                     # Set dimensions/angles
-                    lsf_code.append('set(outer radius, {});\n'.format(rout))
-                    lsf_code.append('set("innter radius", {});\n'.format(rin))
+                    lsf_code.append('set("outer radius", {});\n'.format(rout * 1e-6))
+                    lsf_code.append('set("inner radius", {});\n'.format(rin * 1e-6))
                     lsf_code.append('set("theta start", {});\n'.format(theta0))
                     lsf_code.append('set("theta stop", {});\n'.format(theta1))
 
@@ -581,8 +585,8 @@ class PhotonicRound(Arrayable):
                     lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
 
                     # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
+                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
 
         return lsf_code
 
@@ -723,8 +727,8 @@ class PhotonicRect(Rect):
                 lsf_code.append('set("y", {});\n'.format(base_y_center + spy * y_count))
 
                 # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min']))
-                lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max']))
+                lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
+                lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
 
         return lsf_code
 
@@ -774,7 +778,6 @@ class PhotonicRect(Rect):
         output_list_n = []
         for x_count in range(nx):
             for y_count in range(ny):
-
                 polygon_list = [(x_base + x_count * spx, y_base + y_count * spy),
                                 (x_base + x_span + x_count * spx, y_base + y_count * spy),
                                 (x_base + x_span + x_count * spx, y_base + y_span + y_count * spy),
@@ -950,13 +953,13 @@ class PhotonicPolygon(Polygon):
 
                     # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
                     'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]),
+                    'V(1:{},1) = {};\n'.format(poly_len, [point[0] * 1e-6 for point in vertices]),
+                    'V(1:{},2) = {};\n'.format(poly_len, [point[1] * 1e-6 for point in vertices]),
                     'set("vertices", V);\n',
 
                     # Set the thickness values from the layermap file
-                    'set("z min", {}e-6);\n'.format(layer_prop['z_min']),
-                    'set("z max", {}e-6);\n'.format(layer_prop['z_max'])]
+                    'set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6),
+                    'set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6)]
 
         return lsf_code
 
