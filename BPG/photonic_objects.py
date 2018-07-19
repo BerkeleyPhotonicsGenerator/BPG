@@ -24,7 +24,6 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-
 class PhotonicInstanceInfo(InstanceInfo):
     """A dictionary that represents a layout instance.
     """
@@ -39,6 +38,10 @@ class PhotonicInstanceInfo(InstanceInfo):
     def master_key(self):
         # type: () -> Tuple
         return self['master_key']
+
+    def copy(self):
+        """Override copy method of dictionary to return an InstanceInfo instead."""
+        return PhotonicInstanceInfo(self._resolution, change_orient=False, **self)
 
 
 class PhotonicInstance(Instance):
@@ -433,7 +436,7 @@ class PhotonicRound(Arrayable):
             content['arr_spy'] = self.spy
 
         return content
-    
+
     def move_by(self,
                 dx=0,  # type: dim_type
                 dy=0,  # type: dim_type
@@ -537,8 +540,8 @@ class PhotonicRound(Arrayable):
         -------
 
         """
-        x0, y0 = center[0]*1e-6, center[1]*1e-6
-        spx, spy = spx*1e-6, spy*1e-6
+        x0, y0 = center[0] * 1e-6, center[1] * 1e-6
+        spx, spy = spx * 1e-6, spy * 1e-6
         lsf_code = []
 
         if rin == 0:
@@ -775,7 +778,6 @@ class PhotonicRect(Rect):
         output_list_n = []
         for x_count in range(nx):
             for y_count in range(ny):
-
                 polygon_list = [(x_base + x_count * spx, y_base + y_count * spy),
                                 (x_base + x_span + x_count * spx, y_base + y_count * spy),
                                 (x_base + x_span + x_count * spx, y_base + y_span + y_count * spy),
@@ -951,8 +953,8 @@ class PhotonicPolygon(Polygon):
 
                     # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
                     'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [point[0]*1e-6 for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [point[1]*1e-6 for point in vertices]),
+                    'V(1:{},1) = {};\n'.format(poly_len, [point[0] * 1e-6 for point in vertices]),
+                    'V(1:{},2) = {};\n'.format(poly_len, [point[1] * 1e-6 for point in vertices]),
                     'set("vertices", V);\n',
 
                     # Set the thickness values from the layermap file
