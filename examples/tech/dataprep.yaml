@@ -1,0 +1,16 @@
+
+
+-
+  lpp_in:
+    - !!python/tuple ['SI', 'phot']
+    - !!python/tuple ['SI2', 'phot']
+  lpp_ops:
+    - !!python/tuple ['SI', 'drawing', 'add', 0.0]
+    - !!python/tuple ['SI', 'exclude', 'rad', 2.0]
+    - !!python/tuple ['SI', 'exclude', 'add', 1.0]
+-
+  lpp_in:
+    - !!python/tuple ['POLY', 'phot']
+  lpp_ops:
+    - !!python/tuple ['POLY', 'exclude', 'rad', 20.0]
+
