@@ -345,7 +345,7 @@ class PhotonicTemplateDB(TemplateDB):
         for content in self.content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list, ) = content
-
+            print(inst_tot_list)
             # add instances
             for inst_info in inst_tot_list:
                 pass
@@ -396,9 +396,10 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for polygon in polygon_list:
-                layer_prop = prop_map[tuple(polygon['layer'])]
-                lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
-                lsfwriter.add_code(lsf_repr)
+                if polygon['layer'][1] != 'port':
+                    layer_prop = prop_map[tuple(polygon['layer'])]
+                    lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
+                    lsfwriter.add_code(lsf_repr)
 
             for round_obj in round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -1079,6 +1080,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           unit_mode=False,  # type: bool
                           port=None,  # type: PhotonicPort
                           overwrite=False,  # type: bool
+                          show=True  # type: bool
                           ):
         # type: (...) -> PhotonicPort
         """Adds a photonic port to the current hierarchy.
@@ -1148,20 +1150,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 ),
             )
 
-        # Draw port shape
-        center = port.center_unit
-        orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
+        if show is True:
+            # Draw port shape
+            center = port.center_unit
+            orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
 
-        self.add_polygon(
-            layer=layer,
-            points=[center,
-                    center + orient_vec // 2 + np.flip(orient_vec, 0) // 2,
-                    center + 2 * orient_vec,
-                    center + orient_vec // 2 - np.flip(orient_vec, 0) // 2,
-                    center],
-            resolution=port.resolution,
-            unit_mode=True,
-        )
+            self.add_polygon(
+                layer=layer,
+                points=[center,
+                        center + orient_vec // 2 + np.flip(orient_vec, 0) // 2,
+                        center + 2 * orient_vec,
+                        center + orient_vec // 2 - np.flip(orient_vec, 0) // 2,
+                        center],
+                resolution=port.resolution,
+                unit_mode=True,
+            )
 
         return port
 
@@ -1422,6 +1425,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                port_names=None,  # type: Optional[Union[str, List[str]]]
                                port_renaming=None,  # type: Optional[Dict[str, str]]
                                unmatched_only=True,  # type: bool
+                               show=True  # type: bool
                                ):
         # type: (...) -> None
         """Brings ports from lower level of hierarchy to the current hierarchy level
@@ -1480,6 +1484,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
+                show=show
             )
 
     def waveguide_from_path(self,
