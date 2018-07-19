@@ -21,6 +21,8 @@ from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPol
 from BPG import LumericalGenerator
 from BPG import ShapelyGenerator
 from collections import OrderedDict
+from BPG.dataprep import dataprep_coord_to_poly, poly_operation, dataprep_operation
+from BPG.shapely_to_gdspy import polyop_shapely2gdspy
 
 from numpy import pi
 
@@ -50,6 +52,7 @@ class PhotonicTemplateDB(TemplateDB):
                  flatten=False,  # type: bool
                  gds_filepath='',  # type: str
                  lsf_filepath='',  # type: str
+                 dataprep_file='',  # type: str
                  **kwargs,
                  ):
         TemplateDB.__init__(self, lib_defs, routing_grid, libname, prj,
@@ -60,7 +63,15 @@ class PhotonicTemplateDB(TemplateDB):
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
         self.flat_content_list = None  # Variable where flattened layout content will be stored
+
+        # Still content list format
         self.flat_content_by_layer = {}  # type: Dict[Tuple(str, str), List]
+        self.dataprep_file = dataprep_file
+
+        # Shapely format (shapely Polygon objects)
+        self.flat_shapely_content_by_layer = {}
+        self.final_post_shapely_gdspy_points_content_by_layer = {}
+        self.final_post_shapely_gdspy_polygon_content_flat = []
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -438,7 +449,8 @@ class PhotonicTemplateDB(TemplateDB):
                                  name_list=None,  # type: Optional[Sequence[Optional[str]]]
                                  lib_name='',  # type: str
                                  debug=False,  # type: bool
-                                 rename_dict=None,  # type: Optional[Dict[str, str]]
+                                 rename_dict=None,  # type: Optional[Dict[str, str]],
+                                 draw_flat_gds=True,
                                  ) -> None:
         """
         Create all given masters in the database to a flat hierarchy.
@@ -513,19 +525,25 @@ class PhotonicTemplateDB(TemplateDB):
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        list_of_contents = [('', [], [], [], [], [], [], [], [], []),]
+        list_of_contents = ['', [], [], [], [], [], [], [], [], [],]
         for content in content_list:
             for i, data in enumerate(content):
-                list_of_contents[0][i] += data
+                list_of_contents[i] += data
+
+        list_of_contents = [(list_of_contents[0], list_of_contents[1], list_of_contents[2],
+                             list_of_contents[3], list_of_contents[4], list_of_contents[5],
+                             list_of_contents[6], list_of_contents[7], list_of_contents[8],
+                             list_of_contents[9],)]
 
         self.flat_content_list = list_of_contents
 
-        self._sort_flat_shapes_to_layers()
+        self.sort_flat_shapes_to_layers()
 
         if debug:
             print('master content retrieval took %.4g seconds' % (end - start))
-
+        # TODO: put here or in different function?
         self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
+
 
     def _flatten_instantiate_master_helper(self,
                                            master,  # type:
@@ -718,10 +736,10 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
-    def get_shapely_on_layer(self,
-                             layer,  # type: Tuple[str, str]
-                             debug=False,  # type: bool
-                             ):
+    def get_shapely_input_on_layer(self,
+                                   layer,  # type: Tuple[str, str]
+                                   debug=False,  # type: bool
+                                   ):
         """
         Returns a list of all shapes
 
@@ -760,7 +778,7 @@ class PhotonicTemplateDB(TemplateDB):
         else:
             return self.flat_content_by_layer[layer]
 
-    def _sort_flat_shapes_to_layers(self):
+    def sort_flat_shapes_to_layers(self):
         """
         Sorts the flattened shape list into a dictionary of lists, with keys corresponding to a given lpp
 
@@ -770,7 +788,7 @@ class PhotonicTemplateDB(TemplateDB):
         """
 
         (cell_name, _, rect_list, via_list, pin_list, path_list,
-         blockage_list, boundary_list, polygon_list, round_list) = self.flat_content_list
+         blockage_list, boundary_list, polygon_list, round_list) = self.flat_content_list[0]
 
         used_layers = []
         offset = 2
@@ -778,10 +796,10 @@ class PhotonicTemplateDB(TemplateDB):
         for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
                                                       blockage_list, boundary_list, polygon_list, round_list]):
             for content_item in list_content:
-                layer = content_item['layer']
+                layer = tuple(content_item['layer'])
                 if layer not in used_layers:
                     used_layers.append(layer)
-                    self.flat_content_list[layer] = (cell_name, [], [], [], [], [], [], [], [], [])
+                    self.flat_content_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [])
                 self.flat_content_by_layer[layer][offset + list_type_ind].append(content_item)
 
     def to_shapely(self,
@@ -790,7 +808,7 @@ class PhotonicTemplateDB(TemplateDB):
                    ):
         # type: (...) -> Tuple[List, List]
         """
-        Export the drawn layout to the Shapely format
+        Export the drawn layout to the format required for shapely input (ie list of lists of coords)
 
         Parameters
         ----------
@@ -868,6 +886,74 @@ class PhotonicTemplateDB(TemplateDB):
             print('layout instantiation took %.4g seconds' % (end - start))
 
         return shapelywriter.final_shapes_export()
+
+    def by_layer_polygon_list_to_flat_for_gds_export(self):
+        pre_gdspy_polygon_content_list = []
+        for layer, gdspy_polygons in self.final_post_shapely_gdspy_points_content_by_layer.items():
+
+            pre_gdspy_polygon_content_list.append(
+                dict(
+                    layer=(layer[0], layer[1]),
+                    points=gdspy_polygons,
+                )
+            )
+        # TODO: get the right name
+        self.final_post_shapely_gdspy_polygon_content_flat = [('dummy_name', [], [], [], [], [], [], [],
+                                                              pre_gdspy_polygon_content_list, [])]
+
+    def dataprep(self,
+                 debug=False,  # type: bool
+                 ):
+        # Convert layer shapes to shapely polygon format
+        for layer, gds_shapes in self.flat_content_by_layer.items():
+            self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(self.get_shapely_input_on_layer(layer),
+                                                                               manh_grid_size=0.001)
+
+        with open(self.dataprep_file, 'r') as f:
+            dataprep_info = yaml.load(f)
+
+        for dataprep_group in dataprep_info:
+            for lpp_in in dataprep_group['lpp_in']:
+                shapes_in = self.flat_shapely_content_by_layer.get(lpp_in, None)
+
+                for lpp_op in dataprep_group['lpp_ops']:
+                    out_layer = (lpp_op[0], lpp_op[1])
+                    operation = lpp_op[2]
+                    amount = lpp_op[3]
+                    if debug:
+                        print("Doing dataprep op: {}  on layer {}  to layer  {}".format(operation, lpp_in, out_layer))
+                    new_out_layer_polygons = poly_operation(
+                        polygon1=self.flat_shapely_content_by_layer.get(out_layer, None),
+                        polygon2=shapes_in,
+                        operation=operation,
+                        size_amount=amount,
+                        debug_text=debug
+                    )
+
+                    # shapes_out = dataprep_operation(
+                    #     polygon=shapes_in,
+                    #     operation=operation,
+                    #     size_amount=amount,
+                    #     polygon2=self.flat_shapely_content_by_layer[out_layer],
+                    #     debug_text=debug
+                    # )
+                    if new_out_layer_polygons is not None:
+                        self.flat_shapely_content_by_layer[out_layer] = new_out_layer_polygons
+
+        for layer, shapely_polygons in self.flat_shapely_content_by_layer.items():
+            output_shapes = polyop_shapely2gdspy(shapely_polygons)
+            output_shapes = tuple(map(tuple, output_shapes))
+            output_shapes = [shape for shape in output_shapes]
+            self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
+
+
+        self.by_layer_polygon_list_to_flat_for_gds_export()
+
+
+
+
+
+
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
@@ -1258,7 +1344,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
-        tmp_port_point = new_port.center()
+        tmp_port_point = new_port.center
 
         # Non-zero if new port is aligned with current port
         # > 0 if ports are facing same direction (new instance must be rotated
@@ -1339,14 +1425,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
 
         # Calculate and round translation vector to the resolution unit
-        translation_vec = np.round(my_port.center() - rotated_tmp_port_point)
+        translation_vec = np.round(my_port.center - rotated_tmp_port_point)
 
         new_inst = self.add_instance(
             master=inst_master,
             inst_name=instance_name,
             loc=(int(translation_vec[0]), int(translation_vec[1])),
             orient=trans_str,
-            unit_mode=True
+            unit_mode=False
         )
 
         return new_inst
@@ -1409,7 +1495,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_name
 
     def extract_photonic_ports(self,
-                               inst,  # type: PhotonicInstance
+                               inst,  # type: Union[PhotonicInstance, Instance]
                                port_names=None,  # type: Optional[Union[str, List[str]]]
                                port_renaming=None,  # type: Optional[Dict[str, str]]
                                unmatched_only=True,  # type: bool

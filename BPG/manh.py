@@ -1,7 +1,7 @@
 from math import ceil, floor
 from matplotlib import pyplot
 from shapely.geometry import Point, MultiPoint, LineString, Polygon, MultiPolygon
-from descartes import PolygonPatch
+# from descartes import PolygonPatch
 from shapely.ops import cascaded_union
 from shapely.ops import polygonize_full, polygonize
 
@@ -299,7 +299,7 @@ def polyop_manh(geom,               # type: Polygon, MultiPolygon
 
 
 
-
+'''
 
 # circle_origin = (Point(6.0, 6.0).buffer(5.5, resolution=16))
 
@@ -419,3 +419,4 @@ ax.set_title('6) ')
 
 
 pyplot.show()
+'''
