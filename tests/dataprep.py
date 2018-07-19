@@ -39,7 +39,7 @@ def dataprep_coord_to_poly(pos_neg_list_list,
     if (len(neg_coord_list_list)):
         for neg_coord_list in neg_coord_list_list:
             polygon_neg = Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
-            polygon_out = polygon_out.buffer(polygon_neg)
+            polygon_out = polygon_out.difference(polygon_neg)
 
     return polygon_out
 
