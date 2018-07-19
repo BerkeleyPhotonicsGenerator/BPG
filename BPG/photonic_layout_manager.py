@@ -42,11 +42,11 @@ class PhotonicLayoutManager(DesignManager):
 
         if 'dataprep' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep = bag_work_dir / self.specs['dataprep']
+            self.dataprep_filepath = bag_work_dir / self.specs['dataprep']
         elif 'BAG_PHOT_DATAPREP' in os.environ:
-            self.dataprep = os.environ['BAG_PHOT_DATAPREP']
+            self.dataprep_filepath = os.environ['BAG_PHOT_DATAPREP']
         else:
-            self.dataprep = None
+            self.dataprep_filepath = None
 
         # Make the directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
@@ -75,7 +75,7 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
                                       gds_lay_file=self.layermap, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep)
+                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_filepath)
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """
@@ -118,7 +118,7 @@ class PhotonicLayoutManager(DesignManager):
     def generate_shapely(self):
         return self.tdb.to_shapely()
 
-    def generate_flat_gds(self, layout_params_list=None, cell_name_list=None, debug=False) -> None:
+    def generate_flat_gds(self, generate_gds=True, layout_params_list=None, cell_name_list=None, debug=False) -> None:
         """
         Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
         layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
@@ -154,8 +154,22 @@ class PhotonicLayoutManager(DesignManager):
                                           name_list=cell_name_list,
                                           lib_name='',
                                           debug=debug,
-                                          rename_dict=None
+                                          rename_dict=None,
+                                          draw_flat_gds=generate_gds
                                           )
+
+    def dataprep(self, debug=False):
+        self.generate_flat_gds(generate_gds=False)
+
+        self.tdb.dataprep(debug=debug)
+        print("im here now")
+        # TODO: fix lib name
+        self.tdb.create_masters_in_db(lib_name='Test_Dataprep',
+                                      content_list=self.tdb.final_post_shapely_gdspy_polygon_content_flat,
+                                      debug=debug)
+
+
+
 
     @staticmethod
     def load_yaml(filepath):

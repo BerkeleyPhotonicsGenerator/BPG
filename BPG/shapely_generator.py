@@ -16,8 +16,8 @@ class ShapelyGenerator:
         # type: (...) -> None
 
         # TODO: Make this a generator statement to speed up compute time for large codebases
-        self._boundary_list_p.append(positive_shape_list)
-        self._boundary_list_n.append(negative_shape_list)
+        self._boundary_list_p.extend(positive_shape_list)
+        self._boundary_list_n.extend(negative_shape_list)
 
     def final_shapes_export(self):
         """
