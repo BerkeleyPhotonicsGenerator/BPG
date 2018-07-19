@@ -353,9 +353,10 @@ class PhotonicTemplateDB(TemplateDB):
             print('Creating Lumerical Script File')
 
         start = time.time()
-        for content in self.content_list:
+        for content in self.flat_content_list:
+            # for content in self.content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list, ) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
             print(inst_tot_list)
             # add instances
             for inst_info in inst_tot_list:
@@ -526,7 +527,7 @@ class PhotonicTemplateDB(TemplateDB):
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        list_of_contents = ['', [], [], [], [], [], [], [], [], [],]
+        list_of_contents = ['', [], [], [], [], [], [], [], [], [], ]
         for content in content_list:
             for i, data in enumerate(content):
                 list_of_contents[i] += data
@@ -544,7 +545,6 @@ class PhotonicTemplateDB(TemplateDB):
             print('master content retrieval took %.4g seconds' % (end - start))
         # TODO: put here or in different function?
         self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
-
 
     def _flatten_instantiate_master_helper(self,
                                            master,  # type:
@@ -566,14 +566,14 @@ class PhotonicTemplateDB(TemplateDB):
 
         master_content = master.get_content(self.lib_name, self.format_cell_name)
 
-        (master_name, master_subisntances, new_rect_list, new_via_list, new_pin_list, new_path_list,
+        (master_name, master_subinstances, new_rect_list, new_via_list, new_pin_list, new_path_list,
          new_blockage_list, new_boundary_list, new_polygon_list, new_round_list) = master_content
 
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
 
         # For each instance in this level, recurse to get all its content
-        for child_instance_info in master_subisntances:
+        for child_instance_info in master_subinstances:
             child_master_key = child_instance_info['master_key']
             child_master = self._master_lookup[child_master_key]
 
@@ -596,7 +596,7 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
 
         if debug:
-            print("Done with _flatten_instance_master_helper.  Took " + str(end-start) + "s")
+            print("Done with _flatten_instance_master_helper.  Took " + str(end - start) + "s")
 
         return new_content_list
 
@@ -705,7 +705,7 @@ class PhotonicTemplateDB(TemplateDB):
                     copy=False
                 ).content
             )
-            
+
         for polygon in polygon_list:
             new_polygon_list.append(
                 PhotonicPolygon.from_content(
@@ -866,7 +866,6 @@ class PhotonicTemplateDB(TemplateDB):
                 shapelywriter.add_shapes(*shapely_representation)
 
             for round_obj in round_list:
-
                 shapely_representation = PhotonicRound.shapely_export(
                     rout=round_obj['rout'],
                     rin=round_obj['rin'],
@@ -874,7 +873,7 @@ class PhotonicTemplateDB(TemplateDB):
                     theta1=round_obj['theta1'],
                     center=round_obj['center'],
                     nx=round_obj.get('nx', 1),
-                    ny=round_obj.get('ny',1),
+                    ny=round_obj.get('ny', 1),
                     spx=round_obj.get('spx', 0.0),
                     spy=round_obj.get('spy', 0.0),
                     resolution=self.grid.resolution,
@@ -891,7 +890,6 @@ class PhotonicTemplateDB(TemplateDB):
     def by_layer_polygon_list_to_flat_for_gds_export(self):
         pre_gdspy_polygon_content_list = []
         for layer, gdspy_polygons in self.final_post_shapely_gdspy_points_content_by_layer.items():
-
             pre_gdspy_polygon_content_list.append(
                 dict(
                     layer=(layer[0], layer[1]),
@@ -900,7 +898,7 @@ class PhotonicTemplateDB(TemplateDB):
             )
         # TODO: get the right name
         self.final_post_shapely_gdspy_polygon_content_flat = [('dummy_name', [], [], [], [], [], [], [],
-                                                              pre_gdspy_polygon_content_list, [])]
+                                                               pre_gdspy_polygon_content_list, [])]
 
     def dataprep(self,
                  debug=False,  # type: bool
@@ -947,14 +945,7 @@ class PhotonicTemplateDB(TemplateDB):
             output_shapes = [shape for shape in output_shapes]
             self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
 
-
         self.by_layer_polygon_list_to_flat_for_gds_export()
-
-
-
-
-
-
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
@@ -1301,6 +1292,59 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 )
         return self._photonic_ports[port_name]
 
+    def add_instance(self,  # type: PhotonicTemplateBase
+                     master,  # type: PhotonicTemplateBase
+                     inst_name=None,  # type: Optional[str]
+                     loc=(0, 0),  # type: Tuple[Union[float, int], Union[float, int]]
+                     orient="R0",  # type: str
+                     nx=1,  # type: int
+                     ny=1,  # type: int
+                     spx=0,  # type: Union[float, int]
+                     spy=0,  # type: Union[float, int]
+                     unit_mode=False,  # type: bool
+                     ):
+        # type: (...) -> Instance
+        """Adds a new (arrayed) instance to layout.
+
+        Parameters
+        ----------
+        master : TemplateBase
+            the master template object.
+        inst_name : Optional[str]
+            instance name.  If None or an instance with this name already exists,
+            a generated unique name is used.
+        loc : Tuple[Union[float, int], Union[float, int]]
+            instance location.
+        orient : str
+            instance orientation.  Defaults to "R0"
+        nx : int
+            number of columns.  Must be positive integer.
+        ny : int
+            number of rows.  Must be positive integer.
+        spx : Union[float, int]
+            column pitch.  Used for arraying given instance.
+        spy : Union[float, int]
+            row pitch.  Used for arraying given instance.
+        unit_mode : bool
+            True if dimensions are given in resolution units.
+
+        Returns
+        -------
+        inst : Instance
+            the added instance.
+        """
+        res = self.grid.resolution
+        if not unit_mode:
+            loc = int(round(loc[0] / res)), int(round(loc[1] / res))
+            spx = int(round(spx / res))
+            spy = int(round(spy / res))
+
+        inst = PhotonicInstance(self.grid, self._lib_name, master, loc=loc, orient=orient,
+                                name=inst_name, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=True)
+
+        self._layout.add_instance(inst)
+        return inst
+
     def add_instances_port_to_port(self,
                                    inst_master,  # type: PhotonicTemplateBase
                                    instance_port_name,  # type: str
@@ -1428,7 +1472,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
 
         # Calculate and round translation vector to the resolution unit
-        #translation_vec = np.round(my_port.center - rotated_tmp_port_point)
+        # translation_vec = np.round(my_port.center - rotated_tmp_port_point)
         translation_vec = my_port.center - rotated_tmp_port_point
 
         # new_inst = self.add_instance(
@@ -1576,5 +1620,5 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def waveguide_from_path(self,
                             layer,
                             path):
-        
+
         pass
