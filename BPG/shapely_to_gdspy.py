@@ -1,17 +1,24 @@
-from math import ceil, floor
-from matplotlib import pyplot
+# from math import ceil, floor
+# from matplotlib import pyplot
 # from descartes import PolygonPatch
 # from shapely.ops import cascaded_union
 # from shapely.ops import polygonize_full, polygonize
+from typing import TYPE_CHECKING, List
 import shapely.geometry
 import gdspy
 import numpy as np
-import os
+
+if TYPE_CHECKING:
+    pass
+
+# import os
 
 # from figures import SIZE, BLUE, GRAY, set_limits
 
+
 def plot_coords(ax, x, y, color='#999999', zorder=1):
     ax.plot(x, y, 'o', color=color, zorder=zorder)
+
 
 def plot_line(ax, ob, color='r'):
     parts = hasattr(ob, 'geoms') and ob or [ob]
@@ -20,9 +27,9 @@ def plot_line(ax, ob, color='r'):
         ax.plot(x, y, color=color, linewidth=3, solid_capstyle='round', zorder=1)
 
 
-def polyop_shapely2gdspy_Polygon(polygon_shapely,   # type: Polygon
+def polyop_shapely2gdspy_polygon(polygon_shapely,  # type: shapely.geometry.Polygon
                                  ):
-    # type: (...) -> gdspy.Polygon
+    # type: (...) -> List
 
     if polygon_shapely.type != 'Polygon':
         raise ValueError('Unhandled geometry type: ' + repr(polygon_shapely.type) + ', type should be Polygon')
@@ -42,18 +49,30 @@ def polyop_shapely2gdspy_Polygon(polygon_shapely,   # type: Polygon
             polygon_int_gdspy = gdspy.Polygon(coords_int_gdspy)
             polygon_gdspy = gdspy.fast_boolean(polygon_gdspy, polygon_int_gdspy, 'not')
 
-    return polygon_gdspy
+    # TODO: Rounding properly
+    output_list_of_coord_lists = []
+    if isinstance(polygon_gdspy, gdspy.Polygon):
+        output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]
+    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+        for poly in polygon_gdspy.polygons:
+            output_list_of_coord_lists.append(np.round(poly, 3))
+    else:
+        raise ValueError('got bad return type from gdspy.fast_boolean in polyop_shapely2gdspy_Polygon')
+    return output_list_of_coord_lists
 
 
-def polyop_shapely2gdspy(geom_shapely,  # type: Polygon, MultiPolygon
+def polyop_shapely2gdspy(geom_shapely,  # type: shapely.geometry.Polygon, shapely.geometry.MultiPolygon
                          ):
-
+    # type: (...) -> List
     """
     This function converts a Shapely Polygon/MultiPolygon object to a gdspy Polygon/PolygonSet object
+
+    The returned List is a list of coordinate lists, that composes the set of all polygons that form all objects on a
+    layer. The polygons are already fractured, so holes are "keyholed", and no further manipulation needs to be done
     """
     # TODO: round properly
     if geom_shapely.type == 'Polygon':
-        return [np.round(polyop_shapely2gdspy_Polygon(geom_shapely).points, 3)]
+        return polyop_shapely2gdspy_polygon(geom_shapely)
     elif geom_shapely.type == 'MultiPolygon':
         # geom_gdspy = polyop_shapely2gdspy_Polygon(geom_shapely[0])
         # for polygon_shapely in geom_shapely[1:]:
@@ -66,14 +85,13 @@ def polyop_shapely2gdspy(geom_shapely,  # type: Polygon, MultiPolygon
         # return coords_out
         coords_out = []
         for polygon_shapely in geom_shapely:
-            polygon_gdspy = polyop_shapely2gdspy_Polygon(polygon_shapely)
-            coords_gdspy = np.round(polygon_gdspy.points, 3)
-            coords_out.append(coords_gdspy)
+            coords_out.extend(polyop_shapely2gdspy_polygon(polygon_shapely))
         return coords_out
 
     else:
         raise ValueError('Unhandled geometry type: ' + repr(geom_shapely.type) +
                          'type should be either "Polygon" or "MultiPolygon"')
+
 
 '''
 ring_ext = gdspy.Polygon([(0, -8), (0, -4), (4, -4), (4, 4), (-4, 4), (-4, -4), (0, -4),

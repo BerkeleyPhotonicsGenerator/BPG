@@ -8,7 +8,7 @@
 
 # import importlib
 # from figures import SIZE, BLUE, GRAY, set_limits
-from typing import TYPE_CHECKING, Tuple, List
+from typing import TYPE_CHECKING, Tuple, List, Union
 from math import ceil, floor
 from shapely.geometry import Point, Polygon, MultiPolygon
 from BPG.manh import polyop_manh, coords_cleanup
@@ -28,6 +28,7 @@ def dataprep_coord_to_poly(
         pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
         manh_grid_size,  # type: float
         ):
+    # type: (...) -> Union[Polygon, MultiPolygon]
     """
     Converts list of coordinate lists into shapely polygon objects
 
@@ -45,7 +46,7 @@ def dataprep_coord_to_poly(
 
     polygon_out = Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
 
-    print(pos_coord_list_list)
+    # print(pos_coord_list_list)
     # asgege
     if len(pos_coord_list_list) > 1:
         for pos_coord_list in pos_coord_list_list[1:]:
@@ -58,7 +59,6 @@ def dataprep_coord_to_poly(
 
     polygon_out = polyop_manh(polygon_out, do_manh=True, manh_grid_size=manh_grid_size)
     return polygon_out
-
 
 def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon
                      size_amount,   # type: float
@@ -149,9 +149,9 @@ def poly_operation(polygon1,  # type: Polygon, Multipolygon
 
         elif operation == 'add':
             if polygon1 is None:
-                polygon_out = polygon2
+                polygon_out = polyop_oversize(polygon2, size_amount)
             else:
-                polygon_out = polygon1.union(polygon2)
+                polygon_out = polygon1.union(polyop_oversize(polygon2, size_amount))
             # if (debug_text == True and leng(ShapesIn) > 0):
             #     print("%L --> %L  %L shapes added."  %(LppIn, LppOut, list(length(ShapesIn))))
 
@@ -159,7 +159,8 @@ def poly_operation(polygon1,  # type: Polygon, Multipolygon
             if polygon1 is None:
                 polygon_out = None
             else:
-                polygon_out = polygon1.difference(polygon2)
+                # TODO: Over or undersize the subtracted poly
+                polygon_out = polygon1.difference(polyop_oversize(polygon2, size_amount))
             # if (debug_text == True and leng(ShapesToSubtract) > 0):
             #     print("%L --> %L  %L shapes subtracted."  %(LppIn, LppOut, list(length(ShapesToSubtract))))
             # if polygon1.area == 0
