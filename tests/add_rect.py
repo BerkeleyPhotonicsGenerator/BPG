@@ -1,6 +1,8 @@
 import BPG
 from bag.layout.util import BBox
 
+
+
 class AddRectTest(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
@@ -57,21 +59,24 @@ class AddRectTest(BPG.PhotonicTemplateBase):
             unit_mode=False
         )
 
+    if __name__ == '__main__':
+        # Load a previous BPG Project if it exists, otherwise create a new one
+        local_dict = locals()
+        if 'prj' not in local_dict:
+            print('creating BAG project')
+            bprj = BPG.PhotonicBagProject()
 
-if __name__ == '__main__':
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('creating BAG project')
-        bprj = BPG.PhotonicBagProject()
+        else:
+            print('loading BAG project')
+            bprj = local_dict['bprj']
 
-    else:
-        print('loading BAG project')
-        bprj = local_dict['bprj']
+        spec_file = './specs/add_rect_specs.yaml'
+        # spec_file = '/tools/projects/ruocheng_wang/Photonics_Dev/BPG/tests/specs/add_rect_specs.yaml'
+        PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
+        PLM.generate_gds()
+        test = PLM.generate_shapely()
+        print('PLM.generate_shapely', test)
 
-    spec_file = './specs/add_rect_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
-    test = PLM.generate_shapely()
-
-    asdf
+        poly_list = get_polygon_mtlayer(test)
+        poly_origin = poly_list[0]
+        # poly_origin = get_polygon_sglayer(test[0])

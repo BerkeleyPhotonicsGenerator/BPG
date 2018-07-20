@@ -167,6 +167,9 @@ class PhotonicTemplateDB(TemplateDB):
         debug : bool
             True to print debug messages
         """
+        if debug:
+            print("In PhotonicTemplateDB._create_gds")
+
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
@@ -526,7 +529,8 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('master content retrieval took %.4g seconds' % (end - start))
         # TODO: put here or in different function?
-        self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
+        if draw_flat_gds:
+            self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
 
     def _flatten_instantiate_master_helper(self,
                                            master,  # type:
@@ -872,12 +876,13 @@ class PhotonicTemplateDB(TemplateDB):
     def by_layer_polygon_list_to_flat_for_gds_export(self):
         pre_gdspy_polygon_content_list = []
         for layer, gdspy_polygons in self.final_post_shapely_gdspy_points_content_by_layer.items():
-            pre_gdspy_polygon_content_list.append(
-                dict(
-                    layer=(layer[0], layer[1]),
-                    points=gdspy_polygons,
+            for polygon in gdspy_polygons:
+                pre_gdspy_polygon_content_list.append(
+                    dict(
+                        layer=(layer[0], layer[1]),
+                        points=polygon,
+                    )
                 )
-            )
         # TODO: get the right name
         self.final_post_shapely_gdspy_polygon_content_flat = [('dummy_name', [], [], [], [], [], [], [],
                                                                pre_gdspy_polygon_content_list, [])]
@@ -887,12 +892,21 @@ class PhotonicTemplateDB(TemplateDB):
                  ):
         # Convert layer shapes to shapely polygon format
         for layer, gds_shapes in self.flat_content_by_layer.items():
+            start = time.time()
             self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(self.get_shapely_input_on_layer(layer),
                                                                                manh_grid_size=0.001)
+            end = time.time()
+            if debug:
+                print(
+                    "Converting shapely to coordinate list through GDSPY on layer {}  took {}s".format(
+                        layer, end-start
+                    )
+                )
 
         with open(self.dataprep_file, 'r') as f:
             dataprep_info = yaml.load(f)
 
+        start = time.time()
         for dataprep_group in dataprep_info:
             for lpp_in in dataprep_group['lpp_in']:
                 shapes_in = self.flat_shapely_content_by_layer.get(lpp_in, None)
@@ -902,13 +916,13 @@ class PhotonicTemplateDB(TemplateDB):
                     operation = lpp_op[2]
                     amount = lpp_op[3]
                     if debug:
-                        print("Doing dataprep op: {}  on layer {}  to layer  {}".format(operation, lpp_in, out_layer))
+                        print("Doing dataprep op: {}  on layer {}  to layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
                     new_out_layer_polygons = poly_operation(
                         polygon1=self.flat_shapely_content_by_layer.get(out_layer, None),
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        debug_text=debug
+                        debug_text=debug,
                     )
 
                     # shapes_out = dataprep_operation(
@@ -920,15 +934,38 @@ class PhotonicTemplateDB(TemplateDB):
                     # )
                     if new_out_layer_polygons is not None:
                         self.flat_shapely_content_by_layer[out_layer] = new_out_layer_polygons
+        end = time.time()
 
+        if debug:
+            print('All polygon operations took {}s'.format(end-start))
+
+        start = time.time()
         for layer, shapely_polygons in self.flat_shapely_content_by_layer.items():
             output_shapes = polyop_shapely2gdspy(shapely_polygons)
-            output_shapes = tuple(map(tuple, output_shapes))
-            output_shapes = [shape for shape in output_shapes]
-            self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
+            new_shapes = []
+            for shape in output_shapes:
+                shape = tuple(map(tuple, shape))
+                new_shapes.append([coord for coord in shape])
+
+            #     new_shapes.append(shape)
+            #
+            # if isinstance(output_shapes, list):
+            #     for shape in output_shapes:
+            #         shape = tuple(map(tuple, shape))
+            #         shape = [coord for coord in shape]
+            #         new_shapes.append(shape)
+            self.final_post_shapely_gdspy_points_content_by_layer[layer] = new_shapes
+
+            # else:
+            #     output_shapes = tuple(map(tuple, output_shapes))
+            #     output_shapes = [shape for shape in output_shapes]
+            #     self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
 
         self.by_layer_polygon_list_to_flat_for_gds_export()
 
+        end = time.time()
+        if debug:
+            print('Converting from by-layer coordinate lists to a flat "content list" took {}s'.format(end-start))
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
