@@ -373,21 +373,13 @@ class PhotonicTemplateDB(TemplateDB):
                         lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
                     lsfwriter.add_code(lsf_repr)
 
-            # add vias
             for via in via_list:
                 pass
 
-            # add pins
             for pin in pin_list:
                 pass
 
             for path in path_list:
-                pass
-
-            for blockage in blockage_list:
-                pass
-
-            for boundary in boundary_list:
                 pass
 
             # add polygons if they are valid lumerical layers
@@ -397,6 +389,7 @@ class PhotonicTemplateDB(TemplateDB):
                     lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
                     lsfwriter.add_code(lsf_repr)
 
+            # add rounds if they are valid lumerical layers
             for round_obj in round_list:
                 if tuple(round_obj['layer']) in prop_map:
                     nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -429,7 +422,7 @@ class PhotonicTemplateDB(TemplateDB):
         lsfwriter.export_to_lsf(self.lsf_filepath)
         end = time.time()
         if debug:
-            print('layout instantiation took %.4g seconds' % (end - start))
+            print('LSF Generation took %.4g seconds' % (end - start))
 
     def instantiate_flat_masters(self,
                                  master_list,  # type: Sequence[DesignMaster]
