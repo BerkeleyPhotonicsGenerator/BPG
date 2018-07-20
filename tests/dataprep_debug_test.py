@@ -27,14 +27,14 @@ class SubLevel2(BPG.PhotonicTemplateBase):
         circ = BPG.photonic_objects.PhotonicRound(
             layer='SI',
             resolution=self.grid.resolution,
-            center=(-30,-30),
+            center=(-30, 30),
             rout=5,
             rin=4,
-            theta0=45,
-            theta1=60,
+            # theta0=45,
+            # theta1=60,
             unit_mode=False
         )
-        # self.add_round(circ)
+        self.add_round(circ)
 
         self.add_rect(
             layer='SI',
@@ -44,13 +44,13 @@ class SubLevel2(BPG.PhotonicTemplateBase):
 
         self.add_rect(
             layer='POLY',
-            coord1=(0, 0),
-            coord2=(1, 2),
+            coord1=(-100, -100),
+            coord2=(-50, -70),
         )
 
         self.add_polygon(
             layer='POLY',
-            points=[(0, 0), (10, 0), (0, 5)]
+            points=[(0, 0), (10, 0), (10, 5), (0, 5)]
         )
 
 
@@ -67,8 +67,8 @@ if __name__ == '__main__':
 
     spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
+    # PLM.generate_gds()
     # PLM.generate_lsf()
-    PLM.generate_flat_gds(debug=False)
+    PLM.generate_flat_gds(debug=False, generate_gds=False)
     print("in dataprep_debug_test just before PLM.dataprep")
     PLM.dataprep(debug=True)

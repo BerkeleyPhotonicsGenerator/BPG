@@ -159,10 +159,13 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self, debug=False):
+        if debug:
+            print("In PhotonicLayoutManager.dataprep")
+
         self.generate_flat_gds(generate_gds=False)
 
         self.tdb.dataprep(debug=debug)
-        print("im here now")
+
         # TODO: fix lib name
         self.tdb.create_masters_in_db(lib_name='Test_Dataprep',
                                       content_list=self.tdb.final_post_shapely_gdspy_polygon_content_flat,
