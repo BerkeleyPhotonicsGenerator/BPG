@@ -95,7 +95,7 @@ class PhotonicLayoutManager(DesignManager):
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']]
 
-        print('Generating .gds file')
+        print('\n---Generating .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -109,10 +109,10 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
 
-    def generate_lsf(self):
+    def generate_lsf(self, debug=False):
         """ Converts generated layout to lsf format for lumerical import """
-        print('Generating .lsf file')
-        self.tdb.to_lumerical()
+        print('\n---Generating .lsf file---')
+        self.tdb.to_lumerical(debug=debug)
 
     def generate_shapely(self):
         return self.tdb.to_shapely()
@@ -136,7 +136,7 @@ class PhotonicLayoutManager(DesignManager):
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']]
 
-        print('Generating flat .gds file')
+        print('\n---Generating flat .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -158,20 +158,13 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self, debug=False):
-        if debug:
-            print("In PhotonicLayoutManager.dataprep")
-
+        print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
-
         self.tdb.dataprep(debug=debug)
 
-        # TODO: fix lib name
-        self.tdb.create_masters_in_db(lib_name='Test_Dataprep',
+        self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
                                       content_list=self.tdb.final_post_shapely_gdspy_polygon_content_flat,
                                       debug=debug)
-
-
-
 
     @staticmethod
     def load_yaml(filepath):
