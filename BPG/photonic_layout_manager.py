@@ -57,7 +57,6 @@ class PhotonicLayoutManager(DesignManager):
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
         self.gds_path = str(self.data_dir / self.specs['gds_filename'])
 
-
         # Make the PhotonicTemplateDB
         self.make_tdb()
 
