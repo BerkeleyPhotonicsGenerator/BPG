@@ -2,11 +2,12 @@
 # A sample specification file to generate a SingleModeWaveguide project
 
 # Output Directory Locations
-project_dir: ~/Photonics_Data/Generated_Waveguide  # Top level directory for the project. This is an absolute path
+project_name: Generated_Waveguide
+#project_dir: ~/Photonics_Data/Generated_Waveguide  # If you would like to dump outputs to a specific location, enter it here
 
 # This is an optional parameter that can be used to override the layermap used. By default, BPG looks for the
 # BAG_PHOT_LAYERMAP environmental variable set in the .bashrc
-#layermap: BPG/examples/tech/gds_map.yaml
+# layermap: BPG/examples/tech/gds_map.yaml
 
 # Output Settings
 lsf_filename: SingleModeWaveguide.lsf
