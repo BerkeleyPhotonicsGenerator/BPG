@@ -2,8 +2,9 @@
 # A sample specification file to generate a SingleModeWaveguide project
 
 # Directory Locations
-project_dir: ~/Photonics_Data/Generated_Poly  # Top level directory for the project
-#layermap: ./tech/gds_map.yaml  # file containing technology information
+project_name: Generated_Poly
+#project_dir: ~/Photonics_Data/Generated_Poly  # If you would like to dump outputs to a specific location, enter it here
+#layermap: ./tech/gds_map.yaml  # If you would like to override the layermap from bag_config.yaml, enter it here
 
 # Output Settings
 lsf_filename: Polygon.lsf

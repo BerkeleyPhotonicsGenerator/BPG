@@ -356,98 +356,76 @@ class PhotonicTemplateDB(TemplateDB):
             print('Creating Lumerical Script File')
 
         start = time.time()
+        if self.flat_content_list is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+
         for content in self.flat_content_list:
             # for content in self.content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
-            print(inst_tot_list)
-            # add instances
-            for inst_info in inst_tot_list:
-                pass
 
-                # TODO: Determine how useful this section really is...
-                # if inst_info.params is not None:
-                #     raise ValueError('Cannot instantiate PCells in GDS.')
-                # num_rows = inst_info.num_rows
-                # num_cols = inst_info.num_cols
-                # angle, reflect = inst_info.angle_reflect
-                # if num_rows > 1 or num_cols > 1:
-                #     cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
-                #                                (inst_info.sp_cols, inst_info.sp_rows),
-                #                                origin=inst_info.loc, rotation=angle,
-                #                                x_reflection=reflect)
-                # else:
-                #     cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
-                #                                    rotation=angle, x_reflection=reflect)
-                # gds_cell.add(cur_inst)
-
-            # add rectangles
+            # add rectangles if they are valid lumerical layers
             for rect in rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
-                layer_prop = prop_map[tuple(rect['layer'])]
-                if nx > 1 or ny > 1:
-                    lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop, nx, ny,
-                                                       spx=rect['arr_spx'], spy=rect['arr_spy'])
-                else:
-                    lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
+                if tuple(rect['layer']) in prop_map:
+                    layer_prop = prop_map[tuple(rect['layer'])]
+                    if nx > 1 or ny > 1:
+                        lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop, nx, ny,
+                                                           spx=rect['arr_spx'], spy=rect['arr_spy'])
+                    else:
+                        lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
+                    lsfwriter.add_code(lsf_repr)
 
-                lsfwriter.add_code(lsf_repr)
-
-            # add vias
             for via in via_list:
                 pass
 
-            # add pins
             for pin in pin_list:
                 pass
 
             for path in path_list:
                 pass
 
-            for blockage in blockage_list:
-                pass
-
-            for boundary in boundary_list:
-                pass
-
+            # add polygons if they are valid lumerical layers
             for polygon in polygon_list:
-                if polygon['layer'][1] != 'port':
+                if tuple(polygon['layer']) in prop_map:
                     layer_prop = prop_map[tuple(polygon['layer'])]
                     lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
                     lsfwriter.add_code(lsf_repr)
 
+            # add rounds if they are valid lumerical layers
             for round_obj in round_list:
-                nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
-                layer_prop = prop_map[tuple(round_obj['layer'])]
+                if tuple(round_obj['layer']) in prop_map:
+                    nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
+                    layer_prop = prop_map[tuple(round_obj['layer'])]
 
-                if nx > 1 or ny > 1:
-                    lsf_repr = PhotonicRound.lsf_export(
-                        rout=round_obj['rout'],
-                        rin=round_obj['rin'],
-                        theta0=round_obj['theta0'],
-                        theta1=round_obj['theta1'],
-                        layer_prop=layer_prop,
-                        center=round_obj['center'],
-                        nx=nx,
-                        ny=ny,
-                        spx=round_obj['arr_spx'],
-                        spy=round_obj['arr_spy'],
-                    )
-                else:
-                    lsf_repr = PhotonicRound.lsf_export(
-                        rout=round_obj['rout'],
-                        rin=round_obj['rin'],
-                        theta0=round_obj['theta0'],
-                        theta1=round_obj['theta1'],
-                        layer_prop=layer_prop,
-                        center=round_obj['center'],
-                    )
-                lsfwriter.add_code(lsf_repr)
+                    if nx > 1 or ny > 1:
+                        lsf_repr = PhotonicRound.lsf_export(
+                            rout=round_obj['rout'],
+                            rin=round_obj['rin'],
+                            theta0=round_obj['theta0'],
+                            theta1=round_obj['theta1'],
+                            layer_prop=layer_prop,
+                            center=round_obj['center'],
+                            nx=nx,
+                            ny=ny,
+                            spx=round_obj['arr_spx'],
+                            spy=round_obj['arr_spy'],
+                        )
+                    else:
+                        lsf_repr = PhotonicRound.lsf_export(
+                            rout=round_obj['rout'],
+                            rin=round_obj['rin'],
+                            theta0=round_obj['theta0'],
+                            theta1=round_obj['theta1'],
+                            layer_prop=layer_prop,
+                            center=round_obj['center'],
+                        )
+                    lsfwriter.add_code(lsf_repr)
 
         lsfwriter.export_to_lsf(self.lsf_filepath)
         end = time.time()
         if debug:
-            print('layout instantiation took %.4g seconds' % (end - start))
+            print('LSF Generation took %.4g seconds' % (end - start))
 
     def instantiate_flat_masters(self,
                                  master_list,  # type: Sequence[DesignMaster]
@@ -907,17 +885,22 @@ class PhotonicTemplateDB(TemplateDB):
 
     def dataprep(self,
                  debug=False,  # type: bool
+                 push_portshapes_through_dataprep=False,  # type: bool
                  ):
         # Convert layer shapes to shapely polygon format
         for layer, gds_shapes in self.flat_content_by_layer.items():
             start = time.time()
-            self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(self.get_shapely_input_on_layer(layer),
-                                                                               manh_grid_size=0.001)
+            # TODO: fix manhattan size
+            if push_portshapes_through_dataprep or layer[1] != 'port':
+                self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(
+                    self.get_shapely_input_on_layer(layer),
+                    manh_grid_size=0.001
+                )
             end = time.time()
             if debug:
                 print(
                     "Converting shapely to coordinate list through GDSPY on layer {}  took {}s".format(
-                        layer, end-start
+                        layer, end - start
                     )
                 )
 
@@ -1428,7 +1411,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
-        tmp_port_point = new_port.center
+        tmp_port_point = new_port.center_unit
 
         # Non-zero if new port is aligned with current port
         # > 0 if ports are facing same direction (new instance must be rotated
@@ -1509,23 +1492,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
 
         # Calculate and round translation vector to the resolution unit
-        # translation_vec = np.round(my_port.center - rotated_tmp_port_point)
-        translation_vec = my_port.center - rotated_tmp_port_point
-
-        # new_inst = self.add_instance(
-        #     master=inst_master,
-        #     inst_name=instance_name,
-        #     loc=(int(translation_vec[0]), int(translation_vec[1])),
-        #     orient=trans_str,
-        #     unit_mode=True
-        # )
+        translation_vec = my_port.center_unit - rotated_tmp_port_point
 
         new_inst = self.add_instance(
             master=inst_master,
             inst_name=instance_name,
             loc=(translation_vec[0], translation_vec[1]),
             orient=trans_str,
-            unit_mode=False
+            unit_mode=True
         )
 
         return new_inst
