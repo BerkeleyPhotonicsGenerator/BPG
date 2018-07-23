@@ -19,7 +19,6 @@ def plot_line(ax, ob, color='r'):
         ax.plot(x, y, color=color, linewidth=3, solid_capstyle='round', zorder=1)
 
 
-
 def coords_cleanup(coords_list_ori, # type: list[tuple[float, float]]
                    eps_grid=1e-4,   # type: float
                    ):
@@ -40,9 +39,9 @@ def coords_cleanup(coords_list_ori, # type: list[tuple[float, float]]
 
     # print('coord_list_ori', coords_list_ori)
 
-    def cleanup_loop(coords_list_ori,   # type: list[tuple[float, float]]
-                     eps_grid=1e-4,     # type: float
-                    ):
+    def cleanup_loop(coords_list_ori,  # type: list[tuple[float, float]]
+                     eps_grid=1e-4,  # type: float
+                     ):
 
         def coords_apprx_in_line(coord1,        # type: tuple[float, float]
                                  coord2,        # type: tuple[float, float]
@@ -107,7 +106,6 @@ def coords_cleanup(coords_list_ori, # type: list[tuple[float, float]]
             fully_cleaned = False
             coords_list_out = coords_list_out[1:-1]
             coords_list_out.append(coords_list_out[0])
-
 
         # LAST STEP: just in case that the first and the last coord are slightly different
         coords_list_out = coords_list_out[0:-1]
@@ -175,10 +173,10 @@ def manh_skill(poly_coords,     # type: list[tuple[float, float]]
     if (not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1])):
         poly_coords_manhgrid.append(poly_coords_manhgrid[0])
 
-    #### do manhattanization if manh_type is 'inc'
-    if (manh_type == 'non'):
+    # do manhattanization if manh_type is 'inc'
+    if manh_type == 'non':
         return coords_cleanup(poly_coords_manhgrid)
-    elif ((manh_type == 'inc') or (manh_type == 'dec')):
+    elif (manh_type == 'inc') or (manh_type == 'dec'):
         # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
         # (a kind of "center-of-mass")
         xcoord_sum = 0
@@ -303,11 +301,10 @@ def gdspy_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonSe
                do_manh,             # type: bool
                ):
 
-    if (do_manh):
+    if do_manh:
         manh_type = 'inc'
     else:
         manh_type = 'non'
-
 
     if isinstance(polygon_gdspy, gdspy.Polygon):
         coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
