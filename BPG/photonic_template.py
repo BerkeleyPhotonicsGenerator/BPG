@@ -882,17 +882,22 @@ class PhotonicTemplateDB(TemplateDB):
 
     def dataprep(self,
                  debug=False,  # type: bool
+                 push_portshapes_through_dataprep=False,  # type: bool
                  ):
         # Convert layer shapes to shapely polygon format
         for layer, gds_shapes in self.flat_content_by_layer.items():
             start = time.time()
-            self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(self.get_shapely_input_on_layer(layer),
-                                                                               manh_grid_size=0.001)
+            # TODO: fix manhattan size
+            if push_portshapes_through_dataprep or layer[1] != 'port':
+                self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(
+                    self.get_shapely_input_on_layer(layer),
+                    manh_grid_size=0.001
+                )
             end = time.time()
             if debug:
                 print(
                     "Converting shapely to coordinate list through GDSPY on layer {}  took {}s".format(
-                        layer, end-start
+                        layer, end - start
                     )
                 )
 
