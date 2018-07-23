@@ -1,18 +1,9 @@
-# import BPG
-# from bag.layout.util import BBox
 
-# from matplotlib import pyplot
-# from descartes import PolygonPatch
-# from shapely.ops import cascaded_union
-# from shapely.ops import polygonize, polygonize_full
-
-# import importlib
-# from figures import SIZE, BLUE, GRAY, set_limits
 import gdspy
 from typing import Tuple, List, Union  #, TYPE_CHECKING,
 from math import ceil  # , floor
 from BPG.manh import gdspy_manh  # ,coords_cleanup
-# from BPG.shapely_debug import shapely_plot
+import numpy as np
 
 
 ################################################################################
@@ -25,6 +16,22 @@ global_min_width = 0.02
 global_min_space = 0.05
 
 
+def polyop_gdspy_to_point_list(polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                               ):
+    # type: (...) -> List
+
+    # TODO: Rounding properly
+    output_list_of_coord_lists = []
+    if isinstance(polygon_gdspy, gdspy.Polygon):
+        output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]
+    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+        for poly in polygon_gdspy.polygons:
+            output_list_of_coord_lists.append(np.round(poly, 3))
+    else:
+        raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
+    return output_list_of_coord_lists
+
+
 def dataprep_coord_to_gdspy(
         pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
         manh_grid_size,  # type: float
@@ -32,12 +39,14 @@ def dataprep_coord_to_gdspy(
         ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
     """
-    Converts list of coordinate lists into shapely polygon objects
+    Converts list of coordinate lists into GDSPY polygon objects
+    The expected input list will be a list of all polygons on a given layer
 
     Parameters
     ----------
     pos_neg_list_list
     manh_grid_size
+    do_manh
 
     Returns
     -------
@@ -69,10 +78,9 @@ def dataprep_coord_to_gdspy(
     return polygon_out
 
 
-def dataprep_oversize_gdspy \
-                (polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                 offset,  # type: float
-                 ):
+def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                            offset,  # type: float
+                            ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
 
     if offset < 0:
@@ -83,11 +91,9 @@ def dataprep_oversize_gdspy \
     return polygon_oversized
 
 
-def dataprep_undersize_gdspy \
-                (polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                 offset,  # type: float
-                 ):
-
+def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                             offset,  # type: float
+                             ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
 
     if offset < 0:
@@ -97,12 +103,10 @@ def dataprep_undersize_gdspy \
     return polygon_undersized
 
 
-def dataprep_roughsize_gdspy \
-                (polygon,       # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                 size_amount,   # type: float
-                 do_manh,       # type: bool
-                 ):
-
+def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                             size_amount,  # type: float
+                             do_manh,  # type: bool
+                             ):
     rough_grid_size = global_rough_grid_size
 
     # oversize twice, then undersize twice and oversize again
@@ -122,9 +126,6 @@ def dataprep_roughsize_gdspy \
     return polygon_roughsized
 
 
-
-
-
 def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                   polygon_ref,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                   extended_amount,  # type: float
@@ -140,7 +141,6 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
 
     polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
                                0, max_points=4094, join_first=True)
-
 
     buffer_size = max(grid_size * ceil(0.5 * extended_amount / grid_size + 1.1), 0.0)
     polygon_out = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_out, buffer_size), buffer_size)
@@ -251,88 +251,3 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
             pass
 
         return polygon_out
-
-
-# def dataprep_operation(polygon,  # type: Polygon, Multipolygon
-#                        operation,  # type: str
-#                        size_amount,  # type: float
-#                        polygon2=None,  # type: Polygon, Multipolygon
-#                        debug_text=False,  # type: bool
-#                        ):
-#     # TODO: clean up the input polygons first
-#
-#     grid_size = global_grid_size
-#
-#     if operation == 'rad':
-#         # if (need_new_rough_shapes == True):
-#         #     polygon_rough = polyop_roughsize(polygon2)
-#         #     need_new_rough_shapes == False
-#
-#         polygon_rough = polyop_roughsize(polygon)
-#
-#         buffer_size = max(size_amount - 2 * global_rough_grid_size, 0)
-#         polygon_out = polyop_oversize(polygon_rough, buffer_size)
-#         # if (debug_text == True and leng(RoughShapes) > 0):
-#         #     print("%L --> %L  %L rough shapes added."  %(LppIn, LppOut, list(len(RoughShapes))))
-#
-#     elif operation == 'add':
-#         polygon_out = polyop_oversize(polygon)
-#         # if (debug_text == True and leng(ShapesIn) > 0):
-#         #     print("%L --> %L  %L shapes added."  %(LppIn, LppOut, list(length(ShapesIn))))
-#
-#     elif operation == 'sub':
-#         polygon_out = polygon2.difference(polyop_oversize(polygon))
-#         # if (debug_text == True and leng(ShapesToSubtract) > 0):
-#         #     print("%L --> %L  %L shapes subtracted."  %(LppIn, LppOut, list(length(ShapesToSubtract))))
-#         # if polygon1.area == 0
-#         #     print("Warning in 0ProcedureDataPrep. There is nothing to substract %L from." %(LppOut))
-#
-#     elif operation == 'ext':
-#         # if (not (member(LppOut, NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-#         # TODO: fix this
-#         if True:
-#             # if (debug_text == True):
-#             #     print("Extending %L over %L by %s ." %(LppIn, LppOut, list(SizeAmount)))
-#             # else:
-#             #     pass
-#             polygon_toextend = polygon
-#             polygon_ref = polygon2
-#             polygon_out = polyop_extend(polygon_toextend, polygon_ref, size_amount)
-#         else:
-#             pass
-#             # if (debug_text == True):
-#             #     print("Extension skipped on %L over %s by %s." %(LppIn, LppOut, list(SizeAmount)))
-#             # else:
-#             #     pass
-#     # TODO
-#     elif operation == 'ouo':
-#         # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-#         if True:
-#             # if (debug_text == True and length(ShapesIn) > 0):
-#             #     print("Performing Over of Under of Under of Over on %s."  %LppIn)
-#             # if ():
-#             #     ValueError("MinWidth for %s is missing" %LppIn)
-#             # else:
-#             #     min_width = lpp_in['min_width']
-#             # if ():
-#             #     ValueError("MinSpace for %s is missing" %LppIn)
-#             # else:
-#             #     min_space = lpp_in['min_space']
-#
-#             min_width = global_min_width
-#             min_space = global_min_width
-#
-#             underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
-#             overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-#             poly_o = polyop_oversize(polygon, underofover_size)
-#             poly_ou = polyop_undersize(poly_o, underofover_size)
-#             poly_ouu = polyop_undersize(poly_ou, overofunder_size)
-#             poly_out = polyop_oversize(poly_ouu, overofunder_size)
-#
-#         else:
-#             pass
-#
-#     elif operation == 'del':
-#         pass
-#
-#     return polygon_out

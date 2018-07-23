@@ -3,11 +3,11 @@
 
 # Directory Locations
 # Top level directory for the project
-project_dir: ~/Documents/Photonics_Data/dataprep_debug
+project_name: 'dataprep_debug'
 
 # file containing technology information
 # layermap: ./tech/gds_map.yaml
-dataprep: './BPG/examples/tech/dataprep.yaml'
+# dataprep: './BPG/examples/tech/dataprep.yaml'
 
 # Output Settings
 lsf_filename: add_rect.lsf

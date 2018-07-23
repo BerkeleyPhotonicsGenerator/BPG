@@ -118,7 +118,11 @@ class PhotonicLayoutManager(DesignManager):
     def generate_shapely(self):
         return self.tdb.to_shapely()
 
-    def generate_flat_gds(self, generate_gds=True, layout_params_list=None, cell_name_list=None, debug=False) -> None:
+    def generate_flat_gds(self,
+                          generate_gds=True,
+                          layout_params_list=None,
+                          cell_name_list=None,
+                          debug=False) -> None:
         """
         Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
         layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
