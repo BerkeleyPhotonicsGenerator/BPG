@@ -27,36 +27,36 @@ class PhotonicLayoutManager(DesignManager):
         self.layout_params_list = None  # list of dicts containing layout design parameters
 
         # Setup relevant output files and directories
-        self.project_dir = Path(self.specs['project_dir']).expanduser()
+        if 'project_dir' in self.specs:
+            self.project_dir = Path(self.specs['project_dir']).expanduser()
+        else:
+            default_path = Path(self.prj.bag_config['database']['default_lib_path'])
+            self.project_dir = default_path / self.specs['project_name']
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
-
-        # Setup the technology files
-        if 'layermap' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.layermap = bag_work_dir / self.specs['layermap']
-        elif 'BAG_PHOT_LAYERMAP' in os.environ:
-            self.layermap = os.environ['BAG_PHOT_LAYERMAP']
-        else:
-            raise EnvironmentError('Technology layermap not provided')
-
-        if 'dataprep' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_filepath = bag_work_dir / self.specs['dataprep']
-        elif 'BAG_PHOT_DATAPREP' in os.environ:
-            self.dataprep_filepath = os.environ['BAG_PHOT_DATAPREP']
-        else:
-            self.dataprep_filepath = None
 
         # Make the directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
 
+        # Setup the abstract tech layermap
+        if 'layermap' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.layermap_path = bag_work_dir / self.specs['layermap']
+        else:
+            self.layermap_path = self.prj.layermap_path
+
+        # Setup the dataprep procedure
+        if 'dataprep' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.dataprep_path = bag_work_dir / self.specs['dataprep']
+        else:
+            self.dataprep_path = self.prj.dataprep_path
+
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
         self.gds_path = str(self.data_dir / self.specs['gds_filename'])
-
 
         # Make the PhotonicTemplateDB
         self.make_tdb()
@@ -74,8 +74,8 @@ class PhotonicLayoutManager(DesignManager):
         routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
-                                      gds_lay_file=self.layermap, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_filepath)
+                                      gds_lay_file=self.layermap_path, gds_filepath=self.gds_path,
+                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_path)
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """
@@ -96,7 +96,7 @@ class PhotonicLayoutManager(DesignManager):
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']]
 
-        print('Generating .gds file')
+        print('\n---Generating .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -110,10 +110,10 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
 
-    def generate_lsf(self):
+    def generate_lsf(self, debug=False):
         """ Converts generated layout to lsf format for lumerical import """
-        print('Generating .lsf file')
-        self.tdb.to_lumerical()
+        print('\n---Generating .lsf file---')
+        self.tdb.to_lumerical(debug=debug)
 
     def generate_shapely(self):
         return self.tdb.to_shapely()
@@ -137,7 +137,7 @@ class PhotonicLayoutManager(DesignManager):
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']]
 
-        print('Generating flat .gds file')
+        print('\n---Generating flat .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -159,20 +159,13 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self, debug=False):
-        if debug:
-            print("In PhotonicLayoutManager.dataprep")
-
+        print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
-
         self.tdb.dataprep(debug=debug)
 
-        # TODO: fix lib name
-        self.tdb.create_masters_in_db(lib_name='Test_Dataprep',
+        self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
                                       content_list=self.tdb.final_post_shapely_gdspy_polygon_content_flat,
                                       debug=debug)
-
-
-
 
     @staticmethod
     def load_yaml(filepath):

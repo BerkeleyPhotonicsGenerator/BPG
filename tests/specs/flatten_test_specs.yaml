@@ -16,7 +16,6 @@ gds_filename: Output
 impl_lib: 'flatten_lib'
 impl_cell: 'flatten_cell'
 
-
 # Generator Params
 # Module that contains the layout generator class
 layout_package: 'flatten_test'

@@ -24,6 +24,14 @@ layer_map:
   !!python/tuple [CLAD, phot]: [14, 0]
   !!python/tuple [BOX, phot]: [15, 0]
 
+# TODO: Complete implementation of gds_invalid_layers
+gds_invalid_layers:
+  !!python/tuple [SI, port]: [2, 100]
+  !!python/tuple [POLY, port]: [4, 100]
+  !!python/tuple [RX, port]: [12, 100]
+  !!python/tuple [CLAD, phot]: [14, 0]
+  !!python/tuple [BOX, phot]: [15, 0]
+
 # TODO: Add properties for other layers
 lumerical_prop_map:
   !!python/tuple [SI, phot]:

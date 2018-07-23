@@ -1,5 +1,10 @@
+import os
+import string
+import yaml
+
 import bag
 import bag.io
+
 from bag.core import BagProject
 from bag.layout.core import BagLayout
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
@@ -9,7 +14,6 @@ if TYPE_CHECKING:
     from BPG.photonic_objects import PhotonicRound
     from bag.layout.objects import InstanceInfo
 
-
 try:
     import cybagoa
 except ImportError:
@@ -18,7 +22,8 @@ except ImportError:
 
 # From bag/core
 class PhotonicBagProject(BagProject):
-    """The main bag controller class.
+    """
+    The main bag controller class.
 
     This class mainly stores all the user configurations, and issue
     high level bag commands.
@@ -33,7 +38,28 @@ class PhotonicBagProject(BagProject):
     """
 
     def __init__(self, bag_config_path=None, port=None):
+        # Grab dummy technology information
         self.tech_info = PTech()
+
+        # Setup bag config path from env if not provided
+        if bag_config_path is None:
+            if 'BAG_CONFIG_PATH' not in os.environ:
+                raise EnvironmentError('BAG_CONFIG_PATH not defined')
+            else:
+                bag_config_path = os.environ['BAG_CONFIG_PATH']
+
+        # Load configuration variables
+        self.bag_config = self.load_yaml(bag_config_path)
+        self.bpg_config = self.bag_config['bpg_config']
+
+        # Extract relevant paths
+        self.layermap_path = self.bpg_config['layermap']
+        self.dataprep_path = self.bpg_config['dataprep']
+
+    @staticmethod
+    def load_yaml(filepath):
+        """ Setup standardized method for yaml loading """
+        return bag.core._parse_yaml_file(filepath)
 
 
 # From bag/layout/core
