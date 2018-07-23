@@ -356,6 +356,9 @@ class PhotonicTemplateDB(TemplateDB):
             print('Creating Lumerical Script File')
 
         start = time.time()
+        if self.flat_content_list is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+
         for content in self.flat_content_list:
             # for content in self.content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
