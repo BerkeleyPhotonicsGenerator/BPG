@@ -1,3 +1,4 @@
+import gdspy
 from math import ceil, floor
 from matplotlib import pyplot
 from shapely.geometry import Point, MultiPoint, LineString, Polygon, MultiPolygon
@@ -20,7 +21,7 @@ def plot_line(ax, ob, color='r'):
 
 
 def coords_cleanup(coords_list_ori, # type: list[tuple[float, float]]
-                   eps_grid=1e-9,   # type: float
+                   eps_grid=1e-4,   # type: float
                    ):
 
     """
@@ -40,13 +41,13 @@ def coords_cleanup(coords_list_ori, # type: list[tuple[float, float]]
     # print('coord_list_ori', coords_list_ori)
 
     def cleanup_loop(coords_list_ori,   # type: list[tuple[float, float]]
-                     eps_grid=1e-9,     # type: float
+                     eps_grid=1e-4,     # type: float
                     ):
 
         def coords_apprx_in_line(coord1,        # type: tuple[float, float]
                                  coord2,        # type: tuple[float, float]
                                  coord3,        # type: tuple[float, float]
-                                 eps_grid=1e-9, # type: float
+                                 eps_grid=1e-4, # type: float
                                  ):
 
             """
@@ -297,7 +298,35 @@ def polyop_manh(geom,               # type: Polygon, MultiPolygon
         raise ValueError('Unhandled geometry type: ' + repr(geom.type) + 'type should be either "Polygon" or "MultiPolygon"')
 
 
+def gdspy_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+               manh_grid_size,      # type: float
+               do_manh,             # type: bool
+               ):
 
+    if (do_manh):
+        manh_type = 'inc'
+    else:
+        manh_type = 'non'
+
+
+    if isinstance(polygon_gdspy, gdspy.Polygon):
+        coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
+        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
+                                   0, tolerance=10, max_points=4094, join_first=True)
+    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+        coord_list = manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
+        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
+                                   0, tolerance=10, max_points=4094, join_first=True)
+        for poly in polygon_gdspy.polygons:
+            coord_list = manh_skill(poly, manh_grid_size, manh_type)
+            polygon_append = gdspy.offset(gdspy.Polygon(coord_list),
+                                       0, tolerance=10, max_points=4094, join_first=True)
+            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
+                                       0, tolerance=10, max_points=4094, join_first=True)
+    else:
+        raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
+
+    return polygon_out
 
 '''
 
