@@ -27,31 +27,32 @@ class PhotonicLayoutManager(DesignManager):
         self.layout_params_list = None  # list of dicts containing layout design parameters
 
         # Setup relevant output files and directories
-        self.project_dir = Path(self.specs['project_dir']).expanduser()
+        if 'project_dir' in self.specs:
+            self.project_dir = Path(self.specs['project_dir']).expanduser()
+        else:
+            default_path = Path(self.prj.bag_config['database']['default_lib_path'])
+            self.project_dir = default_path / self.specs['project_name']
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
-
-        # Setup the technology files
-        if 'layermap' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.layermap = bag_work_dir / self.specs['layermap']
-        elif 'BAG_PHOT_LAYERMAP' in os.environ:
-            self.layermap = os.environ['BAG_PHOT_LAYERMAP']
-        else:
-            raise EnvironmentError('Technology layermap not provided')
-
-        if 'dataprep' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_filepath = bag_work_dir / self.specs['dataprep']
-        elif 'BAG_PHOT_DATAPREP' in os.environ:
-            self.dataprep_filepath = os.environ['BAG_PHOT_DATAPREP']
-        else:
-            self.dataprep_filepath = None
 
         # Make the directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
+
+        # Setup the abstract tech layermap
+        if 'layermap' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.layermap_path = bag_work_dir / self.specs['layermap']
+        else:
+            self.layermap_path = self.prj.layermap_path
+
+        # Setup the dataprep procedure
+        if 'dataprep' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.dataprep_path = bag_work_dir / self.specs['dataprep']
+        else:
+            self.dataprep_path = self.prj.dataprep_path
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -73,8 +74,8 @@ class PhotonicLayoutManager(DesignManager):
         routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
-                                      gds_lay_file=self.layermap, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_filepath)
+                                      gds_lay_file=self.layermap_path, gds_filepath=self.gds_path,
+                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_path)
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """
