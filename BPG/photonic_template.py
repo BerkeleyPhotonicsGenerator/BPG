@@ -61,9 +61,9 @@ class PhotonicTemplateDB(TemplateDB):
                             flatten, **kwargs)
 
         self.content_list = None  # Variable where all generated layout content will be stored
+        self.flat_content_list = None  # Variable where flattened layout content will be stored
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
-        self.flat_content_list = None  # Variable where flattened layout content will be stored
 
         # Still content list format
         self.flat_content_by_layer = {}  # type: Dict[Tuple(str, str), List]
@@ -999,6 +999,7 @@ class PhotonicTemplateDB(TemplateDB):
                   'flat list of polygon coords took {}s'.format(end-start))
 
 
+
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
                  temp_db,  # type: TemplateDB
@@ -1354,7 +1355,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                      spy=0,  # type: Union[float, int]
                      unit_mode=False,  # type: bool
                      ):
-        # type: (...) -> Instance
+        # type: (...) -> PhotonicInstance
         """Adds a new (arrayed) instance to layout.
 
         Parameters
