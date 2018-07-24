@@ -895,7 +895,7 @@ class PhotonicTemplateDB(TemplateDB):
                 self.flat_gdspy_polygonset_content_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_shapely_input_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=False
+                    do_manh=True
                 )
             end = time.time()
             if debug:

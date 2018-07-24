@@ -5,6 +5,9 @@ from shapely.geometry import Point, MultiPoint, LineString, Polygon, MultiPolygo
 # from descartes import PolygonPatch
 from shapely.ops import cascaded_union
 from shapely.ops import polygonize_full, polygonize
+import sys
+
+maxpointsize = sys.maxsize
 
 
 # from figures import SIZE, BLUE, GRAY, set_limits
@@ -175,6 +178,8 @@ def manh_skill(poly_coords,     # type: list[tuple[float, float]]
 
     # do manhattanization if manh_type is 'inc'
     if manh_type == 'non':
+        return poly_coords
+    elif manh_type == 'map':
         return coords_cleanup(poly_coords_manhgrid)
     elif (manh_type == 'inc') or (manh_type == 'dec'):
         # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
@@ -308,18 +313,22 @@ def gdspy_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonSe
 
     if isinstance(polygon_gdspy, gdspy.Polygon):
         coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
-        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
-                                   0, tolerance=10, max_points=4094, join_first=True)
+        polygon_out = gdspy.Polygon(coord_list)
+        polygon_out = gdspy.offset(polygon_out,
+                                   0, tolerance=10, max_points=maxpointsize, join_first=True)
     elif isinstance(polygon_gdspy, gdspy.PolygonSet):
         coord_list = manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
-        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
-                                   0, tolerance=10, max_points=4094, join_first=True)
-        for poly in polygon_gdspy.polygons:
+        polygon_out = gdspy.Polygon(coord_list)
+        polygon_out = gdspy.offset(polygon_out,
+                                   0, tolerance=10, max_points=maxpointsize, join_first=True)
+        for poly in polygon_gdspy.polygons[1:]:
             coord_list = manh_skill(poly, manh_grid_size, manh_type)
-            polygon_append = gdspy.offset(gdspy.Polygon(coord_list),
-                                       0, tolerance=10, max_points=4094, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
-                                       0, tolerance=10, max_points=4094, join_first=True)
+            polygon_append = gdspy.Polygon(coord_list)
+            polygon_append = gdspy.offset(polygon_append,
+                                       0, tolerance=10, max_points=maxpointsize, join_first=True)
+            polygon_out = gdspy.fast_boolean(polygon_out, polygon_append, 'or', max_points=maxpointsize)
+            polygon_out = gdspy.offset(polygon_out,
+                                       0, tolerance=10, max_points=maxpointsize, join_first=True)
     else:
         raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
 
