@@ -94,6 +94,10 @@ class PhotonicInstance(Instance):
         self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
         self._photonic_port_creator()
 
+    def __getitem__(self, item):
+        """ Allow dictionary syntax to grab photonic ports """
+        return self.get_photonic_port(name=item)
+
     @property
     def content(self):
         # type: () -> PhotonicInstanceInfo
@@ -152,25 +156,24 @@ class PhotonicInstance(Instance):
                           ):
         # type: (...) -> PhotonicPort
         """
+        Returns the photonic port object associated with the provided port name
 
         Parameters
         ----------
-        name
-        row
-        col
+        name : str
+            name of the port to be returned
+        row : int
+            row in the array of instances to be accessed
+        col : int
+            column in the array of instances to be accessed
 
         Returns
         -------
-
+        port : PhotonicPort
+            photonic port object associated with the provided name
         """
-        # TODO: Incomplete
-        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
-        xshift, yshift = self._loc_unit
-        loc = (xshift + dx, yshift + dy)
-        return self._photonic_port_list[name].transform(
-            loc=loc,
-            orient='R0'
-        )
+        # TODO: Confirm that this works for arrayable instances
+        return self._photonic_port_list[name]
 
     @property
     def master(self):
