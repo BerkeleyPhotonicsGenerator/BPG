@@ -5,6 +5,7 @@ layer_map:
   !!python/tuple [SI, port]: [2, 100]
   !!python/tuple [SI, drawing]: [2, 50]
   !!python/tuple [SI, test1]: [2, 40]
+  !!python/tuple [SI, test2]: [2, 45]
   !!python/tuple [SI, exclude]: [2, 10]
   !!python/tuple [POLY, phot]: [4, 0]
   !!python/tuple [POLY, port]: [4, 100]
