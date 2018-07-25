@@ -10,6 +10,7 @@ import sys
 ################################################################################
 # define parameters for testing
 ################################################################################
+# TODO: Move numbers into a tech file
 global_grid_size = 0.001
 global_rough_grid_size = 0.01
 global_min_width = 0.1
@@ -21,23 +22,41 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
                                fracture=True,  # type: bool
                                do_manh=True,  # type: bool
                                manh_grid_size=global_grid_size  # type: float
+                               # TODO: manh grid size is magic number
                                ):
-    # type: (...) -> List
+    # type: (...) -> List[List[Tuple[float, float]]]
+    """
+
+    Parameters
+    ----------
+    polygon_gdspy_in : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The gdspy polygons to be converted to lists of coordinates
+    fracture : bool
+        True to fracture shapes
+    do_manh : bool
+        True to perform Manhattanization
+    manh_grid_size : float
+        The Manhattanization grid size
+
+    Returns
+    -------
+    output_list_of_coord_lists : List[List[Tuple[float, float]]]
+        A list containing the polygon point lists that compose the input gdspy polygon
+    """
     if do_manh:
         polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
     if fracture:
-        polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)
+        polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)  # TODO: Magic numbers
     else:
         polygon_gdspy = polygon_gdspy_in
 
-    # TODO: Rounding properly
     output_list_of_coord_lists = []
     if isinstance(polygon_gdspy, gdspy.Polygon):
-        output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]
+        output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
     elif isinstance(polygon_gdspy, gdspy.PolygonSet):
         for poly in polygon_gdspy.polygons:
-            output_list_of_coord_lists.append(np.round(poly, 3))
+            output_list_of_coord_lists.append(np.round(poly, 3))  # TODO: Magic number?
     else:
         raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
     return output_list_of_coord_lists
@@ -50,18 +69,23 @@ def dataprep_coord_to_gdspy(
         ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
     """
-    Converts list of coordinate lists into GDSPY polygon objects
+    Converts list of polygon coordinate lists into GDSPY polygon objects
     The expected input list will be a list of all polygons on a given layer
 
     Parameters
     ----------
-    pos_neg_list_list
-    manh_grid_size
-    do_manh
+    pos_neg_list_list : Tuple[List, List]
+        A tuple containing two lists: the list of positive polygon shapes and the list of negative polygon shapes.
+        Each polygon shape is a list of point tuples
+    manh_grid_size : float
+        The manhattanization grid size
+    do_manh : bool
+        True to perform Manhattanization
 
     Returns
     -------
-
+    polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The gdpsy.Polygon formatted polygons
     """
     pos_coord_list_list = pos_neg_list_list[0]
     neg_coord_list_list = pos_neg_list_list[1]
@@ -159,16 +183,42 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
     return polygon_out
 
 
-def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
                    polygon2,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
                    operation,  # type: str
                    size_amount,  # type: float
                    do_manh=False,  # type: bool
                    debug=False,  # type: bool
                    ):
-    # TODO: clean up the input polygons first
+    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+    """
 
+    Parameters
+    ----------
+    polygon1 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        The shapes currently on the output layer
+    polygon2 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        The shapes on the input layer that will be added/subtracted to/from the output layer
+    operation : str
+        The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
+    size_amount : float
+        The amount to over/undersize the shapes to be added/subtracted
+    do_manh : bool
+        True to perform manhattanization during the 'rad' operation
+    debug : bool
+        True to print debug information
+
+    Returns
+    -------
+    polygons_out : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The new polygons present on the output layer
+    """
+    # TODO: clean up the input polygons first ?
+
+    # TODO: properly get the grid size from a tech file
     grid_size = global_grid_size
+
+    # If there are no shapes to operate on, return the shapes currently on the output layer
     if polygon2 is None:
         return polygon1
     else:
@@ -176,7 +226,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
             # if (need_new_rough_shapes == True):
             #     polygon_rough = polyop_roughsize(polygon2)
             #     need_new_rough_shapes == False
-            # TODO: manh
+            # TODO: manh ?
             polygon_rough = dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
 
             buffer_size = max(size_amount - 2 * global_rough_grid_size, 0)
@@ -249,7 +299,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
 
                 underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
                 overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-                polygon_o = dataprep_oversize_gdspy(polygon1, underofover_size)
+                polygon_o = dataprep_oversize_gdspy(polygon2, underofover_size)
                 polygon_ou = dataprep_undersize_gdspy(polygon_o, underofover_size)
                 polygon_ouu = dataprep_undersize_gdspy(polygon_ou, overofunder_size)
                 polygon_out = dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
