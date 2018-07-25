@@ -26,7 +26,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
 
         circ = BPG.photonic_objects.PhotonicRound(
             layer='SI',
-            resolution=self.grid.resolution,
+            resolution=self.grid.resolution/100,
             center=(-30, 30),
             rout=5,
             rin=4,
@@ -69,5 +69,5 @@ if __name__ == '__main__':
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     # PLM.generate_gds()
     # PLM.generate_lsf()
-    PLM.generate_flat_gds(debug=True, generate_gds=False)
+    PLM.generate_flat_gds(debug=True, generate_gds=True)
     PLM.dataprep(debug=True)
