@@ -137,7 +137,7 @@ if __name__ == '__main__':
     # spec_file = '/tools/projects/ruocheng_wang/Photonics_Dev/BPG/tests/specs/add_rect_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
-    test = PLM.generate_shapely()
+    test = PLM.generate_polygon_point_list()
     print('PLM.generate_shapely', test)
 
     poly_list = get_polygon_mtlayer(test)
