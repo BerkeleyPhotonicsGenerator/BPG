@@ -40,7 +40,7 @@ class PhotonicInstanceInfo(InstanceInfo):
         return self['master_key']
 
     def copy(self):
-        """Override copy method of dictionary to return an InstanceInfo instead."""
+        """Override copy method of InstanceInfo to return a PhotonicInstanceInfo instead."""
         return PhotonicInstanceInfo(self._resolution, change_orient=False, **self)
 
 
