@@ -1,8 +1,7 @@
-
 import gdspy
 from typing import Tuple, List, Union  #, TYPE_CHECKING,
 from math import ceil  # , floor
-from BPG.manh import gdspy_manh  # ,coords_cleanup
+from BPG.manh_gdspy import polyop_manh  # ,coords_cleanup
 import numpy as np
 import sys
 
@@ -24,7 +23,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
                                ):
     # type: (...) -> List
     if do_manh:
-        polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
+        polygon_gdspy_in = polyop_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
     if fracture:
         polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)
@@ -82,14 +81,14 @@ def dataprep_coord_to_gdspy(
             polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_neg, 'not'),
                                        0, tolerance=10, max_points=MAX_SIZE, join_first=True)
 
-    polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
+    polygon_out = polyop_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
     polygon_out = gdspy.offset(polygon_out, 0, max_points=MAX_SIZE, join_first=True)
     return polygon_out
 
 
-def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                            offset,  # type: float
-                            ):
+def polyop_oversize(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                    offset,  # type: float
+                    ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
 
     if offset < 0:
@@ -101,9 +100,9 @@ def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygon
     return polygon_oversized
 
 
-def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                             offset,  # type: float
-                             ):
+def polyop_undersize(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                     offset,  # type: float
+                     ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
 
     if offset < 0:
@@ -114,25 +113,26 @@ def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
     return polygon_undersized
 
 
-def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                             size_amount,  # type: float
-                             do_manh,  # type: bool
-                             ):
+def polyop_roughsize(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                     size_amount,  # type: float
+                     do_manh,  # type: bool
+                     ):
+
     rough_grid_size = global_rough_grid_size
 
     # oversize twice, then undersize twice and oversize again
-    polygon_oo = dataprep_oversize_gdspy(polygon, 2 * rough_grid_size)
-    polygon_oouu = dataprep_undersize_gdspy(polygon_oo, 2 * rough_grid_size)
-    polygon_oouuo = dataprep_oversize_gdspy(polygon_oouu, rough_grid_size)
+    polygon_oo = polyop_oversize(polygon, 2 * rough_grid_size)
+    polygon_oouu = polyop_undersize(polygon_oo, 2 * rough_grid_size)
+    polygon_oouuo = polyop_oversize(polygon_oouu, rough_grid_size)
 
     # manhattanize to the rough grid
-    polygon_oouuo_rough = gdspy_manh(polygon_oouuo, rough_grid_size, do_manh)
+    polygon_oouuo_rough = polyop_manh(polygon_oouuo, rough_grid_size, do_manh)
 
     # undersize then oversize
-    polygon_roughsized = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_oouuo_rough, global_grid_size),
-                                                 global_grid_size)
+    polygon_roughsized = polyop_oversize(polyop_undersize(polygon_oouuo_rough, global_grid_size),
+                                         global_grid_size)
 
-    polygon_roughsized = dataprep_oversize_gdspy(polygon_roughsized, max(size_amount - 2 * global_grid_size, 0))
+    polygon_roughsized = polyop_oversize(polygon_roughsized, max(size_amount - 2 * global_grid_size, 0))
 
     return polygon_roughsized
 
@@ -143,8 +143,8 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
                   ):
     grid_size = global_grid_size
     extended_amount = grid_size * ceil(extended_amount / grid_size)
-    polygon_ref_sized = dataprep_oversize_gdspy(polygon_ref, extended_amount)
-    polygon_extended = dataprep_oversize_gdspy(polygon_toextend, extended_amount)
+    polygon_ref_sized = polyop_oversize(polygon_ref, extended_amount)
+    polygon_extended = polyop_oversize(polygon_toextend, extended_amount)
     polygon_extra = gdspy.offset(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
                                  0, max_points=MAX_SIZE, join_first=True)
     polygon_toadd = gdspy.offset(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
@@ -154,7 +154,7 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
                                0, max_points=MAX_SIZE, join_first=True)
 
     buffer_size = max(grid_size * ceil(0.5 * extended_amount / grid_size + 1.1), 0.0)
-    polygon_out = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_out, buffer_size), buffer_size)
+    polygon_out = polyop_oversize(polyop_undersize(polygon_out, buffer_size), buffer_size)
 
     return polygon_out
 
@@ -177,10 +177,10 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
             #     polygon_rough = polyop_roughsize(polygon2)
             #     need_new_rough_shapes == False
             # TODO: manh
-            polygon_rough = dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
+            polygon_rough = polyop_roughsize(polygon2, size_amount=size_amount, do_manh=do_manh)
 
             buffer_size = max(size_amount - 2 * global_rough_grid_size, 0)
-            polygon_rough_sized = dataprep_oversize_gdspy(polygon_rough, buffer_size)
+            polygon_rough_sized = polyop_oversize(polygon_rough, buffer_size)
 
             if polygon1 is None:
                 polygon_out = polygon_rough_sized
@@ -192,10 +192,10 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
 
         elif operation == 'add':
             if polygon1 is None:
-                polygon_out = dataprep_oversize_gdspy(polygon2, size_amount)
+                polygon_out = polyop_oversize(polygon2, size_amount)
                 # shapely_plot(polygon_out)
             else:
-                polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'or')
+                polygon_out = gdspy.fast_boolean(polygon1, polyop_oversize(polygon2, size_amount), 'or')
                 polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
             # if (debug_text == True and leng(ShapesIn) > 0):
             #     print("%L --> %L  %L shapes added."  %(LppIn, LppOut, list(length(ShapesIn))))
@@ -205,7 +205,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                 polygon_out = None
             else:
                 # TODO: Over or undersize the subtracted poly
-                polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'not')
+                polygon_out = gdspy.fast_boolean(polygon1, polyop_oversize(polygon2, size_amount), 'not')
                 polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
             # if (debug_text == True and leng(ShapesToSubtract) > 0):
             #     print("%L --> %L  %L shapes subtracted."  %(LppIn, LppOut, list(length(ShapesToSubtract))))
@@ -249,10 +249,10 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
 
                 underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
                 overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-                polygon_o = dataprep_oversize_gdspy(polygon1, underofover_size)
-                polygon_ou = dataprep_undersize_gdspy(polygon_o, underofover_size)
-                polygon_ouu = dataprep_undersize_gdspy(polygon_ou, overofunder_size)
-                polygon_out = dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
+                polygon_o = polyop_oversize(polygon1, underofover_size)
+                polygon_ou = polyop_undersize(polygon_o, underofover_size)
+                polygon_ouu = polyop_undersize(polygon_ou, overofunder_size)
+                polygon_out = polyop_oversize(polygon_ouu, overofunder_size)
 
             else:
                 pass
