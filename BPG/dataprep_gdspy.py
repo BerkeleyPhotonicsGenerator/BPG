@@ -12,15 +12,19 @@ import sys
 ################################################################################
 global_grid_size = 0.001
 global_rough_grid_size = 0.01
-global_min_width = 0.02
+global_min_width = 0.1
 global_min_space = 0.05
 MAX_SIZE = sys.maxsize
 
 
 def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                                fracture=True,  # type: bool
+                               do_manh=True,  # type: bool
+                               manh_grid_size=global_grid_size  # type: float
                                ):
     # type: (...) -> List
+    if do_manh:
+        polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
     if fracture:
         polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)
@@ -90,7 +94,8 @@ def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygon
 
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing undersize')
-    polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True)
+    polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True,
+                                     join='miter', tolerance=4)
     polygon_oversized = gdspy.offset(polygon_oversized, 0, max_points=MAX_SIZE, join_first=True)
 
     return polygon_oversized
@@ -103,7 +108,8 @@ def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
 
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing oversize')
-    polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True)
+    polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True,
+                                      join='miter')
     polygon_undersized = gdspy.offset(polygon_undersized, 0, max_points=MAX_SIZE, join_first=True)
     return polygon_undersized
 

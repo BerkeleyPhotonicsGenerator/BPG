@@ -37,7 +37,8 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-GLOBAL_DO_MANH = True
+GLOBAL_DO_MANH = False
+GLOBAL_DO_FINAL_MANH = False
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -978,11 +979,14 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
         if debug:
             print('Final OUUO took  {}s'.format(end-start))
+            print('Starting gdspy/shapely to list of coords conversion')
 
         start = time.time()
 
         for layer, gdspy_polygons in self.flat_gdspy_polygonset_content_by_layer.items():
-            output_shapes = polyop_gdspy_to_point_list(gdspy_polygons)
+            output_shapes = polyop_gdspy_to_point_list(gdspy_polygons, fracture=True,
+                                                       do_manh=True,
+                                                       manh_grid_size=self.grid.resolution)
 
             new_shapes = []
             for shape in output_shapes:

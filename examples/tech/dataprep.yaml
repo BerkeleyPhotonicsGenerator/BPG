@@ -10,6 +10,9 @@ dataprep_groups:
       - !!python/tuple ['SI', 'exclude', 'rad', 2.0]
       - !!python/tuple ['SI', 'test1', 'add', 1.0]
       - !!python/tuple ['SI', 'test2', 'add', 0.1]
+      - !!python/tuple ['SI', 'test3', 'add', 0.01]
+      - !!python/tuple ['SI', 'test4', 'add', 0.005]
+
   - lpp_in:
       - !!python/tuple ['POLY', 'phot']
     lpp_ops:
@@ -17,7 +20,7 @@ dataprep_groups:
 
 over_under_under_over:
   - !!python/tuple ['SI', 'drawing']
-  - !!python/tuple ['SI', 'test1']
   - !!python/tuple ['SI', 'test2']
+  - !!python/tuple ['SI', 'test1']
 
 
