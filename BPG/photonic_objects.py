@@ -2,15 +2,14 @@
 
 """This module defines various layout objects one can add and manipulate in a template.
 """
-from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, Iterator, Iterable, \
-    Generator
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
     ViaInfo, Via, PinInfo, Instance, InstanceInfo
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
-from bag.layout.util import transform_loc_orient, transform_point, BBox
+from bag.layout.util import transform_point, BBox
 import gdspy
 import numpy as np
 import sys
@@ -595,18 +594,18 @@ class PhotonicRound(Arrayable):
         return lsf_code
 
     @classmethod
-    def shapely_export(cls,
-                       rout,  # type: dim_type
-                       rin,  # type: dim_type
-                       theta0,  # type: dim_type
-                       theta1,  # type: dim_type
-                       center,  # type: coord_type
-                       nx=1,  # type: int
-                       ny=1,  # type: int
-                       spx=0.0,  # type: dim_type
-                       spy=0.0,  # type: dim_type
-                       resolution=0.0  # type: float
-                       ):
+    def polygon_pointlist_export(cls,
+                                 rout,  # type: dim_type
+                                 rin,  # type: dim_type
+                                 theta0,  # type: dim_type
+                                 theta1,  # type: dim_type
+                                 center,  # type: coord_type
+                                 nx=1,  # type: int
+                                 ny=1,  # type: int
+                                 spx=0.0,  # type: dim_type
+                                 spy=0.0,  # type: dim_type
+                                 resolution=0.0  # type: float  # TODO: Change to rough round estimation
+                                 ):
         # Get the base polygons
         round_polygons = gdspy.Round(center=center,
                                      layer=0,
@@ -738,13 +737,13 @@ class PhotonicRect(Rect):
         return lsf_code
 
     @classmethod
-    def shapely_export(cls,
-                       bbox,  # type: [[int, int], [int, int]]
-                       nx=1,  # type: int
-                       ny=1,  # type: int
-                       spx=0.0,  # type: int
-                       spy=0.0,  # type: int
-                       ):
+    def polygon_pointlist_export(cls,
+                                 bbox,  # type: [[int, int], [int, int]]
+                                 nx=1,  # type: int
+                                 ny=1,  # type: int
+                                 spx=0.0,  # type: int
+                                 spy=0.0,  # type: int
+                                 ):
         # type: (...) -> Tuple
         # TODO: documentation and docstring/typing
         """
@@ -969,9 +968,9 @@ class PhotonicPolygon(Polygon):
         return lsf_code
 
     @classmethod
-    def shapely_export(cls,
-                       vertices,  # type: List[Tuple[float, float]]
-                       ):
+    def polygon_pointlist_export(cls,
+                                 vertices,  # type: List[Tuple[float, float]]
+                                 ):
         # type: (...) -> Tuple
         # TODO: documentation and docstring/typing
         return [vertices], []
