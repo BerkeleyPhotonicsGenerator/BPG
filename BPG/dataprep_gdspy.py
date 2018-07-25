@@ -188,7 +188,6 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                    operation,  # type: str
                    size_amount,  # type: float
                    do_manh=False,  # type: bool
-                   debug=False,  # type: bool
                    ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
     """
@@ -205,8 +204,6 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
         The amount to over/undersize the shapes to be added/subtracted
     do_manh : bool
         True to perform manhattanization during the 'rad' operation
-    debug : bool
-        True to print debug information
 
     Returns
     -------
@@ -223,9 +220,6 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
         return polygon1
     else:
         if operation == 'rad':
-            # if (need_new_rough_shapes == True):
-            #     polygon_rough = polyop_roughsize(polygon2)
-            #     need_new_rough_shapes == False
             # TODO: manh ?
             polygon_rough = dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
 
@@ -237,18 +231,13 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
                 polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
-            # if (debug_text == True and leng(RoughShapes) > 0):
-            #     print("%L --> %L  %L rough shapes added."  %(LppIn, LppOut, list(len(RoughShapes))))
 
         elif operation == 'add':
             if polygon1 is None:
                 polygon_out = dataprep_oversize_gdspy(polygon2, size_amount)
-                # shapely_plot(polygon_out)
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'or')
                 polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
-            # if (debug_text == True and leng(ShapesIn) > 0):
-            #     print("%L --> %L  %L shapes added."  %(LppIn, LppOut, list(length(ShapesIn))))
 
         elif operation == 'sub':
             if polygon1 is None:
@@ -257,43 +246,21 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 # TODO: Over or undersize the subtracted poly
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'not')
                 polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
-            # if (debug_text == True and leng(ShapesToSubtract) > 0):
-            #     print("%L --> %L  %L shapes subtracted."  %(LppIn, LppOut, list(length(ShapesToSubtract))))
-            # if polygon1.area == 0
-            #     print("Warning in 0ProcedureDataPrep. There is nothing to substract %L from." %(LppOut))
 
         elif operation == 'ext':
             # TODO:
             # if (not (member(LppOut, NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
             if True:
-                # if (debug_text == True):
-                #     print("Extending %L over %L by %s ." %(LppIn, LppOut, list(SizeAmount)))
-                # else:
-                #     pass
                 polygon_toextend = polygon1
                 polygon_ref = polygon2
                 polygon_out = polyop_extend(polygon_toextend, polygon_ref, size_amount)
             else:
                 pass
-                # if (debug_text == True):
-                #     print("Extension skipped on %L over %s by %s." %(LppIn, LppOut, list(SizeAmount)))
-                # else:
-                #     pass
-        # TODO
+
         elif operation == 'ouo':
+            # TODO
             # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
             if True:
-                # if (debug_text == True and length(ShapesIn) > 0):
-                #     print("Performing Over of Under of Under of Over on %s."  %LppIn)
-                # if ():
-                #     ValueError("MinWidth for %s is missing" %LppIn)
-                # else:
-                #     min_width = lpp_in['min_width']
-                # if ():
-                #     ValueError("MinSpace for %s is missing" %LppIn)
-                # else:
-                #     min_space = lpp_in['min_space']
-
                 min_width = global_min_width
                 min_space = global_min_width
 

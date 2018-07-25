@@ -973,7 +973,6 @@ class PhotonicTemplateDB(TemplateDB):
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        debug=debug,
                         do_manh=GLOBAL_DO_MANH
                     )
 
@@ -998,7 +997,6 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                debug=debug,
                 do_manh=GLOBAL_DO_MANH
             )
 
