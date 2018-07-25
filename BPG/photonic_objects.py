@@ -13,6 +13,7 @@ import bag.io
 from bag.layout.util import transform_loc_orient, transform_point, BBox
 import gdspy
 import numpy as np
+import sys
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
@@ -613,7 +614,8 @@ class PhotonicRound(Arrayable):
                                      inner_radius=rin,
                                      initial_angle=theta0 * np.pi / 180,
                                      final_angle=theta1 * np.pi / 180,
-                                     number_of_points=resolution,
+                                     number_of_points=317,  # TODO: MAGIC NUMBER
+                                     max_points=sys.maxsize,
                                      datatype=0).polygons
 
         output_list_p = []
