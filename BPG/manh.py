@@ -21,7 +21,7 @@ def plot_line(ax, ob, color='r'):
 def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
                          coord2,  # type: Tuple[float, float]
                          coord3,  # type: Tuple[float, float]
-                         eps_grid=5e-4,  # type: float
+                         eps_grid=1e-4,  # type: float
                          ):
     """
     Tell if three coordinates are in the same line
@@ -90,7 +90,7 @@ def cleanup_loop(coords_list_ori,  # type: List[Tuple[float, float]]
 
 
 def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
-                   eps_grid=5e-4,   # type: float
+                   eps_grid=1e-4,   # type: float
                    debug=False,  # type: bool
                    ):
 
