@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
 
-from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, TypeVar, Type, \
-    Optional, Tuple, Iterable, Sequence, Callable, Generator
+from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, \
+    Optional, Tuple, Iterable, Sequence
 
 import abc
 import numpy as np
@@ -17,12 +17,11 @@ from BPG.photonic_core import PhotonicBagLayout
 
 from .photonic_port import PhotonicPort
 from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPinInfo, PhotonicPath
+    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath
 from BPG import LumericalGenerator
 from BPG import ShapelyGenerator
 from collections import OrderedDict
-from BPG.dataprep import dataprep_coord_to_poly, poly_operation, dataprep_operation
-from BPG.shapely_to_gdspy import polyop_shapely2gdspy
+from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
 
 from numpy import pi
 
@@ -37,6 +36,9 @@ except ImportError:
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
+
+GLOBAL_DO_MANH = False
+GLOBAL_DO_FINAL_MANH = False
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -69,7 +71,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.dataprep_file = dataprep_file
 
         # Shapely format (shapely Polygon objects)
-        self.flat_shapely_content_by_layer = {}
+        self.flat_gdspy_polygonset_content_by_layer = {}
         self.final_post_shapely_gdspy_points_content_by_layer = {}
         self.final_post_shapely_gdspy_polygon_content_flat = []
 
@@ -887,19 +889,26 @@ class PhotonicTemplateDB(TemplateDB):
                  debug=False,  # type: bool
                  push_portshapes_through_dataprep=False,  # type: bool
                  ):
-        # Convert layer shapes to shapely polygon format
+
+        # Convert layer shapes to gdspy polygon format
         for layer, gds_shapes in self.flat_content_by_layer.items():
+            if debug:
+                print("Converting layer content to gdspy:  Layer {}".format(layer)
+                      )
             start = time.time()
+
             # TODO: fix manhattan size
             if push_portshapes_through_dataprep or layer[1] != 'port':
-                self.flat_shapely_content_by_layer[layer] = dataprep_coord_to_poly(
+                self.flat_gdspy_polygonset_content_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_shapely_input_on_layer(layer),
-                    manh_grid_size=0.001
+                    manh_grid_size=0.001,
+                    do_manh=GLOBAL_DO_MANH
                 )
+
             end = time.time()
             if debug:
                 print(
-                    "Converting shapely to coordinate list through GDSPY on layer {}  took {}s".format(
+                    "Converting layer coordinate list to gdspy:  Layer {}  took {}s".format(
                         layer, end - start
                     )
                 )
@@ -908,65 +917,91 @@ class PhotonicTemplateDB(TemplateDB):
             dataprep_info = yaml.load(f)
 
         start = time.time()
-        for dataprep_group in dataprep_info:
+        for dataprep_group in dataprep_info['dataprep_groups']:
             for lpp_in in dataprep_group['lpp_in']:
-                shapes_in = self.flat_shapely_content_by_layer.get(lpp_in, None)
+                shapes_in = self.flat_gdspy_polygonset_content_by_layer.get(lpp_in, None)
 
                 for lpp_op in dataprep_group['lpp_ops']:
                     out_layer = (lpp_op[0], lpp_op[1])
                     operation = lpp_op[2]
                     amount = lpp_op[3]
+
                     if debug:
-                        print("Doing dataprep op: {}  on layer {}  to layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
+                        print("Doing dataprep op: {}  on layer {}  to "
+                              "layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
+
                     new_out_layer_polygons = poly_operation(
-                        polygon1=self.flat_shapely_content_by_layer.get(out_layer, None),
+                        polygon1=self.flat_gdspy_polygonset_content_by_layer.get(out_layer, None),
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        debug_text=debug,
+                        debug=debug,
+                        do_manh=GLOBAL_DO_MANH
                     )
 
-                    # shapes_out = dataprep_operation(
-                    #     polygon=shapes_in,
-                    #     operation=operation,
-                    #     size_amount=amount,
-                    #     polygon2=self.flat_shapely_content_by_layer[out_layer],
-                    #     debug_text=debug
-                    # )
                     if new_out_layer_polygons is not None:
-                        self.flat_shapely_content_by_layer[out_layer] = new_out_layer_polygons
+                        self.flat_gdspy_polygonset_content_by_layer[out_layer] = new_out_layer_polygons
         end = time.time()
 
         if debug:
-            print('All polygon operations took {}s'.format(end-start))
+            print('All dataprep polygon operations took {}s'.format(end-start))
 
         start = time.time()
-        for layer, shapely_polygons in self.flat_shapely_content_by_layer.items():
-            output_shapes = polyop_shapely2gdspy(shapely_polygons)
+        if debug:
+            print('Performing final OUUO')
+
+        for lpp in dataprep_info['over_under_under_over']:
+            shapes_in = self.flat_gdspy_polygonset_content_by_layer.get(lpp, None)
+
+            for lpp_op in dataprep_group['lpp_ops']:
+                out_layer = (lpp_op[0], lpp_op[1])
+                operation = lpp_op[2]
+                amount = lpp_op[3]
+
+                if debug:
+                    print("Doing dataprep op: {}  on layer {}  to "
+                          "layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
+
+                new_out_layer_polygons = poly_operation(
+                    polygon1=self.flat_gdspy_polygonset_content_by_layer.get(out_layer, None),
+                    polygon2=None,
+                    operation=operation,
+                    size_amount=amount,
+                    debug=debug,
+                    do_manh=GLOBAL_DO_MANH
+                )
+
+                if new_out_layer_polygons is not None:
+                    if debug:
+                        print('OUO layer {} was not none'.format(lpp))
+                    self.flat_gdspy_polygonset_content_by_layer[out_layer] = new_out_layer_polygons
+
+        end = time.time()
+        if debug:
+            print('Final OUUO took  {}s'.format(end-start))
+            print('Starting gdspy/shapely to list of coords conversion')
+
+        start = time.time()
+
+        for layer, gdspy_polygons in self.flat_gdspy_polygonset_content_by_layer.items():
+            output_shapes = polyop_gdspy_to_point_list(gdspy_polygons, fracture=True,
+                                                       do_manh=True,
+                                                       manh_grid_size=self.grid.resolution)
+
             new_shapes = []
             for shape in output_shapes:
                 shape = tuple(map(tuple, shape))
                 new_shapes.append([coord for coord in shape])
 
-            #     new_shapes.append(shape)
-            #
-            # if isinstance(output_shapes, list):
-            #     for shape in output_shapes:
-            #         shape = tuple(map(tuple, shape))
-            #         shape = [coord for coord in shape]
-            #         new_shapes.append(shape)
             self.final_post_shapely_gdspy_points_content_by_layer[layer] = new_shapes
-
-            # else:
-            #     output_shapes = tuple(map(tuple, output_shapes))
-            #     output_shapes = [shape for shape in output_shapes]
-            #     self.final_post_shapely_gdspy_points_content_by_layer[layer] = output_shapes
 
         self.by_layer_polygon_list_to_flat_for_gds_export()
 
         end = time.time()
         if debug:
-            print('Converting from by-layer coordinate lists to a flat "content list" took {}s'.format(end-start))
+            print('Converting from gdspy polygon manipulation format to a '
+                  'flat list of polygon coords took {}s'.format(end-start))
+
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
