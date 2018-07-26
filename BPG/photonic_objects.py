@@ -25,8 +25,7 @@ coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicInstanceInfo(InstanceInfo):
-    """A dictionary that represents a layout instance.
-    """
+    """ A dictionary that represents a layout instance. """
 
     def __init__(self, res, change_orient=True, **kwargs):
         InstanceInfo.__init__(self, res, change_orient, **kwargs)

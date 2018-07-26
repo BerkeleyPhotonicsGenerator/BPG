@@ -1213,6 +1213,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
+        # TODO: Require layer name as input
 
         # Create a temporary port object unless one is passed as an argument
         if port is None:
