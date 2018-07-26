@@ -36,8 +36,9 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-GLOBAL_DO_MANH = False
+GLOBAL_DO_MANH_AT_BEGINNING = False
 GLOBAL_DO_FINAL_MANH = False
+GLOBAL_DO_MANH_DURING_OP = False
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -768,10 +769,10 @@ class PhotonicTemplateDB(TemplateDB):
         content : Tuple
             the shape content on the provided layer
         """
-        if layer not in self.flat_content_by_layer.keys():
+        if layer not in self.flat_content_list_by_layer.keys():
             return ()
         else:
-            return self.flat_content_by_layer[layer]
+            return self.flat_content_list_by_layer[layer]
 
     def sort_flat_content_by_layers(self):
         """
@@ -940,7 +941,7 @@ class PhotonicTemplateDB(TemplateDB):
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH
+                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING
                 )
 
             end = time.time()
@@ -973,7 +974,7 @@ class PhotonicTemplateDB(TemplateDB):
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH
+                        do_manh=GLOBAL_DO_MANH_DURING_OP
                     )
 
                     # Update the layer's content
@@ -988,6 +989,9 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('Performing final OUUO')
 
+        if dataprep_info['over_under_under_over'] is None:
+            dataprep_info['over_under_under_over'] = []
+
         for lpp in dataprep_info['over_under_under_over']:
             if debug:
                 print("Doing final OUUO on layer {}".format(lpp))
@@ -997,7 +1001,7 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                do_manh=GLOBAL_DO_MANH
+                do_manh=GLOBAL_DO_MANH_AT_BEGINNING
             )
 
             if new_out_layer_polygons is not None:
@@ -1014,7 +1018,7 @@ class PhotonicTemplateDB(TemplateDB):
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
                                                        fracture=True,
-                                                       do_manh=True,
+                                                       do_manh=GLOBAL_DO_FINAL_MANH,
                                                        manh_grid_size=self.grid.resolution)
 
             new_shapes = []
@@ -1030,7 +1034,6 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('Converting from gdspy polygon manipulation format to a '
                   'flat list of polygon coords took {}s'.format(end-start))
-
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):

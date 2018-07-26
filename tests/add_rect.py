@@ -31,7 +31,7 @@ class AddRectTest(BPG.PhotonicTemplateBase):
         """ Specifies the creation of the lumerical shapes """
 
         r1 = self.add_rect(
-            layer='Si',
+            layer='SI',
             x_span=self.params['x'],
             y_span=self.params['y'],
             center=self.params['center'],
@@ -39,14 +39,14 @@ class AddRectTest(BPG.PhotonicTemplateBase):
         )
 
         r2 = self.add_rect(
-            layer='Si',
+            layer='SI',
             coord1=self.params['point1'],
             coord2=self.params['point2'],
             unit_mode=False,
         )
 
         r3 = self.add_rect(
-            layer='Si',
+            layer='SI',
             bbox=BBox(
                 left=1,
                 bottom=-10,
@@ -70,7 +70,6 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/add_rect_specs.yaml'
-    # spec_file = '/tools/projects/ruocheng_wang/Photonics_Dev/BPG/tests/specs/add_rect_specs.yaml'
+    spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
