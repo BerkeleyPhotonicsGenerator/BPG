@@ -2,13 +2,7 @@
 
 # Directory Locations
 # Top level directory for the project
-project_dir: ~/Documents/Photonics_Data/add_round
-# subdirectory of project_dir where generated script files are placed
-scripts: scripts
-# subdirectory of project_dir where generated data is placed
-data: data
-# file containing technology information
-layermap: ./tech/gds_map.yaml
+project_name: add_round
 
 # Output Settings
 lsf_filename: add_round.lsf
@@ -21,7 +15,7 @@ impl_cell: 'add_round_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'add_round'
+layout_package: 'tests.add_round'
 # Layout generator class name
 layout_class: 'AddRoundTest'
 

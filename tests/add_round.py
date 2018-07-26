@@ -1,4 +1,5 @@
 import BPG
+from BPG.photonic_objects import PhotonicRound
 
 
 class AddRoundTest(BPG.PhotonicTemplateBase):
@@ -29,8 +30,8 @@ class AddRoundTest(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        c1 = self.add_round(
-            layer='Si',
+        circle = PhotonicRound(
+            layer='SI',
             resolution=self.grid.resolution,
             center=(0, 0),
             rout=1,
@@ -41,31 +42,29 @@ class AddRoundTest(BPG.PhotonicTemplateBase):
         )
 
         self.add_round(
-            round_obj=c1.transform((0, 10), 'R90')
+            round_obj=circle
+        )
+        
+        self.add_round(
+            round_obj=circle.transform((0, 10), 'R90')
         )
         self.add_round(
-            round_obj=
-            c1.transform((10, 10), 'R180')
+            round_obj=circle.transform((10, 10), 'R180')
         )
         self.add_round(
-            round_obj=
-            c1.transform((20, 10), 'R270')
+            round_obj=circle.transform((20, 10), 'R270')
         )
         self.add_round(
-            round_obj=
-            c1.transform((30, 10), 'MX')
+            round_obj=circle.transform((30, 10), 'MX')
         )
         self.add_round(
-            round_obj=
-            c1.transform((40, 10), 'MY')
+            round_obj=circle.transform((40, 10), 'MY')
         )
         self.add_round(
-            round_obj=
-            c1.transform((50, 10), 'MXR90')
+            round_obj=circle.transform((50, 10), 'MXR90')
         )
         self.add_round(
-            round_obj=
-            c1.transform((60, 10), 'MYR90')
+            round_obj=circle.transform((60, 10), 'MYR90')
         )
 
 
@@ -80,7 +79,8 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/add_round_specs.yaml'
+    spec_file = 'BPG/tests/specs/add_round_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
+    PLM.generate_flat_gds()
     PLM.generate_lsf()

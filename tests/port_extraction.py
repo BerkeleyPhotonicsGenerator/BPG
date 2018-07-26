@@ -24,43 +24,43 @@ class SubObject(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        r1 = self.add_rect(
-            layer='Si',
+        self.add_rect(
+            layer='SI',
             coord1=(0, 0),
             coord2=(10, 20),
             unit_mode=False,
         )
 
-        p1 = self.add_photonic_port(
+        self.add_photonic_port(
             name='Port1',
             center=(0, 1),
             orient='R0',
             width=1,
-            layer=('Si', 'phot'),
+            layer=('SI', 'phot'),
         )
 
-        p2 = self.add_photonic_port(
+        self.add_photonic_port(
             name='Port2',
             center=(0, 10),
             orient='R0',
             width=1,
-            layer=('Si', 'phot'),
+            layer=('SI', 'phot'),
         )
 
-        p3 = self.add_photonic_port(
+        self.add_photonic_port(
             name='Port3',
             center=(5, 0),
             orient='R90',
             width=1,
-            layer=('Si', 'phot'),
+            layer=('SI', 'phot'),
         )
 
-        p4 = self.add_photonic_port(
+        self.add_photonic_port(
             name='Port4',
             center=(8, 20),
             orient='R270',
             width=1,
-            layer=('Si', 'phot'),
+            layer=('SI', 'phot'),
         )
 
 
@@ -87,8 +87,8 @@ class PortExtraction(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        r1 = self.add_rect(
-            layer='Si',
+        self.add_rect(
+            layer='SI',
             coord1=(-5, -5),
             coord2=(-2, -3),
             unit_mode=False,
@@ -96,7 +96,7 @@ class PortExtraction(BPG.PhotonicTemplateBase):
 
         subobj_master = self.new_template(temp_cls=SubObject)
 
-        inst1 = self.add_instance(
+        self.add_instance(
             master=subobj_master,
             inst_name='inst1',
             loc=(0, 0),
@@ -155,7 +155,6 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/port_extraction_specs.yaml'
+    spec_file = 'BPG/tests/specs/port_extraction_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
-    # PLM.generate_lsf()

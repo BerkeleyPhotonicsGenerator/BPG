@@ -1,0 +1,32 @@
+# Test the functionality of ports with various orientations on waveguide objects
+
+project_name: waveguide_port_test
+
+# Output Settings
+lsf_filename: waveguide_port_test.lsf
+gds_filename: waveguide_port_test
+
+# Generator Params
+layout_package: 'tests.waveguide_and_port_test'
+# Layout generator class name
+layout_class: 'WaveguideConnectTest'
+
+layout_params:
+  width: 0.5
+  length: 10
+
+  wg1:
+    width: 1
+    length: 5
+  wg2:
+    width: 1
+    length: 10
+
+# Cadence related parameters
+impl_lib: 'test_lib'
+impl_cell: 'test_cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'
