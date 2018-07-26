@@ -1,20 +1,15 @@
 # A sample specification file to generate a Waveguide project
 
 # Directory Locations
-project_dir: ~/Documents/Photonics_Data/add_rect  # Top level directory for the project
-scripts: scripts  # subdirectory of project_dir where generated script files are placed
-data: data  # subdirectory of project_dir where generated data is placed
-layermap: ./tech/gds_map.yaml  # file containing technology information
-#layermap: /tools/projects/ruocheng_wang/Photonics_Dev/BPG/tests/tech/gds_map.yaml  # file containing technology information
-
-
+project_name: add_rect
 
 # Output Settings
 lsf_filename: add_rect.lsf
 gds_filename: Output
 
 # Generator Params
-layout_package: 'add_rect'  # Module that contains the layout generator class
+# Module that contains the layout generator class
+layout_package: 'tests.add_rect'
 layout_class: 'AddRectTest'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here

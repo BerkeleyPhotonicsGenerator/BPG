@@ -2,7 +2,6 @@ import BPG
 from bag.layout.util import BBox
 
 
-
 class AddRectTest(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
@@ -32,7 +31,7 @@ class AddRectTest(BPG.PhotonicTemplateBase):
         """ Specifies the creation of the lumerical shapes """
 
         r1 = self.add_rect(
-            layer='Si',
+            layer='SI',
             x_span=self.params['x'],
             y_span=self.params['y'],
             center=self.params['center'],
@@ -40,14 +39,14 @@ class AddRectTest(BPG.PhotonicTemplateBase):
         )
 
         r2 = self.add_rect(
-            layer='Si',
+            layer='SI',
             coord1=self.params['point1'],
             coord2=self.params['point2'],
             unit_mode=False,
         )
 
         r3 = self.add_rect(
-            layer='Si',
+            layer='SI',
             bbox=BBox(
                 left=1,
                 bottom=-10,
@@ -59,24 +58,18 @@ class AddRectTest(BPG.PhotonicTemplateBase):
             unit_mode=False
         )
 
-    if __name__ == '__main__':
-        # Load a previous BPG Project if it exists, otherwise create a new one
-        local_dict = locals()
-        if 'prj' not in local_dict:
-            print('creating BAG project')
-            bprj = BPG.PhotonicBagProject()
 
-        else:
-            print('loading BAG project')
-            bprj = local_dict['bprj']
+if __name__ == '__main__':
+    # Load a previous BPG Project if it exists, otherwise create a new one
+    local_dict = locals()
+    if 'prj' not in local_dict:
+        print('creating BAG project')
+        bprj = BPG.PhotonicBagProject()
 
-        spec_file = './specs/add_rect_specs.yaml'
-        # spec_file = '/tools/projects/ruocheng_wang/Photonics_Dev/BPG/tests/specs/add_rect_specs.yaml'
-        PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-        PLM.generate_gds()
-        test = PLM.generate_shapely()
-        print('PLM.generate_shapely', test)
+    else:
+        print('loading BAG project')
+        bprj = local_dict['bprj']
 
-        poly_list = get_polygon_mtlayer(test)
-        poly_origin = poly_list[0]
-        # poly_origin = get_polygon_sglayer(test[0])
+    spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
+    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
+    PLM.generate_gds()
