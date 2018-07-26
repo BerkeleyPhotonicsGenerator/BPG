@@ -2,6 +2,7 @@ import gdspy
 from typing import Union, Tuple, List
 from math import ceil, sqrt
 import sys
+import numpy as np
 
 MAX_POINTS = sys.maxsize
 
@@ -123,6 +124,32 @@ def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
     return coords_list_out
 
 
+def is_manh(coord_list,      # type: List[Tuple[float, float]])
+            eps_grid = 1e-6, # type: float
+            ):
+
+    is_manh = True
+    if isinstance(coord_list, np.array):
+        coord_list_new = coord_list.tolist
+    else:
+        coord_list_new = coord_list
+
+    coord_list_new.extend(coord_list_new)
+
+    for i in range(len(coord_list_new) - 1):
+        coord_curr = coord_list_new[i]
+        coord_next = coord_list_new[i+1]
+
+        if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and \
+           (abs(coord_curr[1] - coord_next[1]) > eps_grid):
+            is_manh = False
+            print(coord_curr, coord_next)
+            # break
+
+    return is_manh
+
+
+
 def manh_skill(poly_coords,     # type: List[Tuple[float, float]]
                manh_grid_size,  # type: float
                manh_type,       # type: str
@@ -230,16 +257,23 @@ def manh_skill(poly_coords,     # type: List[Tuple[float, float]]
                         poly_coords_orth.append((x0 + xstep, y0 + ystep))
 
         # clean up the coords
-        return coords_cleanup(poly_coords_orth)
+        if not is_manh(poly_coords_orth):
+            raise ValueError('Manhattanization failed before the clean-up')
+
+        poly_coords_cleanup = coords_cleanup(poly_coords_orth)
+        if not is_manh(poly_coords_cleanup):
+            raise ValueError('Manhattanization failed after the clean-up')
+
+        return poly_coords_cleanup
     else:
         raise ValueError('manh_type = {} should be either "non", "inc" or "dec"'.format(manh_type))
 
 
 
-def polyop_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                manh_grid_size,      # type: float
-                do_manh,             # type: bool
-                ):
+def gdspy_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+               manh_grid_size,      # type: float
+               do_manh,             # type: bool
+               ):
 
     if do_manh:
         manh_type = 'inc'
