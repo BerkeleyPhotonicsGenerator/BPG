@@ -828,6 +828,54 @@ class PhotonicPath(Path):
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
 
     @classmethod
+    def compress_points(cls,
+                        pts_unit,  # type: List[Tuple[int, int]]
+                        ):
+        """
+        Removes collinear/duplicate points.
+        Ensures that radius of curvature is larger than half the width
+
+        Parameters
+        ----------
+        pts_unit : List[Tuple[int, int]]
+            Path point list, in unit mode coordinates
+
+        Returns
+        -------
+        pt_list : List[Tuple[int, int]]
+            Compressed path point list
+        """
+        # type: (...) -> List[Tuple[Union[float, int], Union[float, int]]]
+        # remove collinear/duplicate points, and make sure all segments are 45 degrees.
+        cur_len = 0
+        pt_list = []
+        for x, y in pts_unit:
+            if cur_len == 0:
+                pt_list.append((x, y))
+                cur_len += 1
+            else:
+                lastx, lasty = pt_list[-1]
+                # make sure we don't have duplicate points
+                if x != lastx or y != lasty:
+                    dx, dy = x - lastx, y - lasty
+                    if dx != 0 and dy != 0 and abs(dx) != abs(dy):
+                        # we don't have 45 degree wires
+                        raise ValueError('Cannot have line segment (%d, %d)->(%d, %d) in path'
+                                         % (lastx, lasty, x, y))
+                    if cur_len >= 2:
+                        # check for collinearity
+                        dx0, dy0 = lastx - pt_list[-2][0], lasty - pt_list[-2][1]
+                        if (dx == 0 and dx0 == 0) or (dx != 0 and dx0 != 0 and
+                                                      dy / dx == dy0 / dx0):
+                            # collinear, remove middle point
+                            del pt_list[-1]
+                            cur_len -= 1
+                    pt_list.append((x, y))
+                    cur_len += 1
+
+        return pt_list
+
+    @classmethod
     def from_content(cls,
                      content,
                      resolution,
