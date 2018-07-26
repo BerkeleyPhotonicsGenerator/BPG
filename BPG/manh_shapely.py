@@ -291,12 +291,5 @@ def polyop_manh(geom,  # type: Union[Polygon, MultiPolygon]
                          'type should be either "Polygon" or "MultiPolygon"')
 
 
-def resolution_to_num_of_point_round(radius, # type: float
-                                     res_grid_size, # type: float
 
-                                     ):
-    # type: (...) -> int
-
-    pi = 355 / 113
-    return int(ceil(pi / sqrt(res_grid_size / radius)))
 

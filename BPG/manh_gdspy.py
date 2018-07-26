@@ -266,14 +266,7 @@ def polyop_manh(polygon_gdspy,       # type: Union[gdspy.Polygon, gdspy.PolygonS
     return polygon_out
 
 
-def resolution_to_num_of_point_round(radius, # type: float
-                                     res_grid_size, # type: float
 
-                                     ):
-    # type: (...) -> int
-    
-    pi = 355 / 113
-    return int(ceil(pi / sqrt(res_grid_size / radius)))
 
 
 
