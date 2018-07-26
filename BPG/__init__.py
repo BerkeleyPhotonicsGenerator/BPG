@@ -1,7 +1,6 @@
 # Expose the LumericalGenerator class, which is the superclass of all lsf files
 
 from .lumerical_generator import LumericalGenerator
-from .shapely_generator import ShapelyGenerator
 from . import photonic_port, photonic_objects, photonic_template
 
 # Expose PhotonicTemplateBase so that all Generators can subclass it
