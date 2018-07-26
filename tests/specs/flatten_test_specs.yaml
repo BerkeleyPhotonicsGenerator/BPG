@@ -2,14 +2,10 @@
 
 # Directory Locations
 # Top level directory for the project
-project_dir: ~/Documents/Photonics_Data/flatten
-# subdirectory of project_dir where generated script files are placed
-scripts: scripts
-# subdirectory of project_dir where generated data is placed
-data: data
+project_name: flatten
 
 # Output Settings
-lsf_filename: add_round.lsf
+lsf_filename: flatten.lsf
 gds_filename: Output
 
 # Cadence related parameters
@@ -18,7 +14,7 @@ impl_cell: 'flatten_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'flatten_test'
+layout_package: 'tests.flatten_test'
 # Layout generator class name
 layout_class: 'TopLevel'
 

@@ -454,7 +454,7 @@ class PhotonicRound(Arrayable):
                                 )
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[PhotonicRound]
         """Transform this figure."""
 
         if not unit_mode:
@@ -744,10 +744,9 @@ class PhotonicRect(Rect):
                                  spx=0.0,  # type: int
                                  spy=0.0,  # type: int
                                  ):
-        # type: (...) -> Tuple
-        # TODO: documentation and docstring/typing
+        # type: (...) -> Tuple[List, List]
         """
-        Describes the current rectangle shape in terms of lsf parameters for lumerical use
+        Convert the PhotonicRect geometry to a list of polygon pointlists.
 
         Parameters
         ----------
@@ -764,8 +763,8 @@ class PhotonicRect(Rect):
 
         Returns
         -------
-        shapely_shapes : Tuple
-            list of str containing the lsf code required to create specified rectangles
+        output_list : Tuple[List, List]
+            The positive and negative polygon pointlists describing the photonicRect
         """
 
         # Calculate the width and length of the rectangle
@@ -971,8 +970,19 @@ class PhotonicPolygon(Polygon):
     def polygon_pointlist_export(cls,
                                  vertices,  # type: List[Tuple[float, float]]
                                  ):
-        # type: (...) -> Tuple
-        # TODO: documentation and docstring/typing
+        # type: (...) -> Tuple[List, List]
+        """
+
+        Parameters
+        ----------
+        vertices : List[Tuple[float, float]
+            The verticies from the content list of this polygon
+
+        Returns
+        -------
+        output_list : Tuple[List, List]
+            The positive and negative polygon pointlists describing this polygon
+        """
         return [vertices], []
 
 
@@ -1004,7 +1014,7 @@ class PhotonicAdvancedPolygon(Polygon):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
         if not negative_points:
-            self._negative_points = []  # TODO: or none?
+            self._negative_points = []
         elif isinstance(negative_points[0], List):
             self._negative_points = negative_points
         else:

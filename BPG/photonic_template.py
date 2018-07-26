@@ -1032,7 +1032,6 @@ class PhotonicTemplateDB(TemplateDB):
                   'flat list of polygon coords took {}s'.format(end-start))
 
 
-
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
                  temp_db,  # type: TemplateDB
