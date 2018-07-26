@@ -2,7 +2,7 @@
 import gdspy
 from typing import Tuple, List, Union  #, TYPE_CHECKING,
 from math import ceil  # , floor
-from BPG.manh import gdspy_manh  # ,coords_cleanup
+from BPG.manh_gdspy import gdspy_manh, is_manh  # ,coords_cleanup
 import numpy as np
 import sys
 
@@ -61,9 +61,16 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
     output_list_of_coord_lists = []
     if isinstance(polygon_gdspy, gdspy.Polygon):
         output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
+        print('check ismanh for the output')
+        if not is_manh(polygon_gdspy.points):
+            print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list')
+
     elif isinstance(polygon_gdspy, gdspy.PolygonSet):
         for poly in polygon_gdspy.polygons:
             output_list_of_coord_lists.append(np.round(poly, 3))  # TODO: Magic number?
+
+            if not is_manh(poly):
+                print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list')
     else:
         raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
     return output_list_of_coord_lists
