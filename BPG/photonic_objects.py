@@ -823,10 +823,120 @@ class PhotonicPath(Path):
                  join_style='extend',  # type: str
                  unit_mode=False,  # type: bool
                  ):
+        # type (...) -> None
         if isinstance(layer, str):
             layer = (layer, 'phot')
+        # TODO: Fix end_stype and join_style?
         Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
+    '''
+    @classmethod
+    def compress_points(cls, pts_unit):
+        # remove collinear/duplicate points, and make sure all segments are 45 degrees.
+        cur_len = 0
+        pt_list = []
+        for x, y in pts_unit:
+            if cur_len == 0:
+                pt_list.append((x, y))
+                cur_len += 1
+            else:
+                lastx, lasty = pt_list[-1]
+                # make sure we don't have duplicate points
+                if x != lastx or y != lasty:
+                    dx, dy = x - lastx, y - lasty
+                    if dx != 0 and dy != 0 and abs(dx) != abs(dy):
+                        # we don't have 45 degree wires
+                        raise ValueError('Cannot have line segment (%d, %d)->(%d, %d) in path'
+                                         % (lastx, lasty, x, y))
+                    if cur_len >= 2:
+                        # check for collinearity
+                        dx0, dy0 = lastx - pt_list[-2][0], lasty - pt_list[-2][1]
+                        if (dx == 0 and dx0 == 0) or (dx != 0 and dx0 != 0 and
+                                                      dy / dx == dy0 / dx0):
+                            # collinear, remove middle point
+                            del pt_list[-1]
+                            cur_len -= 1
+                    pt_list.append((x, y))
+                    cur_len += 1
 
+        return pt_list
+
+    @property
+    def layer(self):
+        # type: () -> Tuple[str, str]
+        """The rectangle (layer, purpose) pair."""
+        return self._layer
+
+    @Figure.valid.getter
+    def valid(self):
+        # type: () -> bool
+        """Returns True if this instance is valid."""
+        return not self.destroyed and len(self._points) >= 2 and self._width > 0
+
+    @property
+    def width(self):
+        return self._width * self._res
+
+    @property
+    def points(self):
+        return [(self._points[idx][0] * self._res, self._points[idx][1] * self._res)
+                for idx in range(self._points.shape[0])]
+
+    @property
+    def points_unit(self):
+        return [(self._points[idx][0], self._points[idx][1])
+                for idx in range(self._points.shape[0])]
+
+    @property
+    def content(self):
+        # type: () -> Dict[str, Any]
+        """A dictionary representation of this path."""
+        content = dict(layer=list(self.layer),
+                       width=self._width * self._res,
+                       points=self.points,
+                       end_style=self._end_style,
+                       join_style=self._join_style,
+                       )
+        return content
+
+    def move_by(self, dx=0, dy=0, unit_mode=False):
+        # type: (ldim, ldim, bool) -> None
+        """Move this path by the given amount.
+
+        Parameters
+        ----------
+        dx : float
+            the X shift.
+        dy : float
+            the Y shift.
+        unit_mode : bool
+            True if shifts are given in resolution units.
+        """
+        if not unit_mode:
+            dx = int(round(dx / self._res))
+            dy = int(round(dy / self._res))
+        self._points += np.array([dx, dy])
+
+    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
+        # type: (Tuple[ldim, ldim], str, bool, bool) -> Figure
+        """Transform this figure."""
+        res = self.resolution
+        if unit_mode:
+            dx, dy = loc
+        else:
+            dx = int(round(loc[0] / res))
+            dy = int(round(loc[1] / res))
+        dvec = np.array([dx, dy])
+        mat = transform_table[orient]
+        new_points = np.dot(mat, self._points.T).T + dvec
+
+        if not copy:
+            ans = self
+        else:
+            ans = deepcopy(self)
+
+        ans._points = new_points
+        return ans
+    '''
     @classmethod
     def from_content(cls,
                      content,

@@ -9,6 +9,7 @@ layer_map:
   !!python/tuple [SI, test2]: [2, 42]
   !!python/tuple [SI, test3]: [2, 43]
   !!python/tuple [SI, test4]: [2, 44]
+  !!python/tuple [SI, test5]: [2, 45]
   !!python/tuple [POLY, phot]: [4, 0]
   !!python/tuple [POLY, port]: [4, 100]
   !!python/tuple [POLY, drawing]: [4, 50]
