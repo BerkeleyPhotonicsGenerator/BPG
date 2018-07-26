@@ -115,10 +115,11 @@ class PhotonicLayoutManager(DesignManager):
         print('\n---Generating .lsf file---')
         self.tdb.to_lumerical(debug=debug)
 
-    def generate_shapely(self):
-        return self.tdb.to_shapely()
-
-    def generate_flat_gds(self, generate_gds=True, layout_params_list=None, cell_name_list=None, debug=False) -> None:
+    def generate_flat_gds(self,
+                          generate_gds=True,
+                          layout_params_list=None,
+                          cell_name_list=None,
+                          debug=False) -> None:
         """
         Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
         layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
@@ -126,10 +127,14 @@ class PhotonicLayoutManager(DesignManager):
 
         Parameters
         ----------
+        generate_gds : Optional[bool]
+            Optional parameter: True (default) to generate the GDS
         layout_params_list : List[dict]
             Optional list of dicts corresponding to layout parameters passed to the generator class
         cell_name_list : List[str]
             Optional list of strings corresponding to the names given to each generated layout
+        debug : bool
+            True to print debug information
         """
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
@@ -159,8 +164,19 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self, debug=False):
+        """
+
+        Parameters
+        ----------
+        debug : bool
+            True to print debug information
+        Returns
+        -------
+
+        """
         print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
+
         self.tdb.dataprep(debug=debug)
 
         self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
