@@ -12,9 +12,15 @@ import sys
 ################################################################################
 # TODO: Move numbers into a tech file
 global_grid_size = 0.001
-global_rough_grid_size = 0.01
+global_rough_grid_size = 0.1
 global_min_width = 0.1
 global_min_space = 0.05
+GLOBAL_OPERATION_PRECISION = 0.0001
+GLOBAL_CLEAN_UP_GRID_SIZE = 0.0001
+# TODO: make sure we set tolerance properly. larger numbers will cut off acute angles more when oversizing
+GLOBAL_OFFSET_TOLERANCE = 10
+GLOBAL_DO_CLEANUP = True
+
 MAX_SIZE = sys.maxsize
 
 
@@ -43,6 +49,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
     output_list_of_coord_lists : List[List[Tuple[float, float]]]
         A list containing the polygon point lists that compose the input gdspy polygon
     """
+    # TODO: Perhaps consider doing fraction to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
     if do_manh:
         polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
@@ -90,25 +97,93 @@ def dataprep_coord_to_gdspy(
     pos_coord_list_list = pos_neg_list_list[0]
     neg_coord_list_list = pos_neg_list_list[1]
 
-    polygon_out = gdspy.offset(gdspy.Polygon(pos_coord_list_list[0]),
-                               0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+    # Offset by 0 to clean up shape
+    polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=GLOBAL_DO_CLEANUP)
 
     if len(pos_coord_list_list) > 1:
         for pos_coord_list in pos_coord_list_list[1:]:
-            polygon_pos = gdspy.offset(gdspy.Polygon(pos_coord_list),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_pos, 'or'),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+            polygon_pos = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=GLOBAL_DO_CLEANUP)
+
+            polygon_out = dataprep_cleanup_gdspy(
+                gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
+                                   precision=GLOBAL_OPERATION_PRECISION,
+                                   max_points=MAX_SIZE),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
     if len(neg_coord_list_list):
         for neg_coord_list in neg_coord_list_list:
-            polygon_neg = gdspy.offset(gdspy.Polygon(neg_coord_list),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_neg, 'not'),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+            polygon_neg = dataprep_cleanup_gdspy(
+                gdspy.Polygon(neg_coord_list),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
+
+            # Offset by 0 to clean up shape
+            polygon_out = dataprep_cleanup_gdspy(
+                gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
+                                   precision=GLOBAL_OPERATION_PRECISION,
+                                   max_points=MAX_SIZE),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
 
     polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
-    polygon_out = gdspy.offset(polygon_out, 0, max_points=MAX_SIZE, join_first=True)
+
+    # TODO: is the cleanup necessary
+    # Offset by 0 to clean up shape
+    polygon_out = dataprep_cleanup_gdspy(
+        polygon_out,
+        do_cleanup=GLOBAL_DO_CLEANUP
+    )
+
     return polygon_out
+
+
+def dataprep_cleanup_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                           do_cleanup=True  # type: bool
+                           ):
+    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+    """
+    Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
+
+    First offsets by size 0 with precision higher than the global grid size.
+    Then calls an explicit rounding function to the grid size.
+    This is done because it is unclear how the clipper/gdspy library handles precision
+
+    Parameters
+    ----------
+    polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The polygon to clean
+    do_cleanup : bool
+        True to perform the cleanup. False will return input polygon unchanged
+    Returns
+    -------
+    clean_polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The cleaned up polygon
+    """
+    if do_cleanup:
+        clean_polygon = gdspy.offset(
+            polygons=polygon,
+            distance=0,
+            tolerance=GLOBAL_OFFSET_TOLERANCE,
+            max_points=MAX_SIZE,
+            join_first=True,
+            precision=GLOBAL_CLEAN_UP_GRID_SIZE
+        )
+
+        clean_coords = []
+        if isinstance(clean_polygon, gdspy.Polygon):
+            clean_coords = global_grid_size * np.round(clean_polygon.points / global_grid_size, 0)
+            clean_polygon = gdspy.Polygon(points = clean_coords)
+        elif isinstance(clean_polygon, gdspy.PolygonSet):
+            for poly in clean_polygon.polygons:
+                clean_coords.append(global_grid_size * np.round(poly / global_grid_size, 0))
+            clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
+        else:
+            raise ValueError('clean polygon must be a gdspy.Polygon or gdspy.PolygonSet')
+
+    else:
+        clean_polygon = polygon
+
+    return clean_polygon
 
 
 def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
@@ -119,8 +194,8 @@ def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygon
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing undersize')
     polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True,
-                                     join='miter', tolerance=4)
-    polygon_oversized = gdspy.offset(polygon_oversized, 0, max_points=MAX_SIZE, join_first=True)
+                                     join='miter', tolerance=4, precision=GLOBAL_OPERATION_PRECISION)
+    polygon_oversized = dataprep_cleanup_gdspy(polygon_oversized, do_cleanup=GLOBAL_DO_CLEANUP)
 
     return polygon_oversized
 
@@ -133,8 +208,9 @@ def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing oversize')
     polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True,
-                                      join='miter')
-    polygon_undersized = gdspy.offset(polygon_undersized, 0, max_points=MAX_SIZE, join_first=True)
+                                      join='miter', precision=GLOBAL_OPERATION_PRECISION)
+    polygon_undersized = dataprep_cleanup_gdspy(polygon_undersized, do_cleanup=GLOBAL_DO_CLEANUP)
+
     return polygon_undersized
 
 
@@ -169,14 +245,15 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
     extended_amount = grid_size * ceil(extended_amount / grid_size)
     polygon_ref_sized = dataprep_oversize_gdspy(polygon_ref, extended_amount)
     polygon_extended = dataprep_oversize_gdspy(polygon_toextend, extended_amount)
-    polygon_extra = gdspy.offset(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
-                                 0, max_points=MAX_SIZE, join_first=True)
-    polygon_toadd = gdspy.offset(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
-                                 0, max_points=MAX_SIZE, join_first=True)
+    polygon_extra = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
+                                           do_cleanup=GLOBAL_DO_CLEANUP)
+    polygon_toadd = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
+                                           do_cleanup=GLOBAL_DO_CLEANUP)
 
-    polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
-                               0, max_points=MAX_SIZE, join_first=True)
+    polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
+                                         do_cleanup=GLOBAL_DO_CLEANUP)
 
+    # TODO: replace 1.1 with non-magic number
     buffer_size = max(grid_size * ceil(0.5 * extended_amount / grid_size + 1.1), 0.0)
     polygon_out = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_out, buffer_size), buffer_size)
 
@@ -230,14 +307,14 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 polygon_out = polygon_rough_sized
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
 
         elif operation == 'add':
             if polygon1 is None:
                 polygon_out = dataprep_oversize_gdspy(polygon2, size_amount)
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'or')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
 
         elif operation == 'sub':
             if polygon1 is None:
@@ -245,7 +322,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
             else:
                 # TODO: Over or undersize the subtracted poly
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'not')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, GLOBAL_DO_CLEANUP)
 
         elif operation == 'ext':
             # TODO:
