@@ -1,15 +1,11 @@
-# -*- coding: utf-8 -*-
-
 import BPG
 
 from typing import Dict, Set, Any
-
-from BPG.photonic_template import PhotonicTemplateBase
 from bag.layout.core import BBox
 from bag.layout.template import TemplateDB
 
 
-class Waveguide(PhotonicTemplateBase):
+class Waveguide(BPG.PhotonicTemplateBase):
 
     def __init__(self,
                  temp_db,  # type: TemplateDB
@@ -18,7 +14,7 @@ class Waveguide(PhotonicTemplateBase):
                  used_names,  # type: Set[str]
                  **kwargs,
                  ):
-        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_default_param_values(cls):
@@ -29,7 +25,6 @@ class Waveguide(PhotonicTemplateBase):
 
     @classmethod
     def get_params_info(cls):
-
         return dict(
             width='Waveguide width [layout units]',
             length='Waveguide length [layout units]',
@@ -39,17 +34,17 @@ class Waveguide(PhotonicTemplateBase):
         length = self.params['length']
         width = self.params['width']
 
-        self.add_rect('Si',
-                      bbox=BBox(left=0, bottom=-width/2, right=length, top=width/2,
-                           resolution=self.grid.resolution, unit_mode=False
-                           ),
+        self.add_rect('SI',
+                      bbox=BBox(left=0, bottom=-width / 2, right=length, top=width / 2,
+                                resolution=self.grid.resolution, unit_mode=False
+                                ),
                       unit_mode=False
                       )
 
         self.add_photonic_port(
             name='PORT0',
             center=(0, 0),
-            inside_point=(length/2, 0),
+            orient='R0',
             width=width,
             layer=('RX', 'port'),
             resolution=self.grid.resolution,
@@ -59,7 +54,7 @@ class Waveguide(PhotonicTemplateBase):
         self.add_photonic_port(
             name='PORT1',
             center=(length, 0),
-            inside_point=(length/2, 0),
+            orient='R180',
             width=width,
             layer=('RX', 'port'),
             resolution=self.grid.resolution,
@@ -67,7 +62,7 @@ class Waveguide(PhotonicTemplateBase):
         )
 
 
-class WaveguideVert(PhotonicTemplateBase):
+class WaveguideVert(BPG.PhotonicTemplateBase):
 
     def __init__(self,
                  temp_db,  # type: TemplateDB
@@ -76,7 +71,7 @@ class WaveguideVert(PhotonicTemplateBase):
                  used_names,  # type: Set[str]
                  **kwargs,
                  ):
-        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_default_param_values(cls):
@@ -87,7 +82,6 @@ class WaveguideVert(PhotonicTemplateBase):
 
     @classmethod
     def get_params_info(cls):
-
         return dict(
             width='Waveguide width [layout units]',
             length='Waveguide length [layout units]',
@@ -97,17 +91,17 @@ class WaveguideVert(PhotonicTemplateBase):
         length = self.params['length']
         width = self.params['width']
 
-        self.add_rect('Poly',
-                      bbox=BBox(left=-width/2, bottom=0, right=width/2, top=length,
-                           resolution=self.grid.resolution, unit_mode=False
-                           ),
+        self.add_rect('POLY',
+                      bbox=BBox(left=-width / 2, bottom=0, right=width / 2, top=length,
+                                resolution=self.grid.resolution, unit_mode=False
+                                ),
                       unit_mode=False
                       )
 
         self.add_photonic_port(
             name='PORT0',
             center=(0, 0),
-            inside_point=(0, length/2),
+            orient='R90',
             width=width,
             layer=('RX', 'port'),
             resolution=self.grid.resolution,
@@ -117,7 +111,7 @@ class WaveguideVert(PhotonicTemplateBase):
         self.add_photonic_port(
             name='PORT1',
             center=(0, length),
-            inside_point=(0, length/2),
+            orient='R270',
             width=width,
             layer=('RX', 'port'),
             resolution=self.grid.resolution,
@@ -125,7 +119,7 @@ class WaveguideVert(PhotonicTemplateBase):
         )
 
 
-class WaveguideConnectTest(PhotonicTemplateBase):
+class WaveguideConnectTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
                  temp_db,  # type: TemplateDB
@@ -134,7 +128,7 @@ class WaveguideConnectTest(PhotonicTemplateBase):
                  used_names,  # type: Set[str]
                  **kwargs,
                  ):
-        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_default_param_values(cls):
@@ -147,7 +141,6 @@ class WaveguideConnectTest(PhotonicTemplateBase):
 
     @classmethod
     def get_params_info(cls):
-
         return dict(
             width1='Waveguide width [layout units]',
             length1='Waveguide length [layout units]',
@@ -184,36 +177,36 @@ class WaveguideConnectTest(PhotonicTemplateBase):
         self.add_photonic_port(
             name='VertPort_InDown_AlignedNoReflect',
             center=(0, 0),
-            inside_point=(0, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_AlignedReflect',
             center=(20, 0),
-            inside_point=(20, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_180NoReflect',
             center=(40, 0),
-            inside_point=(40, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_180Reflect',
             center=(60, 0),
-            inside_point=(60, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
@@ -253,36 +246,36 @@ class WaveguideConnectTest(PhotonicTemplateBase):
         self.add_photonic_port(
             name='VertPort_InDown_90NoReflect',
             center=(0, 30),
-            inside_point=(0, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_90Reflect',
             center=(20, 30),
-            inside_point=(20, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_270NoReflect',
             center=(40, 30),
-            inside_point=(40, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='VertPort_InDown_270Reflect',
             center=(60, 30),
-            inside_point=(60, -1),
+            orient='R270',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
@@ -322,36 +315,36 @@ class WaveguideConnectTest(PhotonicTemplateBase):
         self.add_photonic_port(
             name='HorzPort_InRight_AlignedNoReflect',
             center=(0, 100),
-            inside_point=(1, 100),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_AlignedReflect',
             center=(40, 100),
-            inside_point=(41, 100),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_180NoReflect',
             center=(80, 100),
-            inside_point=(81, 100),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_180Reflect',
             center=(120, 100),
-            inside_point=(121, 100),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
@@ -391,36 +384,36 @@ class WaveguideConnectTest(PhotonicTemplateBase):
         self.add_photonic_port(
             name='HorzPort_InRight_90NoReflect',
             center=(0, 200),
-            inside_point=(1, 200),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_90Reflect',
             center=(40, 200),
-            inside_point=(41, 200),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_270NoReflect',
             center=(80, 200),
-            inside_point=(81, 200),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
         self.add_photonic_port(
             name='HorzPort_InRight_270Reflect',
             center=(120, 200),
-            inside_point=(121, 200),
+            orient='R0',
             width=1,
-            layer='Si',
+            layer='SI',
             unit_mode=False,
         )
 
@@ -456,7 +449,7 @@ class WaveguideConnectTest(PhotonicTemplateBase):
         )
 
 
-class PortTest(PhotonicTemplateBase):
+class PortTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
                  temp_db,  # type: TemplateDB
@@ -465,7 +458,7 @@ class PortTest(PhotonicTemplateBase):
                  used_names,  # type: Set[str]
                  **kwargs,
                  ):
-        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
     def get_default_param_values(cls):
@@ -476,20 +469,18 @@ class PortTest(PhotonicTemplateBase):
 
     @classmethod
     def get_params_info(cls):
-
         return dict(
             width='Waveguide width [layout units]',
             length='Waveguide length [layout units]',
         )
 
     def draw_layout(self):
-        length = self.params['length']
         width = self.params['width']
 
         self.add_photonic_port(
             name='PORT0',
             center=(0, 0),
-            inside_point=(length/2, 0),
+            orient='R0',
             width=width,
             layer=('RX', 'port'),
             resolution=self.grid.resolution,
@@ -508,7 +499,7 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = './specs/waveguide_specs.yaml'
+    spec_file = 'BPG/tests/specs/waveguide_and_port_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     # PLM.generate_lsf()
