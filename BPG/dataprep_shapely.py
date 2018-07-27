@@ -11,7 +11,7 @@
 from typing import TYPE_CHECKING, Tuple, List, Union
 from math import ceil, floor
 from shapely.geometry import Point, Polygon, MultiPolygon
-from BPG.manh import polyop_manh, coords_cleanup
+from BPG.manh_shapely import polyop_manh, coords_cleanup
 from BPG.shapely_debug import shapely_plot
 
 
@@ -221,86 +221,4 @@ def poly_operation(polygon1,  # type: Polygon, Multipolygon
         return polygon_out
 
 
-# def dataprep_operation(polygon,  # type: Polygon, Multipolygon
-#                        operation,  # type: str
-#                        size_amount,  # type: float
-#                        polygon2=None,  # type: Polygon, Multipolygon
-#                        debug_text=False,  # type: bool
-#                        ):
-#     # TODO: clean up the input polygons first
-#
-#     grid_size = global_grid_size
-#
-#     if operation == 'rad':
-#         # if (need_new_rough_shapes == True):
-#         #     polygon_rough = polyop_roughsize(polygon2)
-#         #     need_new_rough_shapes == False
-#
-#         polygon_rough = polyop_roughsize(polygon)
-#
-#         buffer_size = max(size_amount - 2 * global_rough_grid_size, 0)
-#         polygon_out = polyop_oversize(polygon_rough, buffer_size)
-#         # if (debug_text == True and leng(RoughShapes) > 0):
-#         #     print("%L --> %L  %L rough shapes added."  %(LppIn, LppOut, list(len(RoughShapes))))
-#
-#     elif operation == 'add':
-#         polygon_out = polyop_oversize(polygon)
-#         # if (debug_text == True and leng(ShapesIn) > 0):
-#         #     print("%L --> %L  %L shapes added."  %(LppIn, LppOut, list(length(ShapesIn))))
-#
-#     elif operation == 'sub':
-#         polygon_out = polygon2.difference(polyop_oversize(polygon))
-#         # if (debug_text == True and leng(ShapesToSubtract) > 0):
-#         #     print("%L --> %L  %L shapes subtracted."  %(LppIn, LppOut, list(length(ShapesToSubtract))))
-#         # if polygon1.area == 0
-#         #     print("Warning in 0ProcedureDataPrep. There is nothing to substract %L from." %(LppOut))
-#
-#     elif operation == 'ext':
-#         # if (not (member(LppOut, NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-#         # TODO: fix this
-#         if True:
-#             # if (debug_text == True):
-#             #     print("Extending %L over %L by %s ." %(LppIn, LppOut, list(SizeAmount)))
-#             # else:
-#             #     pass
-#             polygon_toextend = polygon
-#             polygon_ref = polygon2
-#             polygon_out = polyop_extend(polygon_toextend, polygon_ref, size_amount)
-#         else:
-#             pass
-#             # if (debug_text == True):
-#             #     print("Extension skipped on %L over %s by %s." %(LppIn, LppOut, list(SizeAmount)))
-#             # else:
-#             #     pass
-#     # TODO
-#     elif operation == 'ouo':
-#         # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-#         if True:
-#             # if (debug_text == True and length(ShapesIn) > 0):
-#             #     print("Performing Over of Under of Under of Over on %s."  %LppIn)
-#             # if ():
-#             #     ValueError("MinWidth for %s is missing" %LppIn)
-#             # else:
-#             #     min_width = lpp_in['min_width']
-#             # if ():
-#             #     ValueError("MinSpace for %s is missing" %LppIn)
-#             # else:
-#             #     min_space = lpp_in['min_space']
-#
-#             min_width = global_min_width
-#             min_space = global_min_width
-#
-#             underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
-#             overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-#             poly_o = polyop_oversize(polygon, underofover_size)
-#             poly_ou = polyop_undersize(poly_o, underofover_size)
-#             poly_ouu = polyop_undersize(poly_ou, overofunder_size)
-#             poly_out = polyop_oversize(poly_ouu, overofunder_size)
-#
-#         else:
-#             pass
-#
-#     elif operation == 'del':
-#         pass
-#
-#     return polygon_out
+
