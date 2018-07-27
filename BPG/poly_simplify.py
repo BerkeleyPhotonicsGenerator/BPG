@@ -1,12 +1,11 @@
 from shapely.geometry import Polygon, MultiPolygon
 from typing import Union, Tuple, List
-from math import ceil, sqrt
 import sys
 import gdspy
+from BPG.dataprep_gdspy import dataprep_cleanup_gdspy, GLOBAL_OPERATION_PRECISION, GLOBAL_DO_CLEANUP
+
 
 MAX_POINTS = sys.maxsize
-
-
 
 
 def coord_to_shapely(
@@ -19,7 +18,6 @@ def coord_to_shapely(
     Parameters
     ----------
     pos_neg_list_list
-    manh_grid_size
 
     Returns
     -------
@@ -44,7 +42,7 @@ def coord_to_shapely(
     return polygon_out
 
 
-def shapely_to_gdspy_polygon(polygon_shapely, # type: Polygon
+def shapely_to_gdspy_polygon(polygon_shapely,  # type: Polygon
                              ):
     if not isinstance(polygon_shapely, Polygon):
         raise ValueError("input must be a Shapely Polygon")
@@ -56,13 +54,16 @@ def shapely_to_gdspy_polygon(polygon_shapely, # type: Polygon
                 int_coord_list = list(zip(*interior.coords.xy))
                 polygon_gdspy_int = gdspy.Polygon(int_coord_list)
 
-                polygon_gdspy = gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_int, 'not', max_points=MAX_POINTS)
+                polygon_gdspy = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_int, 'not',
+                                                                          max_points=MAX_POINTS,
+                                                                          precision=GLOBAL_OPERATION_PRECISION),
+                                                       do_cleanup=GLOBAL_DO_CLEANUP)
         else:
             pass
         return polygon_gdspy
 
 
-def shapely_to_gdspy(geom_shapely, # type: Polygon, MultiPolygon
+def shapely_to_gdspy(geom_shapely,  # type: Polygon, MultiPolygon
                      ):
     if isinstance(geom_shapely, Polygon):
         return shapely_to_gdspy_polygon(geom_shapely)
@@ -71,24 +72,19 @@ def shapely_to_gdspy(geom_shapely, # type: Polygon, MultiPolygon
         for polygon_shapely in geom_shapely[1:]:
             polygon_gdspy_append = shapely_to_gdspy_polygon(polygon_shapely)
 
-            polygon_gdspy = gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_append, 'or', max_points=MAX_POINTS)
+            polygon_gdspy = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_append, 'or',
+                                                                      max_points=MAX_POINTS,
+                                                                      precision=GLOBAL_OPERATION_PRECISION),
+                                                   do_cleanup=GLOBAL_DO_CLEANUP)
 
         return polygon_gdspy
     else:
         raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
 
 
-
-def num_of_sparse_point_round(radius, # type: float
-                              res_grid_size, # type: float
-                              ):
-    # type: (...) -> int
-
-    pi = 355 / 113
-    return int(ceil(pi / sqrt(res_grid_size / radius)))
-
-def simplify_coord_to_gdspy(pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-                            tolerance=5e-4,     # type: float
+def simplify_coord_to_gdspy(pos_neg_list_list,
+                            # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+                            tolerance=5e-4,  # type: float
                             ):
     poly_shapely = coord_to_shapely(pos_neg_list_list)
     poly_shapely_simplified = poly_shapely.simplify(tolerance)

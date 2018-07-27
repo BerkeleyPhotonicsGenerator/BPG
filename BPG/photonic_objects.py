@@ -13,6 +13,7 @@ from bag.layout.util import transform_point, BBox
 import gdspy
 import numpy as np
 import sys
+import math
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
@@ -593,6 +594,13 @@ class PhotonicRound(Arrayable):
 
         return lsf_code
 
+    @staticmethod
+    def num_of_sparse_point_round(radius,  # type: float
+                                  res_grid_size,  # type: float
+                                  ):
+        # type: (...) -> int
+        return int(math.ceil(math.pi / math.sqrt(res_grid_size / radius)))
+
     @classmethod
     def polygon_pointlist_export(cls,
                                  rout,  # type: dim_type
@@ -604,7 +612,7 @@ class PhotonicRound(Arrayable):
                                  ny=1,  # type: int
                                  spx=0.0,  # type: dim_type
                                  spy=0.0,  # type: dim_type
-                                 resolution=0.0  # type: float  # TODO: Change to rough round estimation
+                                 resolution=0.001  # type: float
                                  ):
         # Get the base polygons
         round_polygons = gdspy.Round(center=center,
@@ -613,7 +621,7 @@ class PhotonicRound(Arrayable):
                                      inner_radius=rin,
                                      initial_angle=theta0 * np.pi / 180,
                                      final_angle=theta1 * np.pi / 180,
-                                     number_of_points=317,  # TODO: MAGIC NUMBER
+                                     number_of_points=cls.num_of_sparse_point_round(rout, resolution),
                                      max_points=sys.maxsize,
                                      datatype=0).polygons
 
