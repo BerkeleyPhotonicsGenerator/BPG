@@ -1,27 +1,31 @@
-
 import gdspy
-from typing import Tuple, List, Union  #, TYPE_CHECKING,
+from typing import Tuple, List, Union  # , TYPE_CHECKING,
 from math import ceil  # , floor
-from BPG.manh import gdspy_manh  # ,coords_cleanup
 import numpy as np
 import sys
-
 
 ################################################################################
 # define parameters for testing
 ################################################################################
 # TODO: Move numbers into a tech file
 global_grid_size = 0.001
-global_rough_grid_size = 0.01
+global_rough_grid_size = 0.1
 global_min_width = 0.1
 global_min_space = 0.05
+GLOBAL_OPERATION_PRECISION = 0.0001
+GLOBAL_CLEAN_UP_GRID_SIZE = 0.0001
+# TODO: make sure we set tolerance properly. larger numbers will cut off acute angles more when oversizing
+GLOBAL_OFFSET_TOLERANCE = 10
+GLOBAL_DO_CLEANUP = True
+
 MAX_SIZE = sys.maxsize
 
 
 def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                                fracture=True,  # type: bool
                                do_manh=True,  # type: bool
-                               manh_grid_size=global_grid_size  # type: float
+                               manh_grid_size=global_grid_size,  # type: float
+                               debug=False,  # type: bool
                                # TODO: manh grid size is magic number
                                ):
     # type: (...) -> List[List[Tuple[float, float]]]
@@ -37,14 +41,23 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
         True to perform Manhattanization
     manh_grid_size : float
         The Manhattanization grid size
+    debug : bool
+        True to print debug information
 
     Returns
     -------
     output_list_of_coord_lists : List[List[Tuple[float, float]]]
         A list containing the polygon point lists that compose the input gdspy polygon
     """
+    # TODO: Perhaps consider doing fracture to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
+    if debug:
+        print("Performing final Manhattanization")
+
     if do_manh:
         polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
+
+    if debug:
+        print("Performing final fracturing")
 
     if fracture:
         polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)  # TODO: Magic numbers
@@ -54,11 +67,23 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
     output_list_of_coord_lists = []
     if isinstance(polygon_gdspy, gdspy.Polygon):
         output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
+
+        non_manh_edge = not_manh(polygon_gdspy.points)
+        if non_manh_edge:
+            print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
+                  'number of non-manh edges is', non_manh_edge)
+
     elif isinstance(polygon_gdspy, gdspy.PolygonSet):
         for poly in polygon_gdspy.polygons:
             output_list_of_coord_lists.append(np.round(poly, 3))  # TODO: Magic number?
+
+            non_manh_edge = not_manh(poly)
+            if non_manh_edge:
+                print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
+                      'number of non-manh edges is', non_manh_edge)
     else:
         raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
+
     return output_list_of_coord_lists
 
 
@@ -66,7 +91,7 @@ def dataprep_coord_to_gdspy(
         pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
         manh_grid_size,  # type: float
         do_manh,  # type: bool
-        ):
+):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
     """
     Converts list of polygon coordinate lists into GDSPY polygon objects
@@ -90,25 +115,93 @@ def dataprep_coord_to_gdspy(
     pos_coord_list_list = pos_neg_list_list[0]
     neg_coord_list_list = pos_neg_list_list[1]
 
-    polygon_out = gdspy.offset(gdspy.Polygon(pos_coord_list_list[0]),
-                               0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+    # Offset by 0 to clean up shape
+    polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=GLOBAL_DO_CLEANUP)
 
     if len(pos_coord_list_list) > 1:
         for pos_coord_list in pos_coord_list_list[1:]:
-            polygon_pos = gdspy.offset(gdspy.Polygon(pos_coord_list),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_pos, 'or'),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+            polygon_pos = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=GLOBAL_DO_CLEANUP)
+
+            polygon_out = dataprep_cleanup_gdspy(
+                gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
+                                   precision=GLOBAL_OPERATION_PRECISION,
+                                   max_points=MAX_SIZE),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
     if len(neg_coord_list_list):
         for neg_coord_list in neg_coord_list_list:
-            polygon_neg = gdspy.offset(gdspy.Polygon(neg_coord_list),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_neg, 'not'),
-                                       0, tolerance=10, max_points=MAX_SIZE, join_first=True)
+            polygon_neg = dataprep_cleanup_gdspy(
+                gdspy.Polygon(neg_coord_list),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
+
+            # Offset by 0 to clean up shape
+            polygon_out = dataprep_cleanup_gdspy(
+                gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
+                                   precision=GLOBAL_OPERATION_PRECISION,
+                                   max_points=MAX_SIZE),
+                do_cleanup=GLOBAL_DO_CLEANUP
+            )
 
     polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
-    polygon_out = gdspy.offset(polygon_out, 0, max_points=MAX_SIZE, join_first=True)
+
+    # TODO: is the cleanup necessary
+    # Offset by 0 to clean up shape
+    polygon_out = dataprep_cleanup_gdspy(
+        polygon_out,
+        do_cleanup=GLOBAL_DO_CLEANUP
+    )
+
     return polygon_out
+
+
+def dataprep_cleanup_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                           do_cleanup=True  # type: bool
+                           ):
+    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+    """
+    Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
+
+    First offsets by size 0 with precision higher than the global grid size.
+    Then calls an explicit rounding function to the grid size.
+    This is done because it is unclear how the clipper/gdspy library handles precision
+
+    Parameters
+    ----------
+    polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The polygon to clean
+    do_cleanup : bool
+        True to perform the cleanup. False will return input polygon unchanged
+    Returns
+    -------
+    clean_polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+        The cleaned up polygon
+    """
+    if do_cleanup:
+        clean_polygon = gdspy.offset(
+            polygons=polygon,
+            distance=0,
+            tolerance=GLOBAL_OFFSET_TOLERANCE,
+            max_points=MAX_SIZE,
+            join_first=True,
+            precision=GLOBAL_CLEAN_UP_GRID_SIZE
+        )
+
+        clean_coords = []
+        if isinstance(clean_polygon, gdspy.Polygon):
+            clean_coords = global_grid_size * np.round(clean_polygon.points / global_grid_size, 0)
+            clean_polygon = gdspy.Polygon(points=clean_coords)
+        elif isinstance(clean_polygon, gdspy.PolygonSet):
+            for poly in clean_polygon.polygons:
+                clean_coords.append(global_grid_size * np.round(poly / global_grid_size, 0))
+            clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
+        else:
+            raise ValueError('clean polygon must be a gdspy.Polygon or gdspy.PolygonSet')
+
+    else:
+        clean_polygon = polygon
+
+    return clean_polygon
 
 
 def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
@@ -119,8 +212,8 @@ def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygon
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing undersize')
     polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True,
-                                     join='miter', tolerance=4)
-    polygon_oversized = gdspy.offset(polygon_oversized, 0, max_points=MAX_SIZE, join_first=True)
+                                     join='miter', tolerance=4, precision=GLOBAL_OPERATION_PRECISION)
+    polygon_oversized = dataprep_cleanup_gdspy(polygon_oversized, do_cleanup=GLOBAL_DO_CLEANUP)
 
     return polygon_oversized
 
@@ -133,8 +226,9 @@ def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing oversize')
     polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True,
-                                      join='miter')
-    polygon_undersized = gdspy.offset(polygon_undersized, 0, max_points=MAX_SIZE, join_first=True)
+                                      join='miter', precision=GLOBAL_OPERATION_PRECISION)
+    polygon_undersized = dataprep_cleanup_gdspy(polygon_undersized, do_cleanup=GLOBAL_DO_CLEANUP)
+
     return polygon_undersized
 
 
@@ -169,14 +263,15 @@ def polyop_extend(polygon_toextend,  # type: Union[gdspy.Polygon, gdspy.PolygonS
     extended_amount = grid_size * ceil(extended_amount / grid_size)
     polygon_ref_sized = dataprep_oversize_gdspy(polygon_ref, extended_amount)
     polygon_extended = dataprep_oversize_gdspy(polygon_toextend, extended_amount)
-    polygon_extra = gdspy.offset(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
-                                 0, max_points=MAX_SIZE, join_first=True)
-    polygon_toadd = gdspy.offset(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
-                                 0, max_points=MAX_SIZE, join_first=True)
+    polygon_extra = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
+                                           do_cleanup=GLOBAL_DO_CLEANUP)
+    polygon_toadd = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
+                                           do_cleanup=GLOBAL_DO_CLEANUP)
 
-    polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
-                               0, max_points=MAX_SIZE, join_first=True)
+    polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
+                                         do_cleanup=GLOBAL_DO_CLEANUP)
 
+    # TODO: replace 1.1 with non-magic number
     buffer_size = max(grid_size * ceil(0.5 * extended_amount / grid_size + 1.1), 0.0)
     polygon_out = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_out, buffer_size), buffer_size)
 
@@ -230,14 +325,14 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 polygon_out = polygon_rough_sized
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
 
         elif operation == 'add':
             if polygon1 is None:
                 polygon_out = dataprep_oversize_gdspy(polygon2, size_amount)
             else:
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'or')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
 
         elif operation == 'sub':
             if polygon1 is None:
@@ -245,7 +340,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
             else:
                 # TODO: Over or undersize the subtracted poly
                 polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'not')
-                polygon_out = gdspy.offset(polygon_out, 0, max_points=4094, join_first=True)
+                polygon_out = dataprep_cleanup_gdspy(polygon_out, GLOBAL_DO_CLEANUP)
 
         elif operation == 'ext':
             # TODO:
@@ -280,3 +375,280 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
             pass
 
         return polygon_out
+
+
+def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
+                         coord2,  # type: Tuple[float, float]
+                         coord3,  # type: Tuple[float, float]
+                         eps_grid=1e-4,  # type: float
+                         ):
+    """
+    Tell if three coordinates are in the same line
+    Expected to have three consecutive coordinates as inputs when the function is called
+    """
+    dx1_2 = coord1[0] - coord2[0]
+    dy1_2 = coord1[1] - coord2[1]
+    dx2_3 = coord2[0] - coord3[0]
+    dy2_3 = coord2[1] - coord3[1]
+
+    # if any of the two consecutive coords are actually the same, the three coords are in a line
+    if ((abs(dx1_2) < eps_grid) and (abs(dy1_2) < eps_grid)) or ((abs(dx2_3) < eps_grid) and (abs(dy2_3) < eps_grid)):
+        return True
+    else:
+        # if x&y coords are accurate, we should have dx1_acc * dy2_acc =dx2_acc * dy1_acc,
+        # because of inaccuracy in float numbers, we have
+        # |dx1 * dy2 - dx2 * dy1| = |(dx1_acc + err1) * (dy2_acc + err2) - (dx2_acc + err3) * (dy1_acc + err4)|
+        #                         ~ |dx1 * err2 + dy2 * err1 - dx2 * err4 - dy1 * err3|
+        #                         < sum(|dx1|, |dx2|, |dy1|, |dy2|) * |err_max|
+        error_abs = abs(dx1_2 * dy2_3 - dx2_3 * dy1_2)
+        error_rlt = error_abs / (abs(dx1_2) + abs(dx2_3) + abs(dy1_2) + abs(dy2_3))
+        return error_rlt < eps_grid
+
+
+def cleanup_loop(coords_list_ori,  # type: List[Tuple[float, float]]
+                 eps_grid=1e-4,  # type: float
+                 ):
+    # once a coordinate is deleted from the coords list, set fully_cleaned to False
+    fully_cleaned = True
+
+    # append the first two coords in the origin list to a new list
+    coords_list_out = [coords_list_ori[0], coords_list_ori[1]]
+
+    # if the last coord in the new list has the same x or y coordinate with
+    # both the second last coord and the coord to append, delete this coord
+    coord_1stlast = coords_list_out[-1]
+    coord_2ndlast = coords_list_out[-2]
+    # print(len(coords_list_ori))
+    for i in range(2, len(coords_list_ori)):
+        coord_to_append = coords_list_ori[i]
+        if coords_apprx_in_line(coord_2ndlast, coord_1stlast, coord_to_append, eps_grid=eps_grid):
+            fully_cleaned = False
+            coords_list_out = coords_list_out[:-1]
+            coords_list_out.append(coord_to_append)
+            coord_1stlast = coord_to_append
+        else:
+            coords_list_out.append(coord_to_append)
+            coord_2ndlast = coord_1stlast
+            coord_1stlast = coord_to_append
+
+    # print('coord_list_out', coords_list_out)
+    # now all the coordinates except the first and the last (the same one) should be on a corner of the polygon,
+    # unless the following appended coord has been deleted
+    # check if the firsr&last coord is redundant
+    if coords_apprx_in_line(coords_list_out[-2], coords_list_out[0], coords_list_out[1], eps_grid=eps_grid):
+        fully_cleaned = False
+        coords_list_out = coords_list_out[1:-1]
+        coords_list_out.append(coords_list_out[0])
+
+    # LAST STEP: just in case that the first and the last coord are slightly different
+    coords_list_out = coords_list_out[0:-1]
+    coords_list_out.append(coords_list_out[0])
+
+    return {'coords_list_out': coords_list_out, 'fully_cleaned': fully_cleaned}
+
+
+def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
+                   eps_grid=1e-4,  # type: float
+                   debug=False,  # type: bool
+                   ):
+    """
+    clean up coordinates in the list that are redundant or harmful for following Shapely functions
+
+    Parameters
+    ----------
+    coords_list_ori : list[tuple[float, float]]
+        list of coordinates that enclose a polygon
+    eps_grid : float
+        a size smaller than the resolution grid size,
+        if the difference of x/y coordinates of two points is smaller than it,
+        these two points should actually share the same x/y coordinate
+    debug : bool
+    """
+    if debug:
+        print('coord_list_ori', coords_list_ori)
+
+    fully_cleaned = False
+    coords_list_out = coords_list_ori
+
+    # in some cases, some coordinates become on the line if the following coord is deleted,
+    # need to loop until no coord is deleted during one loop
+    while not fully_cleaned:
+        cleaned_result = cleanup_loop(coords_list_out, eps_grid=eps_grid)
+        coords_list_out = cleaned_result['coords_list_out']
+        fully_cleaned = cleaned_result['fully_cleaned']
+
+    return coords_list_out
+
+
+def not_manh(coord_list,  # type: List[Tuple[float, float]])
+             eps_grid=1e-6,  # type: float
+             ):
+    non_manh_edge = 0
+    if isinstance(coord_list, np.ndarray):
+        coord_list_new = coord_list.tolist()
+    else:
+        coord_list_new = coord_list
+
+    coord_list_new.append(coord_list_new[0])
+
+    for i in range(len(coord_list_new) - 1):
+        coord_curr = coord_list_new[i]
+        coord_next = coord_list_new[i + 1]
+
+        if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and (abs(coord_curr[1] - coord_next[1]) > eps_grid):
+            non_manh_edge = non_manh_edge + 1
+            print(coord_curr, coord_next)
+            # break
+
+    return non_manh_edge
+
+
+def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
+               manh_grid_size,  # type: float
+               manh_type,  # type: str
+               ):
+    """
+    Convert a polygon into the polygon with orthogonal edges,
+    detailed flavors are the same as it is in the SKILL code
+
+
+    Parameters
+    ----------
+    poly_coords : list[tuple[float, float]]
+        list of coordinates that enclose a polygon
+    manh_grid_size : float
+        grid size for manhattanization, edge length after manhattanization should be larger than it
+    manh_type : str
+        'inc' : the manhattanized polygon is larger compared to the one on the manh grid
+        'dec' : the manhattanized polygon is smaller compared to the one on the manh grid
+        'non' : additional feature, only map the coords to the manh grid but do no manhattanization
+    """
+
+    # Snapping original coordinates to manhattan grid (by rounding)
+
+    def apprx_equal(float1,  # type: float
+                    float2,  # type: float
+                    eps_grid=1e-9  # type: float
+                    ):
+        return abs(float1 - float2) < eps_grid
+
+    def apprx_equal_coord(coord1,  # type: Tuple(float, float)
+                          coord2,  # type: Tuple(float, float)
+                          eps_grid=1e-9  # type: float
+                          ):
+        return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
+
+    # map the coordinates to the manh grid
+    poly_coords_manhgrid = []
+    for coord in poly_coords:
+        xcoord_manhgrid = manh_grid_size * round(coord[0] / manh_grid_size)
+        ycoord_manhgrid = manh_grid_size * round(coord[1] / manh_grid_size)
+        poly_coords_manhgrid.append((xcoord_manhgrid, ycoord_manhgrid))
+
+    # adding the first point to the last if polygon is not closed
+    if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
+        poly_coords_manhgrid.append(poly_coords_manhgrid[0])
+
+    # do manhattanization if manh_type is 'inc'
+    if manh_type == 'non':
+        return poly_coords  # coords_cleanup(poly_coords_manhgrid)
+    elif (manh_type == 'inc') or (manh_type == 'dec'):
+        # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
+        # (a kind of "center-of-mass")
+        xcoord_sum = 0
+        ycoord_sum = 0
+        for coord_manhgrid in poly_coords_manhgrid:
+            xcoord_sum = xcoord_sum + coord_manhgrid[0]
+            ycoord_sum = ycoord_sum + coord_manhgrid[1]
+        xcoord_in = xcoord_sum / len(poly_coords_manhgrid)
+        ycoord_in = ycoord_sum / len(poly_coords_manhgrid)
+        # print("point INSIDE the shape (x,y) =  (%f, %f)" %(xcoord_in, ycoord_in))
+
+        # Scanning all the points of the orinal list and adding points in-between.
+        poly_coords_orth = [poly_coords_manhgrid[0]]
+        # print('len(poly_coords_manhgrid)', len(poly_coords_manhgrid))
+        for i in range(0, len(poly_coords_manhgrid) - 1):
+            # BE CAREFUL HERE WITH THE INDEX
+            coord_curr = poly_coords_manhgrid[i]
+            if i == len(poly_coords_manhgrid) - 1:
+                coord_next = coord_curr
+            else:
+                coord_next = poly_coords_manhgrid[i + 1]
+
+            delta_x = coord_next[0] - coord_curr[0]
+            delta_y = coord_next[1] - coord_curr[1]
+            eps_float = 1e-9
+            # current coord and the next coord create an orthogonal edge
+            if (abs(delta_x) < eps_float) or (abs(delta_y) < eps_float):
+                # print("This point has orthogonal neighbour", coord_curr, coord_next)
+                poly_coords_orth.append(coord_next)
+            else:
+                if abs(delta_x) > abs(delta_y):
+                    num_point_add = int(abs(round(delta_y / manh_grid_size)))
+                    xstep = round(delta_y / abs(delta_y)) * manh_grid_size * (delta_x / delta_y)
+                    ystep = round(delta_y / abs(delta_y)) * manh_grid_size
+                else:
+                    num_point_add = int(abs(round(delta_x / manh_grid_size)))
+                    ystep = round(delta_x / abs(delta_x)) * manh_grid_size * delta_y / delta_x
+                    xstep = round(delta_x / abs(delta_x)) * manh_grid_size
+                # if positive, the center if the shape is on the left
+                vec_product1 = xstep * (ycoord_in - coord_curr[1]) - ystep * (xcoord_in - coord_curr[0])
+                # if positive the vector ( StepX, 0.0) is on the left too
+                vec_product2 = xstep * 0.0 - ystep * xstep
+                for j in range(0, num_point_add):
+                    x0 = coord_curr[0] + j * xstep
+                    y0 = coord_curr[1] + j * ystep
+                    # If both are positive, incrememnting in X first will make the polygon smaller:
+                    # incrememnting X first if manh_type is 'inc'
+                    if ((vec_product1 * vec_product2) < 0) == (manh_type == 'inc'):
+                        poly_coords_orth.append((x0 + xstep, y0))
+                        poly_coords_orth.append((x0 + xstep, y0 + ystep))
+                    # else incrememnting Y first
+                    else:
+                        poly_coords_orth.append((x0, y0 + ystep))
+                        poly_coords_orth.append((x0 + xstep, y0 + ystep))
+
+        # clean up the coords
+        non_manh_edge_pre_cleanup = not_manh(poly_coords_orth)
+        if non_manh_edge_pre_cleanup:
+            raise ValueError('Manhattanization failed before the clean-up, number of non-manh edges is',
+                             non_manh_edge_pre_cleanup)
+
+        poly_coords_cleanup = coords_cleanup(poly_coords_orth)
+        non_manh_edge_post_cleanup = not_manh(poly_coords_cleanup)
+        if non_manh_edge_post_cleanup:
+            raise ValueError('Manhattanization failed after the clean-up, number of non-manh edges is',
+                             non_manh_edge_post_cleanup)
+
+        return poly_coords_cleanup
+    else:
+        raise ValueError('manh_type = {} should be either "non", "inc" or "dec"'.format(manh_type))
+
+
+def gdspy_manh(polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+               manh_grid_size,  # type: float
+               do_manh,  # type: bool
+               ):
+    if do_manh:
+        manh_type = 'inc'
+    else:
+        manh_type = 'non'
+
+    if isinstance(polygon_gdspy, gdspy.Polygon):
+        coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
+        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                             do_cleanup=GLOBAL_DO_CLEANUP)
+    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+        coord_list = manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
+        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                             do_cleanup=GLOBAL_DO_CLEANUP)
+        for poly in polygon_gdspy.polygons:
+            coord_list = manh_skill(poly, manh_grid_size, manh_type)
+            polygon_append = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                                    do_cleanup=GLOBAL_DO_CLEANUP)
+            polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
+                                                 do_cleanup=GLOBAL_DO_CLEANUP)
+    else:
+        raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
+
+    return polygon_out
