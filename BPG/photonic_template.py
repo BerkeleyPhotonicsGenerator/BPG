@@ -37,8 +37,9 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 GLOBAL_DO_MANH_AT_BEGINNING = False
-GLOBAL_DO_FINAL_MANH = False
-GLOBAL_DO_MANH_DURING_OP = False
+GLOBAL_DO_MANH_DURING_OP = True
+GLOBAL_DO_FINAL_MANH = True
+
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -1017,7 +1018,7 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
-                                                       fracture=True,
+                                                       fracture=False,
                                                        do_manh=GLOBAL_DO_FINAL_MANH,
                                                        manh_grid_size=self.grid.resolution)
 
