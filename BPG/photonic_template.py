@@ -36,8 +36,19 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-GLOBAL_DO_MANH = False
+
+# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first manhattanized). We can do this, but it
+# will be slow. Instead, we think it is OK to NOT manhattenize pre-data-prep, perform the growth/shrink functions on
+# non-manhattanized shapes, then manhattanize at the very end. This should be faster
+GLOBAL_DO_MANH_AT_BEGINNING = False
+
+# SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
+GLOBAL_DO_MANH_DURING_OP = True
+
+# True to ensure that final shape will be on a manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
+# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have manhattanized shapes on manhattan grid
 GLOBAL_DO_FINAL_MANH = False
+
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -768,10 +779,10 @@ class PhotonicTemplateDB(TemplateDB):
         content : Tuple
             the shape content on the provided layer
         """
-        if layer not in self.flat_content_by_layer.keys():
+        if layer not in self.flat_content_list_by_layer.keys():
             return ()
         else:
-            return self.flat_content_by_layer[layer]
+            return self.flat_content_list_by_layer[layer]
 
     def sort_flat_content_by_layers(self):
         """
@@ -940,7 +951,7 @@ class PhotonicTemplateDB(TemplateDB):
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH
+                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING
                 )
 
             end = time.time()
@@ -973,7 +984,7 @@ class PhotonicTemplateDB(TemplateDB):
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH
+                        do_manh=GLOBAL_DO_MANH_DURING_OP
                     )
 
                     # Update the layer's content
@@ -988,6 +999,9 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('Performing final OUUO')
 
+        if dataprep_info['over_under_under_over'] is None:
+            dataprep_info['over_under_under_over'] = []
+
         for lpp in dataprep_info['over_under_under_over']:
             if debug:
                 print("Doing final OUUO on layer {}".format(lpp))
@@ -997,7 +1011,7 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                do_manh=GLOBAL_DO_MANH
+                do_manh=GLOBAL_DO_MANH_AT_BEGINNING
             )
 
             if new_out_layer_polygons is not None:
@@ -1014,8 +1028,9 @@ class PhotonicTemplateDB(TemplateDB):
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
                                                        fracture=True,
-                                                       do_manh=True,
-                                                       manh_grid_size=self.grid.resolution)
+                                                       do_manh=GLOBAL_DO_FINAL_MANH,
+                                                       manh_grid_size=self.grid.resolution,
+                                                       debug=debug)
 
             new_shapes = []
             for shape in output_shapes:
