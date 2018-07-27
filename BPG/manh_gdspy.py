@@ -49,7 +49,6 @@ def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
 def cleanup_loop(coords_list_ori,  # type: List[Tuple[float, float]]
                  eps_grid=1e-4,  # type: float
                  ):
-
     # once a coordinate is deleted from the coords list, set fully_cleaned to False
     fully_cleaned = True
 
@@ -90,10 +89,9 @@ def cleanup_loop(coords_list_ori,  # type: List[Tuple[float, float]]
 
 
 def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
-                   eps_grid=1e-4,   # type: float
+                   eps_grid=1e-4,  # type: float
                    debug=False,  # type: bool
                    ):
-
     """
     clean up coordinates in the list that are redundant or harmful for following Shapely functions
 
@@ -123,12 +121,12 @@ def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
     return coords_list_out
 
 
-def is_manh(coord_list,  # type: List[Tuple[float, float]])
-            eps_grid=1e-6,  # type: float
-            ):
-    is_manh_value = True
+def not_manh(coord_list,  # type: List[Tuple[float, float]])
+             eps_grid=1e-6,  # type: float
+             ):
+    non_manh_edge = 0
     if isinstance(coord_list, np.ndarray):
-        coord_list_new = coord_list.tolist
+        coord_list_new = coord_list.tolist()
     else:
         coord_list_new = coord_list
 
@@ -138,13 +136,12 @@ def is_manh(coord_list,  # type: List[Tuple[float, float]])
         coord_curr = coord_list_new[i]
         coord_next = coord_list_new[i + 1]
 
-        if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and \
-                (abs(coord_curr[1] - coord_next[1]) > eps_grid):
-            is_manh_value = False
+        if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and (abs(coord_curr[1] - coord_next[1]) > eps_grid):
+            non_manh_edge = non_manh_edge + 1
             print(coord_curr, coord_next)
             # break
 
-    return is_manh_value
+    return non_manh_edge
 
 
 def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
@@ -217,7 +214,7 @@ def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
             if i == len(poly_coords_manhgrid) - 1:
                 coord_next = coord_curr
             else:
-                coord_next = poly_coords_manhgrid[i+1]
+                coord_next = poly_coords_manhgrid[i + 1]
 
             delta_x = coord_next[0] - coord_curr[0]
             delta_y = coord_next[1] - coord_curr[1]
@@ -229,8 +226,8 @@ def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
             else:
                 if abs(delta_x) > abs(delta_y):
                     num_point_add = int(abs(round(delta_y / manh_grid_size)))
-                    xstep = round(delta_y/abs(delta_y)) * manh_grid_size * (delta_x/delta_y)
-                    ystep = round(delta_y/abs(delta_y)) * manh_grid_size
+                    xstep = round(delta_y / abs(delta_y)) * manh_grid_size * (delta_x / delta_y)
+                    ystep = round(delta_y / abs(delta_y)) * manh_grid_size
                 else:
                     num_point_add = int(abs(round(delta_x / manh_grid_size)))
                     ystep = round(delta_x / abs(delta_x)) * manh_grid_size * delta_y / delta_x
@@ -253,12 +250,16 @@ def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
                         poly_coords_orth.append((x0 + xstep, y0 + ystep))
 
         # clean up the coords
-        if not is_manh(poly_coords_orth):
-            raise ValueError('Manhattanization failed before the clean-up')
+        non_manh_edge_pre_cleanup = not_manh(poly_coords_orth)
+        if non_manh_edge_pre_cleanup:
+            raise ValueError('Manhattanization failed before the clean-up, number of non-manh edges is',
+                             non_manh_edge_pre_cleanup)
 
         poly_coords_cleanup = coords_cleanup(poly_coords_orth)
-        if not is_manh(poly_coords_cleanup):
-            raise ValueError('Manhattanization failed after the clean-up')
+        non_manh_edge_post_cleanup = not_manh(poly_coords_cleanup)
+        if non_manh_edge_post_cleanup:
+            raise ValueError('Manhattanization failed after the clean-up, number of non-manh edges is',
+                             non_manh_edge_post_cleanup)
 
         return poly_coords_cleanup
     else:
