@@ -2,6 +2,7 @@ import gdspy
 from typing import Union, Tuple, List
 import sys
 import numpy as np
+from BPG.dataprep_gdspy import dataprep_cleanup_gdspy, GLOBAL_DO_CLEANUP
 
 MAX_POINTS = sys.maxsize
 
@@ -277,18 +278,18 @@ def gdspy_manh(polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
 
     if isinstance(polygon_gdspy, gdspy.Polygon):
         coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
-        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
-                                   0, tolerance=10, max_points=MAX_POINTS, join_first=True)
+        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                             do_cleanup=GLOBAL_DO_CLEANUP)
     elif isinstance(polygon_gdspy, gdspy.PolygonSet):
         coord_list = manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
-        polygon_out = gdspy.offset(gdspy.Polygon(coord_list),
-                                   0, tolerance=10, max_points=MAX_POINTS, join_first=True)
+        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                             do_cleanup=GLOBAL_DO_CLEANUP)
         for poly in polygon_gdspy.polygons:
             coord_list = manh_skill(poly, manh_grid_size, manh_type)
-            polygon_append = gdspy.offset(gdspy.Polygon(coord_list),
-                                          0, tolerance=10, max_points=MAX_POINTS, join_first=True)
-            polygon_out = gdspy.offset(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
-                                       0, tolerance=10, max_points=MAX_POINTS, join_first=True)
+            polygon_append = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                                    do_cleanup=GLOBAL_DO_CLEANUP)
+            polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
+                                                 do_cleanup=GLOBAL_DO_CLEANUP)
     else:
         raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
 

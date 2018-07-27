@@ -36,9 +36,18 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
+
+# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first manhattanized). We can do this, but it
+# will be slow. Instead, we think it is OK to NOT manhattenize pre-data-prep, perform the growth/shrink functions on
+# non-manhattanized shapes, then manhattanize at the very end. This should be faster
 GLOBAL_DO_MANH_AT_BEGINNING = False
+
+# SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
 GLOBAL_DO_MANH_DURING_OP = True
-GLOBAL_DO_FINAL_MANH = True
+
+# True to ensure that final shape will be on a manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
+# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have manhattanized shapes on manhattan grid
+GLOBAL_DO_FINAL_MANH = False
 
 
 
@@ -1018,9 +1027,10 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
-                                                       fracture=False,
+                                                       fracture=True,
                                                        do_manh=GLOBAL_DO_FINAL_MANH,
-                                                       manh_grid_size=self.grid.resolution)
+                                                       manh_grid_size=self.grid.resolution,
+                                                       debug=debug)
 
             new_shapes = []
             for shape in output_shapes:
