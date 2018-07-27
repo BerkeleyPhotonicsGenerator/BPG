@@ -22,7 +22,6 @@ class WaveguideFDE(LumericalTB):
         # Move and orient the solver to match the port
         fde.align_to_port(self.dut_inst['FDEPort'])
         fde.wavelength = 1.55e-6
-        print(fde.export_lsf())
 
 
 if __name__ == '__main__':
@@ -38,4 +37,6 @@ if __name__ == '__main__':
 
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_flat_gds()
+    # PLM.generate_flat_gds()
+    # PLM.generate_gds()
+    PLM.generate_tb()

@@ -76,7 +76,12 @@ class PhotonicBagLayout(BagLayout):
 
     def __init__(self, grid, use_cybagoa=False):
         BagLayout.__init__(self, grid, use_cybagoa)
+
+        # Add new features to be supported in content list
         self._round_list = []  # type: List[PhotonicRound]
+        self._sim_list = []
+        self._source_list = []
+        self._monitor_list = []
 
     def finalize(self):
         # type: () -> None
@@ -95,7 +100,12 @@ class PhotonicBagLayout(BagLayout):
                     rect_list.append(obj_content)
 
         # filter out invalid geometries
-        path_list, polygon_list, blockage_list, boundary_list, via_list, round_list = [], [], [], [], [], []
+        path_list = []
+        polygon_list = []
+        blockage_list = []
+        boundary_list = []
+        via_list = []
+        round_list = []
         for targ_list, obj_list in ((path_list, self._path_list),
                                     (polygon_list, self._polygon_list),
                                     (blockage_list, self._blockage_list),
@@ -116,6 +126,7 @@ class PhotonicBagLayout(BagLayout):
                 obj_content = self._format_inst(obj)
                 inst_list.append(obj_content)
 
+        # Assemble raw content list from all
         self._raw_content = [inst_list,
                              self._inst_primitives,
                              rect_list,
@@ -126,11 +137,15 @@ class PhotonicBagLayout(BagLayout):
                              boundary_list,
                              polygon_list,
                              round_list,
+                             self._sim_list,
+                             self._source_list,
+                             self._monitor_list
                              ]
 
         if (not inst_list and not self._inst_primitives and not rect_list and not blockage_list and
                 not boundary_list and not via_list and not self._pin_list and not path_list and
-                not polygon_list and not round_list):
+                not polygon_list and not round_list and not self._sim_list and not self._source_list
+                and not self._monitor_list):
             self._is_empty = True
         else:
             self._is_empty = False
@@ -163,7 +178,8 @@ class PhotonicBagLayout(BagLayout):
 
         cell_name = rename_fun(cell_name)
         (inst_list, inst_prim_list, rect_list, via_list, pin_list,
-         path_list, blockage_list, boundary_list, polygon_list, round_list) = self._raw_content
+         path_list, blockage_list, boundary_list, polygon_list, round_list,
+         sim_list, source_list, monitor_list) = self._raw_content
 
         # update library name and apply layout cell renaming on instances
         inst_tot_list = []
@@ -200,7 +216,8 @@ class PhotonicBagLayout(BagLayout):
             return cell_name, oa_layout
         else:
             ans = [cell_name, inst_tot_list, rect_list, via_list, pin_list, path_list,
-                   blockage_list, boundary_list, polygon_list, round_list, ]
+                   blockage_list, boundary_list, polygon_list, round_list,
+                   sim_list, source_list, monitor_list]
             return ans
 
     def move_all_by(self, dx=0.0, dy=0.0, unit_mode=False):
@@ -222,7 +239,8 @@ class PhotonicBagLayout(BagLayout):
         for obj in chain(self._inst_list, self._inst_primitives, self._rect_list,
                          self._via_primitives, self._via_list, self._pin_list,
                          self._path_list, self._blockage_list, self._boundary_list,
-                         self._polygon_list, self._round_list, ):
+                         self._polygon_list, self._round_list,
+                         self._sim_list, self._source_list, self._monitor_list):
             obj.move_by(dx=dx, dy=dy, unit_mode=unit_mode)
 
     def add_round(self,
@@ -239,6 +257,27 @@ class PhotonicBagLayout(BagLayout):
             raise Exception('Layout is already finalized.')
 
         self._round_list.append(round_obj)
+
+    def add_sim_obj(self, sim_obj):
+        """ Add a new Lumerical simulation object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._sim_list.append(sim_obj)
+
+    def add_source_obj(self, source_obj):
+        """ Add a new Lumerical source object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._source_list.append(source_obj)
+
+    def add_monitor_obj(self, monitor_obj):
+        """ Add a new Lumerical monitor object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._monitor_list.append(monitor_obj)
 
 
 class PTech:

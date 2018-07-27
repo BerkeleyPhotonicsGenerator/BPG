@@ -1,3 +1,4 @@
+import BPG
 import yaml
 import importlib
 import os
@@ -5,7 +6,7 @@ import os
 from pathlib import Path
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
-from BPG.photonic_template import PhotonicTemplateDB
+from .photonic_template import PhotonicTemplateDB
 
 
 class PhotonicLayoutManager(DesignManager):
@@ -112,7 +113,41 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_lsf(self, debug=False):
         """ Converts generated layout to lsf format for lumerical import """
-        print('\n---Generating .lsf file---')
+        print('\n---Generating the design .lsf file---')
+        self.tdb.to_lumerical(debug=debug)
+
+    def generate_tb(self, generate_gds=False, debug=False):
+        """ Generates the lumerical testbench lsf """
+        print('\n---Generating the tb .lsf file---')
+        # Grab the parameters to be passed to the TB
+        tb_params = self.specs['tb_params']
+        if tb_params is None:
+            tb_params = {}
+
+        # Add the parameters required to setup the DUT within the TB
+        tb_params['layout_package'] = self.specs['layout_package']
+        tb_params['layout_class'] = self.specs['layout_class']
+        tb_params['layout_params'] = self.specs['layout_params']
+
+        # Try importing the TB package and class
+        cls_package = self.specs['tb_package']
+        cls_name = self.specs['tb_class']
+        lay_module = importlib.import_module(cls_package)
+        temp_cls = getattr(lay_module, cls_name)
+
+        # Create TB lsf file
+        cell_name = self.specs['impl_cell']
+        template = self.tdb.new_template(params=tb_params, temp_cls=temp_cls, debug=False)
+        self.tdb._prj = self.prj
+        self.tdb.instantiate_flat_masters(master_list=[template],
+                                          name_list=[cell_name],
+                                          lib_name='',
+                                          debug=debug,
+                                          rename_dict=None,
+                                          draw_flat_gds=generate_gds,
+                                          )
+
+        # Create the design LSF file
         self.tdb.to_lumerical(debug=debug)
 
     def generate_flat_gds(self,
