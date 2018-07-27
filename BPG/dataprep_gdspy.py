@@ -2,7 +2,7 @@
 import gdspy
 from typing import Tuple, List, Union  #, TYPE_CHECKING,
 from math import ceil  # , floor
-from BPG.manh_gdspy import gdspy_manh, not_manh  # ,coords_cleanup
+import BPG.manh_gdspy #import gdspy_manh, not_manh
 import numpy as np
 import sys
 
@@ -57,7 +57,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
         print("Performing final Manhattanization")
 
     if do_manh:
-        polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
+        polygon_gdspy_in = BPG.manh_gdspy.gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
     if debug:
         print("Performing final fracturing")
@@ -71,7 +71,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
     if isinstance(polygon_gdspy, gdspy.Polygon):
         output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
 
-        non_manh_edge = not_manh(polygon_gdspy.points)
+        non_manh_edge = BPG.manh_gdspy.not_manh(polygon_gdspy.points)
         if non_manh_edge:
             print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
                   'number of non-manh edges is', non_manh_edge)
@@ -80,7 +80,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
         for poly in polygon_gdspy.polygons:
             output_list_of_coord_lists.append(np.round(poly, 3))  # TODO: Magic number?
 
-            non_manh_edge = not_manh(poly)
+            non_manh_edge = BPG.manh_gdspy.not_manh(poly)
             if non_manh_edge:
                 print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
                       'number of non-manh edges is', non_manh_edge)
@@ -146,7 +146,7 @@ def dataprep_coord_to_gdspy(
                 do_cleanup=GLOBAL_DO_CLEANUP
             )
 
-    polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
+    polygon_out = BPG.manh_gdspy.gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
     # TODO: is the cleanup necessary
     # Offset by 0 to clean up shape
@@ -247,7 +247,7 @@ def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
     polygon_oouuo = dataprep_oversize_gdspy(polygon_oouu, rough_grid_size)
 
     # manhattanize to the rough grid
-    polygon_oouuo_rough = gdspy_manh(polygon_oouuo, rough_grid_size, do_manh)
+    polygon_oouuo_rough = BPG.manh_gdspy.gdspy_manh(polygon_oouuo, rough_grid_size, do_manh)
 
     # undersize then oversize
     polygon_roughsized = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_oouuo_rough, global_grid_size),
