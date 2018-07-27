@@ -1,22 +1,30 @@
 project_name: Generated_Waveguide
-
-# Output Settings
 lsf_filename: SingleModeWaveguide.lsf
 gds_filename: Output
 
-# TB Params
-layout_package: 'examples.WaveguideTB'
-layout_class: 'WaveguideFDE'
+#------------------
+#   Layout Config
+#------------------
+layout_package: 'examples.Waveguide'
+layout_class: 'SingleModeWaveguide'
 
-# These parameters are passed to the TB
+# These parameters are passed to the layout class
 layout_params:
-  layout_package: 'examples.Waveguide'
-  layout_class: 'SingleModeWaveguide'
-  layout_params:
-    width: .6
-    length: 10.0
+  width: 1.0
+  length: 10.0
 
-# Cadence related parameters
+#------------------
+#   TB Config
+#------------------
+tb_package: 'examples.WaveguideTB'
+tb_class: 'WaveguideFDE'
+
+# These additional parameters are passed to the testbench class
+tb_params:
+
+#------------------
+#   Cadence Config
+#------------------
 impl_lib: 'waveguide_lib'
 impl_cell: 'waveguide_cell'
 

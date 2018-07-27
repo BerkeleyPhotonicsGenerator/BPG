@@ -1,16 +1,17 @@
+import BPG
 import importlib
 import abc
 
-from .photonic_template import PhotonicTemplateBase
+from typing import List
 from .lumerical_sim import *
 
 
-class LumericalTB(PhotonicTemplateBase, metaclass=abc.ABCMeta):
+class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         """
         This class enables the creation of Lumerical testbenches
         """
-        PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
         self.layout_package = params['layout_package']
         self.layout_class = params['layout_class']
         self.layout_params = params['layout_params']
@@ -20,16 +21,16 @@ class LumericalTB(PhotonicTemplateBase, metaclass=abc.ABCMeta):
         self.dut_inst = None
 
         # Store the simulation objects to be created
-        self._sim_db = []
-        self._source_db = []
-        self._monitor_db = []
+        self._sim_db = []  # type: List[LumericalSimObj]
+        self._source_db = []  # type: List[LumericalSimObj]
+        self._monitor_db = []  # type: List[LumericalSimObj]
 
     @classmethod
     def get_params_info(cls):
         return dict(
             layout_package='Python package containing the photonic layout generator class',
             layout_class='Python class that generates the photonic layout',
-            layout_params='Dictionary containing all parameters to be passed to the layout class'
+            layout_params='Dictionary containing all parameters to be passed to the layout class',
         )
 
     @abc.abstractmethod
@@ -103,26 +104,25 @@ class LumericalTB(PhotonicTemplateBase, metaclass=abc.ABCMeta):
     def draw_layout(self):
         """ This method is used internally to assemble the instance and the TB sources. DO NOT CALL THIS """
         self.create_dut()  # First create the layout to be tested
-        self.construct_tb()  # Run the user provided code
+        self.construct_tb()  # Run the user provided TB setup code
 
-        # Generate the code for each sim region
+        # Add each sim object in db to the layout
         for sim in self._sim_db:
-            continue
+            self.add_sim_obj(sim)
 
-        # Generate the lsf code for each source
+        # Add each source object in db to the layout
         for source in self._source_db:
-            continue
+            self.add_source_obj(source)
 
-        # Generate the lsf code for each monitor
+        # Add each monitor object in db to the layout
         for monitor in self._monitor_db:
-            continue
+            self.add_monitor_obj(monitor)
 
     def create_dut(self):
         """
-        Create and place the provided layout class and parameters at the origin and export the simulation objects
+        Create and place the provided layout class and parameters at the origin
         """
         layout_module = importlib.import_module(self.layout_package)
         template_class = getattr(layout_module, self.layout_class)
         self.dut_master = self.new_template(params=self.layout_params, temp_cls=template_class)
         self.dut_inst = self.add_instance(self.dut_master)
-

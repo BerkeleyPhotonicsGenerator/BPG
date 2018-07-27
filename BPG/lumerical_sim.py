@@ -21,9 +21,17 @@ class LumericalSimObj(metaclass=abc.ABCMeta):
             'y': {'center': 0.0, 'span': 0.0},
             'z': {'center': 0.0, 'span': 0.0}
         }
+        self.layer = ('SIM', 'phot')  # Attach simulation objects to a separate layer
 
     ''' Configuration Methods '''
     ''' USE THESE METHODS TO SETUP THE SIMULATION '''
+
+    def move_by(self, dx, dy, unit_mode=False):
+        if unit_mode is True:
+            raise ValueError('LumericalSimObj does not support unit mode movement')
+
+        self.geometry['x']['center'] += dx
+        self.geometry['y']['center'] += dy
 
     def set_center_span(self, dim, center, span):
         """
@@ -76,13 +84,23 @@ class LumericalSimObj(metaclass=abc.ABCMeta):
 
     ''' Properties '''
 
+    def __getitem__(self, item):
+        """ Set up getitem to return layer info when content dict is prompted """
+        if item == 'layer':
+            return self.layer
+
+    @property
+    def content(self):
+        """ Return self so that lsf_export can be called by BAG from the content list """
+        return self
+
     @property
     def lsf_code(self):
         """ Restrict direct access to directly modifying the lsf code to enforce basic code syntax """
         return self._lsfcode
 
     @abc.abstractmethod
-    def export_lsf(self) -> List[str]:
+    def lsf_export(self) -> List[str]:
         """
         Returns a list of Lumerical code describing the creation of the simulation object
 
@@ -96,7 +114,7 @@ class LumericalSimObj(metaclass=abc.ABCMeta):
         Use this method to add a single line of code to the LSF file. This enforces basic code syntax
         and styling for the generated LSF file
         """
-        self._lsfcode.append(code.join(';\n'))
+        self._lsfcode.append(code + ';\n')
 
     def set(self, key, value):
         """
@@ -182,7 +200,7 @@ class FDESolver(LumericalSimObj):
     ''' LSF Export Methods '''
     ''' DO NOT CALL THESE METHODS DIRECTLY '''
 
-    def export_lsf(self):
+    def lsf_export(self):
         """
         Returns a list of Lumerical code describing the creation of a FDESolver object
 
