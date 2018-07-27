@@ -27,7 +27,8 @@ MAX_SIZE = sys.maxsize
 def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                                fracture=True,  # type: bool
                                do_manh=True,  # type: bool
-                               manh_grid_size=global_grid_size  # type: float
+                               manh_grid_size=global_grid_size,  # type: float
+                               debug=False,  # type: bool
                                # TODO: manh grid size is magic number
                                ):
     # type: (...) -> List[List[Tuple[float, float]]]
@@ -43,45 +44,33 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
         True to perform Manhattanization
     manh_grid_size : float
         The Manhattanization grid size
+    debug : bool
+        True to print debug information
 
     Returns
     -------
     output_list_of_coord_lists : List[List[Tuple[float, float]]]
         A list containing the polygon point lists that compose the input gdspy polygon
     """
-    # TODO: Perhaps consider doing fraction to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
+    # TODO: Perhaps consider doing fracture to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
+    if debug:
+        print("Performing final Manhattanization")
+
     if do_manh:
         polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
 
+    if debug:
+        print("Performing final fracturing")
 
-
-
-    fracture = False
     if fracture:
         polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)  # TODO: Magic numbers
     else:
         polygon_gdspy = polygon_gdspy_in
 
-
-    # #### debug: check if the polygons are manhattanized
-    # if isinstance(polygon_gdspy, gdspy.Polygon):
-    #     non_manh_edge = not_manh(polygon_gdspy.points)
-    #     if non_manh_edge:
-    #         print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
-    #               'number of non-manh edges is', non_manh_edge)
-    # elif isinstance(polygon_gdspy, gdspy.PolygonSet):
-    #         non_manh_edge = not_manh(poly)
-    #         if non_manh_edge:
-    #             print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
-    #                   'number of non-manh edges is', non_manh_edge)
-    # else:
-    #     raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
-    #
-
     output_list_of_coord_lists = []
     if isinstance(polygon_gdspy, gdspy.Polygon):
         output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
-        # print('check ismanh for the output')
+
         non_manh_edge = not_manh(polygon_gdspy.points)
         if non_manh_edge:
             print('Warning: a non-manhattanized polygon is created in polyop_gdspy_to_point_list, '
@@ -97,6 +86,7 @@ def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, g
                       'number of non-manh edges is', non_manh_edge)
     else:
         raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
+
     return output_list_of_coord_lists
 
 
