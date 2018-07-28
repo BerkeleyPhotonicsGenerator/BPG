@@ -2,18 +2,19 @@
 
 """This module defines various layout objects one can add and manipulate in a template.
 """
-from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
-    ViaInfo, Via, PinInfo, Instance, InstanceInfo
+    ViaInfo, Via, PinInfo, Instance, InstanceInfo, Figure
 from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
-from bag.layout.util import transform_point, BBox
+from bag.layout.util import transform_point, BBox, transform_table
 import gdspy
 import numpy as np
 import sys
 import math
+from copy import deepcopy
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
@@ -799,7 +800,7 @@ class PhotonicRect(Rect):
         return output_list_p, output_list_n
 
 
-class PhotonicPath(Path):
+class PhotonicPath(Figure):
     """
     A layout path.  Only 45/90 degree turns are allowed.
 
@@ -834,39 +835,183 @@ class PhotonicPath(Path):
         # type (...) -> None
         if isinstance(layer, str):
             layer = (layer, 'phot')
-        # TODO: Fix end_stype and join_style?
-        Path.__init__(self, resolution, layer, width, points, end_style, join_style, unit_mode)
-    '''
-    @classmethod
-    def compress_points(cls, pts_unit):
-        # remove collinear/duplicate points, and make sure all segments are 45 degrees.
-        cur_len = 0
-        pt_list = []
-        for x, y in pts_unit:
-            if cur_len == 0:
-                pt_list.append((x, y))
-                cur_len += 1
-            else:
-                lastx, lasty = pt_list[-1]
-                # make sure we don't have duplicate points
-                if x != lastx or y != lasty:
-                    dx, dy = x - lastx, y - lasty
-                    if dx != 0 and dy != 0 and abs(dx) != abs(dy):
-                        # we don't have 45 degree wires
-                        raise ValueError('Cannot have line segment (%d, %d)->(%d, %d) in path'
-                                         % (lastx, lasty, x, y))
-                    if cur_len >= 2:
-                        # check for collinearity
-                        dx0, dy0 = lastx - pt_list[-2][0], lasty - pt_list[-2][1]
-                        if (dx == 0 and dx0 == 0) or (dx != 0 and dx0 != 0 and
-                                                      dy / dx == dy0 / dx0):
-                            # collinear, remove middle point
-                            del pt_list[-1]
-                            cur_len -= 1
-                    pt_list.append((x, y))
-                    cur_len += 1
+        Figure.__init__(self, resolution)
 
-        return pt_list
+        self._layer = layer
+        self._end_style = end_style
+        self._join_style = join_style
+        self._destroyed = False
+        self._width = 0
+        self._points = None
+        if not unit_mode:
+            self._width = int(round(width / resolution))
+            pts_unit = ((int(round(x / resolution)), int(round(y / resolution))) for x, y in points)
+            center, upper, lower = self.process_points(
+                pts_unit=pts_unit,
+                width_unit=self._width,
+                eps=0.00001,
+            )
+        else:
+            self._width = width
+            center, upper, lower = self.process_points(
+                pts_unit=points,
+                width_unit=self._width,
+                eps=0.00001
+            )
+
+        self._points = np.array(center, dtype=int)
+        self._upper = np.array(upper, dtype=int)
+        self._lower = np.array(lower, dtype=int)
+
+    def process_points(self,
+                       pts_unit,
+                       width_unit,  # type: int
+                       eps=0.00001,  # type: float
+                       ):
+        """
+        0) Handle whether start/end are vertical/angled/etc
+        1) remove collinear points and duplicate points
+        2) Double check that radius of curvature is satisfied
+
+
+
+        Parameters
+        ----------
+        pts_unit
+        width_unit
+        eps
+
+        Returns
+        -------
+
+        """
+        # type: (...) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]
+        pts_center = []
+
+        # First pass gets rid of collinear and duplicate points.
+        # Also returns an error if radius of curvature is smaller than width / 2
+        for x, y in pts_unit:
+            if len(pts_center) == 0:
+                pts_center.append((x, y))
+            else:
+                x_prev, y_prev = pts_center[-1]
+
+                # Make sure new point is different from previous
+                if x != x_prev or y != y_prev:
+                    # Delete middle point if new segment is collinear with old segment
+                    if len(pts_center) > 2:
+                        # Get new slope and old slope
+                        dx, dy = x - x_prev, y - y_prev
+                        dx_prev, dy_prev = x_prev - pts_center[-2][0], y_prev - pts_center[-2][1]
+
+                        m = dy / dx if abs(dx) > eps else 'v'
+                        m_prev = dy_prev / dx_prev if abs(dx_prev) > eps else 'v'
+
+                        # If slopes are the same, points are collinear, remove the middle one, and add the new
+                        if m == m_prev:
+                            del pts_center[-1]
+                            pts_center.append((x, y))
+                        # If this is a new non-collinear point, make sure it abides by minimum radius of curvature
+                        else:
+                            # radius = self._radius_of_curvature(pts_center[-2], pts_center[-1], (x, y), eps=eps)
+                            # if radius >= self.width_unit / 2:
+                            #     pts_center.append((x, y))
+                            # print(radius)
+                            # TODO: Does this always work properly if input points are super dense and therefore already
+                            # manhattanized?
+                            pts_center.append((x, y))
+                    else:
+                        # This is the second point in the list, so as long as it is different, add it
+                        pts_center.append((x, y))
+
+        print("PhotonicPath.__init__:  length of pts_center: {}".format(
+            len(pts_center)
+        ))
+        # Now that center points are clean, create the upper and lower points by finding perpendicular
+        pts_upper = []
+        pts_lower = []
+
+        for ind, (x, y) in enumerate(pts_center):
+            prev_point = pts_center[max(ind - 1, 0)]
+            next_point = pts_center[min(ind + 1, len(pts_center) - 1)]
+
+            dx, dy = next_point[0] - prev_point[0], next_point[1] - prev_point[1]
+            norm = math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
+            tangent_vec = (dx / norm, dy / norm)
+
+            if abs(dx) > eps:
+                # Form a triangle with dx = 1, dy = m, and hypotenuse = sqrt(1+m^2)
+                m = dy / dx
+                hypotenuse = math.sqrt(1 + math.pow(m, 2))
+
+                point_dx, point_dy = -(width_unit / 2) * (m / hypotenuse), (width_unit / 2) * (1 / hypotenuse)
+
+                if dx > 0:
+                    new_upper = x + point_dx, y + point_dy
+                    new_lower = x - point_dx, y - point_dy
+                else:
+                    new_upper = x - point_dx, y - point_dy
+                    new_lower = x + point_dx, y + point_dy
+            else:
+                # Points are on a vertical line
+                if dy > 0:
+                    new_upper = x - width_unit / 2, y
+                    new_lower = x + width_unit / 2, y
+                else:
+                    new_upper = x + width_unit / 2, y
+                    new_lower = x - width_unit / 2, y
+
+            # Round the potential new upper and lower points to the resolution grid
+            new_upper = (int(round(new_upper[0])), int(round(new_upper[1])))
+            new_lower = (int(round(new_lower[0])), int(round(new_lower[1])))
+
+            # Check that the new points on the left and right do not create a reentrant polygon
+            # This just means make sure that
+            if ind == 0:
+                pts_upper.append(new_upper)
+                pts_lower.append(new_lower)
+            else:
+                new_upper_vec = new_upper[0] - pts_upper[-1][0], new_upper[1] - pts_upper[-1][1]
+                new_lower_vec = new_lower[0] - pts_lower[-1][0], new_lower[1] - pts_lower[-1][1]
+
+                new_upper_dp = new_upper_vec[0] * tangent_vec[0] + new_upper_vec[1] * tangent_vec[1]
+                new_lower_dp = new_lower_vec[0] * tangent_vec[0] + new_lower_vec[1] * tangent_vec[1]
+
+                # TODO: can we always add, or should we check that the points are far enough away?
+                if new_upper_dp > 0.5 and new_upper != pts_upper[-1]:
+                    pts_upper.append(new_upper)
+                if new_lower_dp > 0.5 and new_lower != pts_lower[-1]:
+                    pts_lower.append(new_lower)
+
+        return pts_center, pts_upper, pts_lower
+
+    @staticmethod
+    def _radius_of_curvature(pt0,  # type: Tuple[int, int]
+                             pt1,  # type: Tuple[int, int]
+                             pt2,  # type: Tuple[int, int]
+                             eps,  # type: float
+                             ):
+        # type: (...) -> float
+
+        ma = -(pt1[0] - pt0[0]) / (pt1[1] - pt0[1]) if abs(pt1[1] - pt0[1]) > eps else 'v'
+        mb = -(pt2[0] - pt1[0]) / (pt2[1] - pt1[1]) if abs(pt2[1] - pt1[1]) > eps else 'v'
+
+        xa, ya = (pt0[0] + pt1[0]) / 2, (pt0[1] + pt1[1]) / 2
+        xb, yb = (pt1[0] + pt2[0]) / 2, (pt1[1] + pt2[1]) / 2
+
+        # First two points form a horizontal line
+        if ma == 'v':
+            center = (xa, mb * (xa - xb) + yb)
+        # Second two points form a horizontal line
+        elif mb == 'v':
+            center = (xb, ma * (xb - xa) + ya)
+        else:
+            center = ((mb * xb - ma * xa - (yb - ya))/(mb - ma), (ma * mb * (xb - xa) - (ma * yb - mb * ya))/(mb - ma))
+
+        point = center[0] - pt1[0], center[1] - pt1[1]
+        radius = math.sqrt(math.pow(point[0], 2) + math.pow(point[1], 2))
+
+        return radius
 
     @property
     def layer(self):
@@ -885,9 +1030,24 @@ class PhotonicPath(Path):
         return self._width * self._res
 
     @property
+    def width_unit(self):
+        # type: () -> int
+        return self._width
+
+    @property
     def points(self):
         return [(self._points[idx][0] * self._res, self._points[idx][1] * self._res)
                 for idx in range(self._points.shape[0])]
+
+    @property
+    def lower(self):
+        return [(self._lower[idx][0] * self._res, self._lower[idx][1] * self._res)
+                for idx in range(self._lower.shape[0])]
+
+    @property
+    def upper(self):
+        return [(self._upper[idx][0] * self._res, self._upper[idx][1] * self._res)
+                for idx in range(self._upper.shape[0])]
 
     @property
     def points_unit(self):
@@ -895,14 +1055,22 @@ class PhotonicPath(Path):
                 for idx in range(self._points.shape[0])]
 
     @property
+    def polygon_points(self):
+        out = self.upper
+        out.extend(self.lower[::-1])
+
+        return out
+
+    @property
     def content(self):
         # type: () -> Dict[str, Any]
         """A dictionary representation of this path."""
-        content = dict(layer=list(self.layer),
+        content = dict(layer=self.layer,
                        width=self._width * self._res,
                        points=self.points,
                        end_style=self._end_style,
                        join_style=self._join_style,
+                       polygon_points=self.polygon_points
                        )
         return content
 
@@ -923,6 +1091,8 @@ class PhotonicPath(Path):
             dx = int(round(dx / self._res))
             dy = int(round(dy / self._res))
         self._points += np.array([dx, dy])
+        self._upper += np.array([dx, dy])
+        self._lower += np.array([dx, dy])
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
         # type: (Tuple[ldim, ldim], str, bool, bool) -> Figure
@@ -936,6 +1106,8 @@ class PhotonicPath(Path):
         dvec = np.array([dx, dy])
         mat = transform_table[orient]
         new_points = np.dot(mat, self._points.T).T + dvec
+        new_upper = np.dot(mat, self._upper.T).T + dvec
+        new_lower = np.dot(mat, self._lower.T).T + dvec
 
         if not copy:
             ans = self
@@ -943,55 +1115,10 @@ class PhotonicPath(Path):
             ans = deepcopy(self)
 
         ans._points = new_points
+        ans._upper = new_upper
+        ans._lower = new_lower
+
         return ans
-    '''
-    @classmethod
-    def compress_points(cls,
-                        pts_unit,  # type: List[Tuple[int, int]]
-                        ):
-        """
-        Removes collinear/duplicate points.
-        Ensures that radius of curvature is larger than half the width
-
-        Parameters
-        ----------
-        pts_unit : List[Tuple[int, int]]
-            Path point list, in unit mode coordinates
-
-        Returns
-        -------
-        pt_list : List[Tuple[int, int]]
-            Compressed path point list
-        """
-        # type: (...) -> List[Tuple[Union[float, int], Union[float, int]]]
-        # remove collinear/duplicate points, and make sure all segments are 45 degrees.
-        cur_len = 0
-        pt_list = []
-        for x, y in pts_unit:
-            if cur_len == 0:
-                pt_list.append((x, y))
-                cur_len += 1
-            else:
-                lastx, lasty = pt_list[-1]
-                # make sure we don't have duplicate points
-                if x != lastx or y != lasty:
-                    dx, dy = x - lastx, y - lasty
-                    if dx != 0 and dy != 0 and abs(dx) != abs(dy):
-                        # we don't have 45 degree wires
-                        raise ValueError('Cannot have line segment (%d, %d)->(%d, %d) in path'
-                                         % (lastx, lasty, x, y))
-                    if cur_len >= 2:
-                        # check for collinearity
-                        dx0, dy0 = lastx - pt_list[-2][0], lasty - pt_list[-2][1]
-                        if (dx == 0 and dx0 == 0) or (dx != 0 and dx0 != 0 and
-                                                      dy / dx == dy0 / dx0):
-                            # collinear, remove middle point
-                            del pt_list[-1]
-                            cur_len -= 1
-                    pt_list.append((x, y))
-                    cur_len += 1
-
-        return pt_list
 
     @classmethod
     def from_content(cls,
@@ -1007,6 +1134,25 @@ class PhotonicPath(Path):
             join_style=content['join_style'],
             unit_mode=False,
         )
+
+    @classmethod
+    def polygon_pointlist_export(cls,
+                                 vertices,  # type: List[Tuple[float, float]]
+                                 ):
+        # type: (...) -> Tuple[List, List]
+        """
+
+        Parameters
+        ----------
+        vertices : List[Tuple[float, float]
+            The verticies from the content list of this polygon
+
+        Returns
+        -------
+        output_list : Tuple[List, List]
+            The positive and negative polygon pointlists describing this polygon
+        """
+        return [vertices], []
 
 
 class PhotonicPathCollection(PathCollection):
