@@ -5,6 +5,7 @@ import yaml
 import bag
 import bag.io
 
+from decimal import *
 from bag.core import BagProject
 from bag.layout.core import BagLayout
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
@@ -295,3 +296,44 @@ class PTech:
 
     def use_flip_parity(self):
         pass
+
+
+class CoordBase:
+    """
+    A class representing the basic unit of measurement for all objects in BPG.
+
+    All user-facing values are assumed to be floating point numbers in units of microns. BAG internal functions
+    assume that we receive 'unit-mode' numbers, which are integers in units of nanometers. Both formats are supported.
+
+    """
+    res = Decimal('1e-3')  # resolution for all numbers in BPG is 1nm
+    micron = Decimal('1e-6')  # size of 1 micron in meters
+
+    def __new__(cls, value=0, *args, **kwargs):
+        """ Assumes a floating point input value in microns, stores an internal integer representation on grid """
+        self = object.__new__(cls)  # Create the immutable instance
+        self._value = round(Decimal(str(value)) / CoordBase.res)
+        return self
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def unit_mode(self):
+        return self.value
+
+    @property
+    def float(self):
+        """ Returns the rounded floating point number closest to a valid point on the resolution grid """
+        return float(self.value * CoordBase.res)
+
+    @property
+    def microns(self):
+        return self.float
+
+    @property
+    def meters(self):
+        """ Returns the rounded floating point number in meters closest to a valid point on the resolution grid """
+        return float(self.value * CoordBase.res * CoordBase.micron)
+
