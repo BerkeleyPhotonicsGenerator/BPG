@@ -275,7 +275,11 @@ class PhotonicTemplateDB(TemplateDB):
                 gds_cell.add(cur_lbl)
 
             for path in path_list:
-                pass
+                # Photonic paths should be treated like polygons
+                lay_id, purp_id = lay_map[path['layer']]
+                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
+                                         verbose=False)
+                gds_cell.add(cur_path.fracture(precision=res))
 
             for blockage in blockage_list:
                 pass
@@ -399,7 +403,11 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for path in path_list:
-                pass
+                # Treat like polygons
+                if tuple(path['layer']) in prop_map:
+                    layer_prop = prop_map[tuple(path['layer'])]
+                    lsf_repr = PhotonicPolygon.lsf_export(path['polygon_points'], layer_prop)
+                    lsfwriter.add_code(lsf_repr)
 
             # add polygons if they are valid lumerical layers
             for polygon in polygon_list:
@@ -870,7 +878,10 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for path in path_list:
-                pass
+                # Treat like polygons
+                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
 
             for blockage in blockage_list:
                 pass
@@ -1225,6 +1236,24 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_round(round_obj)
         return round_obj
 
+    def add_path(self,
+                 path,  # type: PhotonicPath
+                 ):
+        # type: (...) -> PhotonicPath
+        """
+        Adds a PhotonicPath to the layout object
+
+        Parameters
+        ----------
+        path : PhotonicPath
+
+        Returns
+        -------
+        path : PhotonicPath
+        """
+        self._layout.add_path(path)
+        return path
+
     def add_advancedpolygon(self,
                             polygon,  # type: PhotonicAdvancedPolygon
                             ):
@@ -1283,6 +1312,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         overwrite : bool
             True to add the port with the specified name even if another port with that name already exists in this
             level of the design hierarchy.
+        show : bool
+            True to draw the port indicator shape
 
         Returns
         -------
@@ -1660,6 +1691,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             a dictionary containing key-value pairs mapping inst's port names (key)
             to the new desired port names (value).
             If not supplied, extracted ports will be given their original names
+        unmatched_only : bool
+        show : bool
+
         Returns
         -------
 
