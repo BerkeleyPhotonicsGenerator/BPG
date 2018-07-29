@@ -16,8 +16,8 @@ class WaveguideFDE(LumericalTB):
         fde = self.add_FDE_solver()  # Create blank fde solver
 
         # Set the size of the simulation region
-        fde.set_span('x', 1.0e-6)
-        fde.set_span('z', 1.0e-6)
+        fde.set_span('x', 4.0e-6)
+        fde.set_span('z', 4.0e-6)
 
         # Move and orient the solver to match the port
         fde.align_to_port(self.dut_inst['FDEPort'])
@@ -40,3 +40,4 @@ if __name__ == '__main__':
     # PLM.generate_flat_gds()
     # PLM.generate_gds()
     PLM.generate_tb()
+
