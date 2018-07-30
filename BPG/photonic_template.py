@@ -1740,9 +1740,3 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=True,
                 show=show
             )
-
-    def waveguide_from_path(self,
-                            layer,
-                            path):
-
-        pass

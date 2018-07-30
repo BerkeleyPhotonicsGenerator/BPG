@@ -28,8 +28,6 @@ def coord_to_shapely(
 
     polygon_out = Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
 
-    # print(pos_coord_list_list)
-    # asgege
     if len(pos_coord_list_list) > 1:
         for pos_coord_list in pos_coord_list_list[1:]:
             polygon_pos = Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
@@ -82,10 +80,10 @@ def shapely_to_gdspy(geom_shapely,  # type: Polygon, MultiPolygon
         raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
 
 
-def simplify_coord_to_gdspy(pos_neg_list_list,
-                            # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-                            tolerance=5e-4,  # type: float
-                            ):
+def simplify_coord_to_gdspy(
+        pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+        tolerance=5e-4,  # type: float
+):
     poly_shapely = coord_to_shapely(pos_neg_list_list)
     poly_shapely_simplified = poly_shapely.simplify(tolerance)
     poly_gdspy_simplified = shapely_to_gdspy(poly_shapely_simplified)

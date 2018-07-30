@@ -842,51 +842,54 @@ class PhotonicPath(Figure):
         self._join_style = join_style
         self._destroyed = False
         self._width = 0
-        self._points = None
-        if not unit_mode:
-            self._width = int(round(width / resolution))
-            pts_unit = ((int(round(x / resolution)), int(round(y / resolution))) for x, y in points)
-            center, upper, lower = self.process_points(
-                pts_unit=pts_unit,
-                width_unit=self._width,
-                eps=0.00001,
-            )
-        else:
-            self._width = width
-            center, upper, lower = self.process_points(
-                pts_unit=points,
-                width_unit=self._width,
-                eps=0.00001
-            )
+        self._points_unit = None
 
-        self._points = np.array(center, dtype=int)
-        self._upper = np.array(upper, dtype=int)
-        self._lower = np.array(lower, dtype=int)
+        if unit_mode:
+            self._width = int(width)
+        else:
+            self._width = int(round(width / resolution))
+
+        center_unit, upper_unit, lower_unit = self.process_points(
+            pts=points,
+            width=width,
+            eps=0.00001,
+            unit_mode=unit_mode,
+        )
+
+        self._points_unit = np.array(center_unit, dtype=int)
+        self._upper_unit = np.array(upper_unit, dtype=int)
+        self._lower_unit = np.array(lower_unit, dtype=int)
 
     def process_points(self,
-                       pts_unit,
-                       width_unit,  # type: int
+                       pts,
+                       width,  # type: int
                        eps=0.00001,  # type: float
+                       unit_mode=False,  # type: bool
                        ):
         """
-        0) Handle whether start/end are vertical/angled/etc
-        1) remove collinear points and duplicate points
-        2) Double check that radius of curvature is satisfied
 
 
 
         Parameters
         ----------
-        pts_unit
-        width_unit
+        pts
+        width
         eps
+        unit_mode
 
         Returns
         -------
 
         """
+
+        # TODO: add points at end and beginning to make sure path ends are vertical/horizontal
         # type: (...) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]
         pts_center = []
+
+        if unit_mode:
+            pts_unit = ((int(pt[0]), int(pt[1])) for pt in pts)
+        else:
+            pts_unit = ((int(round(pt[0] / self.resolution)), int(round(pt[1] / self.resolution))) for pt in pts)
 
         # First pass gets rid of collinear and duplicate points.
         # Also returns an error if radius of curvature is smaller than width / 2
@@ -914,7 +917,7 @@ class PhotonicPath(Figure):
                         # If this is a new non-collinear point, make sure it abides by minimum radius of curvature
                         else:
                             # radius = self._radius_of_curvature(pts_center[-2], pts_center[-1], (x, y), eps=eps)
-                            # if radius >= self.width_unit / 2:
+                            # if radius >= self.width / 2:
                             #     pts_center.append((x, y))
                             # print(radius)
                             # TODO: Does this always work properly if input points are super dense and therefore already
@@ -927,13 +930,15 @@ class PhotonicPath(Figure):
         print("PhotonicPath.__init__:  length of pts_center: {}".format(
             len(pts_center)
         ))
+
+        # Add the polygon boundary based on the ideal curve
         # Now that center points are clean, create the upper and lower points by finding perpendicular
         pts_upper = []
         pts_lower = []
 
-        for ind, (x, y) in enumerate(pts_center):
-            prev_point = pts_center[max(ind - 1, 0)]
-            next_point = pts_center[min(ind + 1, len(pts_center) - 1)]
+        for ind, (x, y) in enumerate(pts):
+            prev_point = pts[max(ind - 1, 0)]
+            next_point = pts[min(ind + 1, len(pts) - 1)]
 
             dx, dy = next_point[0] - prev_point[0], next_point[1] - prev_point[1]
             norm = math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
@@ -944,7 +949,7 @@ class PhotonicPath(Figure):
                 m = dy / dx
                 hypotenuse = math.sqrt(1 + math.pow(m, 2))
 
-                point_dx, point_dy = -(width_unit / 2) * (m / hypotenuse), (width_unit / 2) * (1 / hypotenuse)
+                point_dx, point_dy = -(width / 2) * (m / hypotenuse), (width / 2) * (1 / hypotenuse)
 
                 if dx > 0:
                     new_upper = x + point_dx, y + point_dy
@@ -955,15 +960,19 @@ class PhotonicPath(Figure):
             else:
                 # Points are on a vertical line
                 if dy > 0:
-                    new_upper = x - width_unit / 2, y
-                    new_lower = x + width_unit / 2, y
+                    new_upper = x - width / 2, y
+                    new_lower = x + width / 2, y
                 else:
-                    new_upper = x + width_unit / 2, y
-                    new_lower = x - width_unit / 2, y
+                    new_upper = x + width / 2, y
+                    new_lower = x - width / 2, y
 
             # Round the potential new upper and lower points to the resolution grid
-            new_upper = (int(round(new_upper[0])), int(round(new_upper[1])))
-            new_lower = (int(round(new_lower[0])), int(round(new_lower[1])))
+            if unit_mode:
+                new_upper = (int(new_upper[0]), int(new_upper[1]))
+                new_lower = (int(new_lower[0]), int(new_lower[1]))
+            else:
+                new_upper = (int(round(new_upper[0] / self.resolution)), int(round(new_upper[1] / self.resolution)))
+                new_lower = (int(round(new_lower[0] / self.resolution)), int(round(new_lower[1] / self.resolution)))
 
             # Check that the new points on the left and right do not create a reentrant polygon
             # This just means make sure that
@@ -978,9 +987,9 @@ class PhotonicPath(Figure):
                 new_lower_dp = new_lower_vec[0] * tangent_vec[0] + new_lower_vec[1] * tangent_vec[1]
 
                 # TODO: can we always add, or should we check that the points are far enough away?
-                if new_upper_dp > 0.5 and new_upper != pts_upper[-1]:
+                if new_upper != pts_upper[-1] : # and new_upper_dp > 0.5 :
                     pts_upper.append(new_upper)
-                if new_lower_dp > 0.5 and new_lower != pts_lower[-1]:
+                if new_lower != pts_lower[-1] : # and new_lower_dp > 0.5:
                     pts_lower.append(new_lower)
 
         return pts_center, pts_upper, pts_lower
@@ -1023,7 +1032,7 @@ class PhotonicPath(Figure):
     def valid(self):
         # type: () -> bool
         """Returns True if this instance is valid."""
-        return not self.destroyed and len(self._points) >= 2 and self._width > 0
+        return not self.destroyed and len(self._points_unit) >= 2 and self._width > 0
 
     @property
     def width(self):
@@ -1036,23 +1045,23 @@ class PhotonicPath(Figure):
 
     @property
     def points(self):
-        return [(self._points[idx][0] * self._res, self._points[idx][1] * self._res)
-                for idx in range(self._points.shape[0])]
+        return [(self._points_unit[idx][0] * self._res, self._points_unit[idx][1] * self._res)
+                for idx in range(self._points_unit.shape[0])]
 
     @property
     def lower(self):
-        return [(self._lower[idx][0] * self._res, self._lower[idx][1] * self._res)
-                for idx in range(self._lower.shape[0])]
+        return [(self._lower_unit[idx][0] * self._res, self._lower_unit[idx][1] * self._res)
+                for idx in range(self._lower_unit.shape[0])]
 
     @property
     def upper(self):
-        return [(self._upper[idx][0] * self._res, self._upper[idx][1] * self._res)
-                for idx in range(self._upper.shape[0])]
+        return [(self._upper_unit[idx][0] * self._res, self._upper_unit[idx][1] * self._res)
+                for idx in range(self._upper_unit.shape[0])]
 
     @property
     def points_unit(self):
-        return [(self._points[idx][0], self._points[idx][1])
-                for idx in range(self._points.shape[0])]
+        return [(self._points_unit[idx][0], self._points_unit[idx][1])
+                for idx in range(self._points_unit.shape[0])]
 
     @property
     def polygon_points(self):
@@ -1090,9 +1099,9 @@ class PhotonicPath(Figure):
         if not unit_mode:
             dx = int(round(dx / self._res))
             dy = int(round(dy / self._res))
-        self._points += np.array([dx, dy])
-        self._upper += np.array([dx, dy])
-        self._lower += np.array([dx, dy])
+        self._points_unit += np.array([dx, dy])
+        self._upper_unit += np.array([dx, dy])
+        self._lower_unit += np.array([dx, dy])
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
         # type: (Tuple[ldim, ldim], str, bool, bool) -> Figure
@@ -1105,18 +1114,18 @@ class PhotonicPath(Figure):
             dy = int(round(loc[1] / res))
         dvec = np.array([dx, dy])
         mat = transform_table[orient]
-        new_points = np.dot(mat, self._points.T).T + dvec
-        new_upper = np.dot(mat, self._upper.T).T + dvec
-        new_lower = np.dot(mat, self._lower.T).T + dvec
+        new_points = np.dot(mat, self._points_unit.T).T + dvec
+        new_upper = np.dot(mat, self._upper_unit.T).T + dvec
+        new_lower = np.dot(mat, self._lower_unit.T).T + dvec
 
         if not copy:
             ans = self
         else:
             ans = deepcopy(self)
 
-        ans._points = new_points
-        ans._upper = new_upper
-        ans._lower = new_lower
+        ans._points_unit = new_points
+        ans._upper_unit = new_upper
+        ans._lower_unit = new_lower
 
         return ans
 
