@@ -27,9 +27,9 @@ class SubLevel2(BPG.PhotonicTemplateBase):
         circ = BPG.photonic_objects.PhotonicRound(
             layer='SI',
             resolution=self.grid.resolution/100,
-            center=(-30, 30),
-            rout=5,
-            rin=4,
+            center=(40, 30),
+            rout=10,
+            rin=5,
             # theta0=45,
             # theta1=60,
             unit_mode=False
@@ -51,6 +51,16 @@ class SubLevel2(BPG.PhotonicTemplateBase):
         self.add_polygon(
             layer='POLY',
             points=[(0, 0), (10, 0), (10, 5), (0, 5)]
+        )
+
+        self.add_polygon(
+            layer='SI',
+            points=[(0, 0), (20, 0), (20, 10)]
+        )
+
+        self.add_polygon(
+            layer='SI',
+            points=[(30, 0), (40, 10), (50, 0), (40, -10)]
         )
 
 
