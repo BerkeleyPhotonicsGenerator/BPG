@@ -1725,8 +1725,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             # If name is already used
             if new_name in self._photonic_ports:
-                # Prepend instance name __  and append unique number
-                new_name = self._get_unused_port_name(inst.content.name + '__' + new_name)
+                # Append unique number
+                new_name = self._get_unused_port_name(new_name)
 
             self.add_photonic_port(
                 name=new_name,
