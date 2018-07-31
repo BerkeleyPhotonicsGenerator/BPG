@@ -37,18 +37,17 @@ dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
 
-# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first manhattanized). We can do this, but it
-# will be slow. Instead, we think it is OK to NOT manhattenize pre-data-prep, perform the growth/shrink functions on
-# non-manhattanized shapes, then manhattanize at the very end. This should be faster
+# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first Manhattanized). We can do this, but it
+# will be slow. Instead, we think it is OK to NOT Manhattanize pre-data-prep, perform the growth/shrink functions on
+# non-Manhattanized shapes, then Manhattanize at the very end. This should be faster
 GLOBAL_DO_MANH_AT_BEGINNING = False
 
 # SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
 GLOBAL_DO_MANH_DURING_OP = True
 
-# True to ensure that final shape will be on a manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
-# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have manhattanized shapes on manhattan grid
+# True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
+# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have Manhattanized shapes on Manhattan grid
 GLOBAL_DO_FINAL_MANH = False
-
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -86,8 +85,6 @@ class PhotonicTemplateDB(TemplateDB):
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
         self.dataprep_file = dataprep_file
-
-
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -957,7 +954,7 @@ class PhotonicTemplateDB(TemplateDB):
                       )
             start = time.time()
 
-            # TODO: fix manhattan size
+            # TODO: fix Manhattan size
             if push_portshapes_through_dataprep or layer[1] != 'port':
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
@@ -1479,7 +1476,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    inst_master,  # type: PhotonicTemplateBase
                                    instance_port_name,  # type: str
                                    self_port_name,  # type: str
-                                   instance_name=None,  # type: str
+                                   instance_name=None,  # type: Optional[str]
                                    reflect=False,  # type: bool
                                    ):
         # type: (...) -> PhotonicInstance
@@ -1499,7 +1496,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the name of the port in the added instance to connect to
         self_port_name : str
             the name of the port in the current hierarchy to connect to
-        instance_name : str
+        instance_name : Optional[str]
             the name to give the new instance
         reflect : bool
             True to flip the added instance after rotation
@@ -1740,9 +1737,3 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=True,
                 show=show
             )
-
-    def waveguide_from_path(self,
-                            layer,
-                            path):
-
-        pass
