@@ -2,6 +2,8 @@ import BPG
 from BPG.photonic_objects import PhotonicPath
 import numpy as np
 from BPG.photonic_objects import PhotonicPolygon
+from BPG.poly_simplify import simplify_coord_to_gdspy
+from BPG.dataprep_gdspy import polyop_gdspy_to_point_list
 
 
 class Path(BPG.PhotonicTemplateBase):
@@ -54,12 +56,12 @@ class Path(BPG.PhotonicTemplateBase):
         poly2 = PhotonicPolygon(
             resolution=self.grid.resolution,
             layer='POLY',
-            points=np.array(path.points) + np.array((1, 0)).tolist()
+            points=(np.array(path.points) + np.array((1, 0))).tolist()
         )
 
         self.add_polygon(poly2)
 
-        x2 = np.arange(0, 6, 0.001)
+        x2 = np.arange(0, 6, 0.0001)
         y2 = np.polyval([0.5,-2,1], x2)
         points2 = [(x2[ind], y2[ind]) for ind in range(x2.shape[0])]
         path2 = PhotonicPath(
@@ -71,6 +73,21 @@ class Path(BPG.PhotonicTemplateBase):
         )
 
         self.add_path(path2)
+
+        # gdspy_poly = simplify_coord_to_gdspy(
+        #     (path2.polygon_points, []),
+        #     tolerance=1e-3
+        # )
+        #
+        # simplified_points = polyop_gdspy_to_point_list(
+        #     gdspy_poly, fracture=False, do_manh=False, manh_grid_size=0.001, debug=False
+        # )
+        #
+        # path3 = PhotonicPolygon(
+        #     resolution=self.grid.resolution,
+        #     layer='M2',
+        #     points=simplified_points[0]
+        # )
 
 
 if __name__ == '__main__':
