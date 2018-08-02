@@ -158,3 +158,4 @@ if __name__ == '__main__':
     spec_file = 'BPG/tests/specs/port_extraction_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
+    asdf
