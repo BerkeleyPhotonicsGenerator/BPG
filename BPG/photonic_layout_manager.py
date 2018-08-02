@@ -119,6 +119,9 @@ class PhotonicLayoutManager(DesignManager):
                           generate_gds=True,
                           layout_params_list=None,
                           cell_name_list=None,
+                          gen_full_gds=False,
+                          gen_design_gds=True,
+                          gen_physical_gds=True,
                           debug=False) -> None:
         """
         Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
@@ -133,9 +136,16 @@ class PhotonicLayoutManager(DesignManager):
             Optional list of dicts corresponding to layout parameters passed to the generator class
         cell_name_list : List[str]
             Optional list of strings corresponding to the names given to each generated layout
+        gen_full_gds : bool
+            True to generate a gds with both physical and design layers
+        gen_design_gds : bool
+            True to generate the gds with only photonic design (and port) layers
+        gen_physical_gds : bool
+            True to generate the gds with only physical layers
         debug : bool
             True to print debug information
         """
+        # TODO: Implement the gen_full/gen_design/gen_physical
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
             layout_params_list = [self.specs['layout_params']]
