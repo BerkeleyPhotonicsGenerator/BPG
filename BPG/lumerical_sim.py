@@ -1,24 +1,25 @@
 import abc
 
-from BPG.photonic_core import Box, CoordBase
+from .photonic_core import Box, CoordBase
+from .lumerical_generator import LumericalCodeGenerator
 
 # Type checking imports
 from typing import List, Tuple
 from .photonic_port import PhotonicPort
 
 
-class LumericalSimObj(Box, metaclass=abc.ABCMeta):
+class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
     """
     Abstract Base Class for all simulation/monitor objects in Lumerical
 
-    All simulation objects have a common representation for geometry and common code syntax. These are
-    implemented here
+    All simulation objects have a common representation for geometry and generate lsf code, so LumericalSimObj
+    inherits both from Box and from LumericalCodeGenerator
     """
 
     def __init__(self):
         Box.__init__(self)
+        LumericalCodeGenerator.__init__(self)
 
-        self._lsfcode = ['\n']  # Start the code block with a newline
         self.layer = ('SIM', 'phot')  # Attach simulation objects to a separate layer
 
     ''' Properties '''
@@ -33,11 +34,6 @@ class LumericalSimObj(Box, metaclass=abc.ABCMeta):
         """ Return self so that lsf_export can be called by BAG from the content list """
         return self
 
-    @property
-    def lsf_code(self):
-        """ Restrict direct access to directly modifying the lsf code to enforce basic code syntax """
-        return self._lsfcode
-
     @abc.abstractmethod
     def lsf_export(self) -> List[str]:
         """
@@ -47,29 +43,6 @@ class LumericalSimObj(Box, metaclass=abc.ABCMeta):
         on internal access to the instances attributes
         """
         pass
-
-    def add_code(self, code):
-        """
-        Use this method to add a single line of code to the LSF file. This enforces basic code syntax
-        and styling for the generated LSF file
-        """
-        self._lsfcode.append(code + ';\n')
-
-    def set(self, key, value):
-        """
-        Use this method to conveniently add a set statement to the LSF file
-
-        Parameters
-        ----------
-        key : str
-            parameter to be changed with the set statement
-        value : any
-            value that the parameter will be assigned
-        """
-        if isinstance(value, str):
-            self.add_code('set("{}", "{}")'.format(key, value))
-        else:
-            self.add_code('set("{}", {})'.format(key, value))
 
     def _export_geometry(self):
         """ Adds code to specify the geometry of a simulation region """
@@ -157,7 +130,7 @@ class FDESolver(LumericalSimObj):
         lsf_code : List[str]
             list of Lumerical code to create the FDESolver object
         """
-        self.add_code('addfde')
+        self.add_code('\naddfde')
         self._export_solver_type()
         self._export_geometry()
         self._export_mesh_settings()
@@ -165,7 +138,7 @@ class FDESolver(LumericalSimObj):
         self.add_code('findmodes')  # Start the mode simulation
         self._export_data()
 
-        return self.lsf_code
+        return self._code
 
     def _export_solver_type(self):
         """ Adds Lumerical code for setting the solver type """
@@ -240,11 +213,11 @@ class FDTDSolver(LumericalSimObj):
         lsf_code : List[str]
             list of Lumerical code to create the FDESolver object
         """
-        self.add_code('addfdtd')
+        self.add_code('\naddfdtd')
         self._export_geometry()
         self._export_sim_settings()
 
-        return self.lsf_code
+        return self._code
 
     def _export_sim_settings(self):
         """ Adds code for setting the simulation variables """
