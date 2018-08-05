@@ -21,6 +21,9 @@ class WaveguideFDE(LumericalTB):
 
         # Move and orient the solver to match the port
         fde.align_to_port(self.dut_inst['FDEPort'])
+
+        # Change the simulation settings
+        fde.num_modes = 2
         fde.wavelength = 1.55e-6
 
 
@@ -40,4 +43,5 @@ if __name__ == '__main__':
     # PLM.generate_flat_gds()
     # PLM.generate_gds()
     PLM.generate_tb()
+
 
