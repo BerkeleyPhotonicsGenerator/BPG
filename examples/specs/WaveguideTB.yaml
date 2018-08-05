@@ -1,5 +1,5 @@
 project_name: Generated_Waveguide
-lsf_filename: SingleModeWaveguide.lsf
+lsf_filename: SingleModeWaveguide
 gds_filename: Output
 
 #------------------
@@ -10,8 +10,10 @@ layout_class: 'SingleModeWaveguide'
 
 # These parameters are passed to the layout class
 layout_params:
-  width: 1.0
-  length: 10.0
+  - width: 1.0
+    length: 10.0
+  - width: 1.1
+    length: 10.0
 
 #------------------
 #   TB Config

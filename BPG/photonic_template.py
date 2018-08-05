@@ -64,6 +64,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.content_list = None
         # Variable where flattened layout content will be stored, in BAG content list format
         self.flat_content_list = None
+        self.flat_content_list_separate = None
         # Variable where flattened layout content will be stored, by layer.
         # Format is a dictionary whose keys are LPPs, and whose values are BAG content list format
         self.flat_content_list_by_layer = {}  # type: Dict[Tuple(str, str), List]
@@ -346,7 +347,6 @@ class PhotonicTemplateDB(TemplateDB):
 
     def to_lumerical(self, debug=False):
         """ Export the drawn layout to the LSF format """
-        lsfwriter = LumericalDesignGenerator(self.lsf_filepath)
         tech_info = self.grid.tech_info
 
         with open(self._gds_lay_file, 'r') as f:
@@ -361,8 +361,9 @@ class PhotonicTemplateDB(TemplateDB):
         if self.flat_content_list is None:
             raise ValueError('Please generate a flat GDS before exporting to Lumerical')
 
-        for content in self.flat_content_list:
-            # for content in self.content_list:
+        for count, content in enumerate(self.flat_content_list_separate):
+            lsfwriter = LumericalDesignGenerator(self.lsf_filepath + str(count))
+
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list,
              sim_list, source_list, monitor_list) = content
@@ -440,7 +441,8 @@ class PhotonicTemplateDB(TemplateDB):
                 lsf_repr = monitor.lsf_export()
                 lsfwriter.add_code(lsf_repr)
 
-        lsfwriter.export_to_lsf()
+            lsfwriter.export_to_lsf()
+
         end = time.time()
         if debug:
             print('LSF Generation took %.4g seconds' % (end - start))
@@ -539,6 +541,7 @@ class PhotonicTemplateDB(TemplateDB):
                              list_of_contents[12])]
 
         self.flat_content_list = list_of_contents
+        self.flat_content_list_separate = content_list
 
         if sort_by_layer is True:
             self.sort_flat_content_by_layers()

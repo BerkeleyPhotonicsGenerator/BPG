@@ -93,9 +93,9 @@ class PhotonicLayoutManager(DesignManager):
         """
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
-            layout_params_list = [self.specs['layout_params']]
+            layout_params_list = self.specs['layout_params']
         if cell_name_list is None:
-            cell_name_list = [self.specs['impl_cell']]
+            cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
 
         print('\n---Generating .gds file---')
         cls_package = self.specs['layout_package']
@@ -124,10 +124,19 @@ class PhotonicLayoutManager(DesignManager):
         if tb_params is None:
             tb_params = {}
 
-        # Add the parameters required to setup the DUT within the TB
-        tb_params['layout_package'] = self.specs['layout_package']
-        tb_params['layout_class'] = self.specs['layout_class']
-        tb_params['layout_params'] = self.specs['layout_params']
+        if not isinstance(self.specs['layout_params'], list):
+            self.specs['layout_params'] = [self.specs['layout_params']]
+
+        # Construct the parameter list
+        layout_params_list = []
+        cell_name_list = []
+        for count, params in enumerate(self.specs['layout_params']):
+            temp_params = dict()
+            temp_params['layout_package'] = self.specs['layout_package']
+            temp_params['layout_class'] = self.specs['layout_class']
+            temp_params['layout_params'] = params
+            layout_params_list.append(temp_params)
+            cell_name_list.append(self.specs['impl_cell']+str(count))
 
         # Try importing the TB package and class
         cls_package = self.specs['tb_package']
@@ -136,16 +145,18 @@ class PhotonicLayoutManager(DesignManager):
         temp_cls = getattr(lay_module, cls_name)
 
         # Create TB lsf file
-        cell_name = self.specs['impl_cell']
-        template = self.tdb.new_template(params=tb_params, temp_cls=temp_cls, debug=False)
         self.tdb._prj = self.prj
-        self.tdb.instantiate_flat_masters(master_list=[template],
-                                          name_list=[cell_name],
+        temp_list = []
+        for lay_params in layout_params_list:
+            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            temp_list.append(template)
+
+        self.tdb.instantiate_flat_masters(master_list=temp_list,
+                                          name_list=cell_name_list,
                                           lib_name='',
                                           debug=debug,
                                           rename_dict=None,
-                                          draw_flat_gds=generate_gds,
-                                          )
+                                          draw_flat_gds=generate_gds,)
 
         # Create the design LSF file
         self.tdb.to_lumerical(debug=debug)
@@ -195,8 +206,7 @@ class PhotonicLayoutManager(DesignManager):
                                           lib_name='',
                                           debug=debug,
                                           rename_dict=None,
-                                          draw_flat_gds=generate_gds
-                                          )
+                                          draw_flat_gds=generate_gds)
 
     def dataprep(self, debug=False):
         """

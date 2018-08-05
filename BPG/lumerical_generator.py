@@ -1,3 +1,55 @@
+"""
+Module containing various classes used to systematically generate clean Lumerical script code
+"""
+
+
+class LumericalCodeGenerator:
+    def __init__(self, filepath):
+        """
+        This class enables the creation of lumerical .lsf files
+        """
+        self.filepath = filepath
+        self._code = []
+
+    @property
+    def code(self):
+        return self._code
+
+    def add_code(self, code) -> None:
+        """
+        Adds provided code to the running list of code to be written. Adds a semicolon and a new
+        line character to each line to match standard LSF syntax
+
+        Parameters
+        ----------
+        code : List[str]
+            List of strings containing lumerical script
+        """
+        self.code.append(code + ';\n')
+
+    def set(self, key, value) -> None:
+        """
+        Conveniently adds a set statement to the LSF file
+
+        Parameters
+        ----------
+        key : str
+            parameter to be changed with the set statement
+        value : any
+            value that the parameter will be assigned
+        """
+        if isinstance(value, str):
+            self.add_code('set("{}", "{}")'.format(key, value))
+        else:
+            self.add_code('set("{}", {})'.format(key, value))
+
+    def export_to_lsf(self):
+        """ Take all code in the database and export it to a lumerical script file """
+        file = list('# Created by the {} Python Class\n'.format(self.__class__.__name__))
+        file += self.code
+
+        with open(self.filepath + '.lsf', 'w') as stream:
+            stream.writelines(file)
 
 
 class LumericalDesignGenerator:
@@ -24,7 +76,7 @@ class LumericalDesignGenerator:
         file = list('# Created by the {} Python Class\n'.format(self.__class__.__name__))
         file += self._db
 
-        with open(self.filepath, 'w') as stream:
+        with open(self.filepath + '.lsf', 'w') as stream:
             stream.writelines(file)
 
 
@@ -75,7 +127,14 @@ class LumericalSweepGenerator:
 
         # Run a loop over all of the layout scripts
         file.append('for(i=1:sweep_len){\n')
+        file.append('addanalysisgroup;\n')
+        file.append('set("name", script_list{i});\n')
+        file.append('groupscope(script_list{i});\n')
         file.append('\tfeval(script_list{i});\n')
+        file.append('switchtolayout;\n')
+        file.append('groupscope(script_list{i});\n')
+        file.append('delete;')
+        file.append('groupscope("::model");\n')
         file.append('}\n')
 
         # Add the rest of the stored code to the file
