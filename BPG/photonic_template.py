@@ -378,7 +378,7 @@ class PhotonicTemplateDB(TemplateDB):
                                                            spx=rect['arr_spx'], spy=rect['arr_spy'])
                     else:
                         lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
             for via in via_list:
                 pass
@@ -394,7 +394,7 @@ class PhotonicTemplateDB(TemplateDB):
                 if tuple(polygon['layer']) in prop_map:
                     layer_prop = prop_map[tuple(polygon['layer'])]
                     lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
             # add rounds if they are valid lumerical layers
             for round_obj in round_list:
@@ -424,22 +424,22 @@ class PhotonicTemplateDB(TemplateDB):
                             layer_prop=layer_prop,
                             center=round_obj['center'],
                         )
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation objects
             for sim in sim_list:
                 lsf_repr = sim.lsf_export()
-                lsfwriter.add_code(lsf_repr)
+                lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation sources
             for source in source_list:
                 lsf_repr = source.lsf_export()
-                lsfwriter.add_code(lsf_repr)
+                lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation monitors
             for monitor in monitor_list:
                 lsf_repr = monitor.lsf_export()
-                lsfwriter.add_code(lsf_repr)
+                lsfwriter.add_code_block(lsf_repr)
 
             lsfwriter.export_to_lsf()
 
