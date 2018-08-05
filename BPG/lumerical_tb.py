@@ -130,6 +130,3 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         self.dut_master = self.new_template(params=self.layout_params, temp_cls=template_class)
         self.dut_inst = self.add_instance(self.dut_master)
 
-
-class LumericalSweep:
-    """ Class that enables the creation of  """
