@@ -369,6 +369,11 @@ class PhotonicTemplateDB(TemplateDB):
              sim_list, source_list, monitor_list) = content
 
             # add rectangles if they are valid lumerical layers
+            if len(rect_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#------------------ ')
+                lsfwriter.add_line('# Adding Rectangles ')
+                lsfwriter.add_line('#------------------ ')
             for rect in rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 if tuple(rect['layer']) in prop_map:
@@ -390,6 +395,11 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             # add polygons if they are valid lumerical layers
+            if len(polygon_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#---------------- ')
+                lsfwriter.add_line('# Adding Polygons ')
+                lsfwriter.add_line('#---------------- ')
             for polygon in polygon_list:
                 if tuple(polygon['layer']) in prop_map:
                     layer_prop = prop_map[tuple(polygon['layer'])]
@@ -397,6 +407,11 @@ class PhotonicTemplateDB(TemplateDB):
                     lsfwriter.add_code_block(lsf_repr)
 
             # add rounds if they are valid lumerical layers
+            if len(round_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#-------------- ')
+                lsfwriter.add_line('# Adding Rounds ')
+                lsfwriter.add_line('#-------------- ')
             for round_obj in round_list:
                 if tuple(round_obj['layer']) in prop_map:
                     nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -427,16 +442,31 @@ class PhotonicTemplateDB(TemplateDB):
                     lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation objects
+            if len(sim_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#-------------------------- ')
+                lsfwriter.add_line('# Adding Simulation Objects ')
+                lsfwriter.add_line('#-------------------------- ')
             for sim in sim_list:
                 lsf_repr = sim.lsf_export()
                 lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation sources
+            if len(source_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#---------------------- ')
+                lsfwriter.add_line('# Adding Source Objects ')
+                lsfwriter.add_line('#---------------------- ')
             for source in source_list:
                 lsf_repr = source.lsf_export()
                 lsfwriter.add_code_block(lsf_repr)
 
             # Add simulation monitors
+            if len(monitor_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#----------------------- ')
+                lsfwriter.add_line('# Adding Monitor Objects ')
+                lsfwriter.add_line('#----------------------- ')
             for monitor in monitor_list:
                 lsf_repr = monitor.lsf_export()
                 lsfwriter.add_code_block(lsf_repr)

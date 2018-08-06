@@ -134,8 +134,11 @@ class FDESolver(LumericalSimObj):
         self._export_solver_type()
         self._export_geometry()
         self._export_mesh_settings()
+        self.add_line('\n# Simulation Settings')
         self._export_sim_settings()
+        self.add_line('\n# Run Simulation')
         self.add_code('findmodes')  # Start the mode simulation
+        self.add_line('\n# Save Data')
         self._export_data()
 
         return self._code
@@ -181,7 +184,7 @@ class FDESolver(LumericalSimObj):
     def _export_data(self):
         """ Sets which results should be exported """
         self.add_code('neff=getresult("FDE::data::mode1", "neff")')
-        self.add_code('matlabsave("../data/data", neff)')
+        self.add_code('savedata("../data/data", neff)')
 
 
 class FDTDSolver(LumericalSimObj):
