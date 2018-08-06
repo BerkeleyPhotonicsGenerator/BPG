@@ -14,6 +14,8 @@ layout_params:
     length: 10.0
   - width: 1.1
     length: 10.0
+  - width: 1.2
+    length: 10.0
 
 #------------------
 #   TB Config

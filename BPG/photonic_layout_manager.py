@@ -137,7 +137,7 @@ class PhotonicLayoutManager(DesignManager):
             temp_params['layout_class'] = self.specs['layout_class']
             temp_params['layout_params'] = params
             layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['impl_cell'] + '_' + str(count))
+            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
 
         # Try importing the TB package and class
         cls_package = self.specs['tb_package']
@@ -163,8 +163,7 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(debug=debug)
 
         # Create the sweep LSF file
-        # TODO: Create correct path variable here
-        filepath = '/Users/cusgadmin/Documents/Photonics_Dev/gen_libs/Generated_Waveguide/scripts/sweep'
+        filepath = self.tdb.lsf_filepath + '_sweep'
         lsfwriter = LumericalSweepGenerator(filepath)
         for script in cell_name_list:
             lsfwriter.add_sweep_point(script_name=script)
