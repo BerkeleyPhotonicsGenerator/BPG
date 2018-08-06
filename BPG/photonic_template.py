@@ -362,7 +362,7 @@ class PhotonicTemplateDB(TemplateDB):
             raise ValueError('Please generate a flat GDS before exporting to Lumerical')
 
         for count, content in enumerate(self.flat_content_list_separate):
-            lsfwriter = LumericalDesignGenerator(self.lsf_filepath + str(count))
+            lsfwriter = LumericalDesignGenerator(self.lsf_filepath + '_' + str(count))
 
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list,
