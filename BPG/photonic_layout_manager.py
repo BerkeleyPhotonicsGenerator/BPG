@@ -7,6 +7,7 @@ from pathlib import Path
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
 from .photonic_template import PhotonicTemplateDB
+from .lumerical_generator import LumericalSweepGenerator
 
 
 class PhotonicLayoutManager(DesignManager):
@@ -136,7 +137,7 @@ class PhotonicLayoutManager(DesignManager):
             temp_params['layout_class'] = self.specs['layout_class']
             temp_params['layout_params'] = params
             layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['impl_cell']+str(count))
+            cell_name_list.append(self.specs['impl_cell'] + '_' + str(count))
 
         # Try importing the TB package and class
         cls_package = self.specs['tb_package']
@@ -160,6 +161,14 @@ class PhotonicLayoutManager(DesignManager):
 
         # Create the design LSF file
         self.tdb.to_lumerical(debug=debug)
+
+        # Create the sweep LSF file
+        # TODO: Create correct path variable here
+        filepath = '/Users/cusgadmin/Documents/Photonics_Dev/gen_libs/Generated_Waveguide/scripts/sweep'
+        lsfwriter = LumericalSweepGenerator(filepath)
+        for script in cell_name_list:
+            lsfwriter.add_sweep_point(script_name=script)
+        lsfwriter.export_to_lsf()
 
     def generate_flat_gds(self,
                           generate_gds=True,
