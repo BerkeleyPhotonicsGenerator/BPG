@@ -184,7 +184,7 @@ class FDESolver(LumericalSimObj):
     def _export_data(self):
         """ Sets which results should be exported """
         self.add_code('neff=getresult("FDE::data::mode1", "neff")')
-        self.add_code('savedata("../data/data", neff)')
+        self.add_code('write("../data/data", num2str(neff))')
 
 
 class FDTDSolver(LumericalSimObj):
