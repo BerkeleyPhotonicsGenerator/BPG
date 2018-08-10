@@ -1,0 +1,25 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+project_name: path
+
+# Output Settings
+lsf_filename: path.lsf
+gds_filename: Output
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.path_test'
+layout_class: 'Path'  # Layout generator class name
+
+layout_params:  # Place parameters to be passed to the generator class under here
+
+
+# Cadence related parameters
+impl_lib: 'path_lib'
+impl_cell: 'path_cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

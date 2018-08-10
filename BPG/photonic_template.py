@@ -36,7 +36,17 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-GLOBAL_DO_MANH = False
+
+# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first Manhattanized). We can do this, but it
+# will be slow. Instead, we think it is OK to NOT Manhattanize pre-data-prep, perform the growth/shrink functions on
+# non-Manhattanized shapes, then Manhattanize at the very end. This should be faster
+GLOBAL_DO_MANH_AT_BEGINNING = False
+
+# SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
+GLOBAL_DO_MANH_DURING_OP = True
+
+# True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
+# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have Manhattanized shapes on Manhattan grid
 GLOBAL_DO_FINAL_MANH = False
 
 
@@ -264,7 +274,11 @@ class PhotonicTemplateDB(TemplateDB):
                 gds_cell.add(cur_lbl)
 
             for path in path_list:
-                pass
+                # Photonic paths should be treated like polygons
+                lay_id, purp_id = lay_map[path['layer']]
+                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
+                                         verbose=False)
+                gds_cell.add(cur_path.fracture(precision=res))
 
             for blockage in blockage_list:
                 pass
@@ -392,7 +406,11 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for path in path_list:
-                pass
+                # Treat like polygons
+                if tuple(path['layer']) in prop_map:
+                    layer_prop = prop_map[tuple(path['layer'])]
+                    lsf_repr = PhotonicPolygon.lsf_export(path['polygon_points'], layer_prop)
+                    lsfwriter.add_code(lsf_repr)
 
             # add polygons if they are valid lumerical layers
             if len(polygon_list) != 0:
@@ -833,10 +851,10 @@ class PhotonicTemplateDB(TemplateDB):
         content : Tuple
             the shape content on the provided layer
         """
-        if layer not in self.flat_content_by_layer.keys():
+        if layer not in self.flat_content_list_by_layer.keys():
             return ()
         else:
-            return self.flat_content_by_layer[layer]
+            return self.flat_content_list_by_layer[layer]
 
     def sort_flat_content_by_layers(self):
         """
@@ -926,7 +944,10 @@ class PhotonicTemplateDB(TemplateDB):
                 pass
 
             for path in path_list:
-                pass
+                # Treat like polygons
+                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
 
             for blockage in blockage_list:
                 pass
@@ -1002,12 +1023,12 @@ class PhotonicTemplateDB(TemplateDB):
                       )
             start = time.time()
 
-            # TODO: fix manhattan size
+            # TODO: fix Manhattan size
             if push_portshapes_through_dataprep or layer[1] != 'port':
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH
+                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING
                 )
 
             end = time.time()
@@ -1040,7 +1061,7 @@ class PhotonicTemplateDB(TemplateDB):
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH
+                        do_manh=GLOBAL_DO_MANH_DURING_OP
                     )
 
                     # Update the layer's content
@@ -1055,6 +1076,9 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('Performing final OUUO')
 
+        if dataprep_info['over_under_under_over'] is None:
+            dataprep_info['over_under_under_over'] = []
+
         for lpp in dataprep_info['over_under_under_over']:
             if debug:
                 print("Doing final OUUO on layer {}".format(lpp))
@@ -1064,7 +1088,7 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                do_manh=GLOBAL_DO_MANH
+                do_manh=GLOBAL_DO_MANH_AT_BEGINNING
             )
 
             if new_out_layer_polygons is not None:
@@ -1081,8 +1105,9 @@ class PhotonicTemplateDB(TemplateDB):
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
                                                        fracture=True,
-                                                       do_manh=True,
-                                                       manh_grid_size=self.grid.resolution)
+                                                       do_manh=GLOBAL_DO_FINAL_MANH,
+                                                       manh_grid_size=self.grid.resolution,
+                                                       debug=debug)
 
             new_shapes = []
             for shape in output_shapes:
@@ -1277,6 +1302,24 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_round(round_obj)
         return round_obj
 
+    def add_path(self,
+                 path,  # type: PhotonicPath
+                 ):
+        # type: (...) -> PhotonicPath
+        """
+        Adds a PhotonicPath to the layout object
+
+        Parameters
+        ----------
+        path : PhotonicPath
+
+        Returns
+        -------
+        path : PhotonicPath
+        """
+        self._layout.add_path(path)
+        return path
+
     def add_advancedpolygon(self,
                             polygon,  # type: PhotonicAdvancedPolygon
                             ):
@@ -1335,6 +1378,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         overwrite : bool
             True to add the port with the specified name even if another port with that name already exists in this
             level of the design hierarchy.
+        show : bool
+            True to draw the port indicator shape
 
         Returns
         -------
@@ -1513,7 +1558,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    inst_master,  # type: PhotonicTemplateBase
                                    instance_port_name,  # type: str
                                    self_port_name,  # type: str
-                                   instance_name=None,  # type: str
+                                   instance_name=None,  # type: Optional[str]
                                    reflect=False,  # type: bool
                                    ):
         # type: (...) -> PhotonicInstance
@@ -1533,7 +1578,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the name of the port in the added instance to connect to
         self_port_name : str
             the name of the port in the current hierarchy to connect to
-        instance_name : str
+        instance_name : Optional[str]
             the name to give the new instance
         reflect : bool
             True to flip the added instance after rotation
@@ -1725,6 +1770,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             a dictionary containing key-value pairs mapping inst's port names (key)
             to the new desired port names (value).
             If not supplied, extracted ports will be given their original names
+        unmatched_only : bool
+        show : bool
+
         Returns
         -------
 
@@ -1759,8 +1807,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             # If name is already used
             if new_name in self._photonic_ports:
-                # Prepend instance name __  and append unique number
-                new_name = self._get_unused_port_name(inst.content.name + '__' + new_name)
+                # Append unique number
+                new_name = self._get_unused_port_name(new_name)
 
             self.add_photonic_port(
                 name=new_name,
@@ -1771,9 +1819,3 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=True,
                 show=show
             )
-
-    def waveguide_from_path(self,
-                            layer,
-                            path):
-
-        pass
