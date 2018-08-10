@@ -41,17 +41,18 @@ lumerical_prop_map:
   !!python/tuple [SI, phot]:
     material: 'Si (Silicon) - Palik'
     z_min: 0
-    z_max: .2
+    z_max: .22
     alpha: 1
   !!python/tuple [BOX, phot]:
     material: 'SiO2 (Glass) - Palik'
     z_min: !!python/float -1
     z_max: 0
-    alpha: 1
+    alpha: 2
   !!python/tuple [CLAD, phot]:
     material: 'SiO2 (Glass) - Palik'
     z_min: 0
     z_max: !!python/float 2
-    alpha: .1
+    alpha: .25
+    mesh_order: 3
 
 

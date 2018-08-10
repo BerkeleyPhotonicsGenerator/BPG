@@ -11,6 +11,7 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
                  ):
         """ Class for generating a single mode waveguide shape in Lumerical """
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        self.params = params
 
     @classmethod
     def get_params_info(cls):
