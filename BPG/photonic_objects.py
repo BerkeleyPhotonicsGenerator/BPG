@@ -733,6 +733,10 @@ class PhotonicRect(Rect):
                 lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
                 lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
 
+                if 'mesh_order' in layer_prop:
+                    lsf_code.append('set("override mesh order from material database", 1);\n')
+                    lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
+
         return lsf_code
 
     @classmethod

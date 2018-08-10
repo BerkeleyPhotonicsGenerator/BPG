@@ -92,7 +92,7 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         script_name : str
             Name of script to be executed
         """
-        self._script_list.append(script_name)
+        self._script_list.append(script_name + '.lsf')
 
     def create_sweep_loop(self):
         self.add_code('clear')
@@ -112,7 +112,8 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         self.add_line('for(i=1:sweep_len){')
         self.add_line('# Setup logic')
         self.add_code('addanalysisgroup')
-        self.set('name', 'script_list{i}')
+        self.add_code('set("name", script_list{i})')
+        # self.set('name', 'script_list{i}')
         self.add_code('groupscope(script_list{i})')
 
         self.add_line('\n# Run the script')
