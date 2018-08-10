@@ -233,7 +233,7 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.dataprep(debug=debug)
 
         self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
-                                      content_list=self.tdb.final_post_shapely_gdspy_polygon_content_flat,
+                                      content_list=self.tdb.post_dataprep_flat_content_list,
                                       debug=debug)
 
     @staticmethod
