@@ -11,6 +11,7 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
                  ):
         """ Class for generating a single mode waveguide shape in Lumerical """
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        self.params = params
 
     @classmethod
     def get_params_info(cls):
@@ -23,50 +24,50 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
     def get_default_param_values(cls):
         return dict(
             width=.6,
-            length=4
+            length=10
         )
 
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
+        # Pull in parameters from dictionary for easy access
+        width = self.params['width']
+        length = self.params['length']
+
         # Add cladding
-        clad = self.add_rect(layer='Clad',
-                             bbox=BBox(left=-5,
-                                       bottom=-5,
-                                       right=5,
-                                       top=5,
+        clad = self.add_rect(layer='CLAD',
+                             bbox=BBox(left=-.5 * length,
+                                       bottom=-.5 * length,
+                                       right=.5 * length,
+                                       top=.5 * length,
                                        resolution=self.grid.resolution,
                                        unit_mode=False)
                              )
 
         # Add buried oxide layer
         box = self.add_rect(layer='BOX',
-                            bbox=BBox(left=-5,
-                                      bottom=-5,
-                                      right=5,
-                                      top=5,
+                            bbox=BBox(left=-.5 * length,
+                                      bottom=-.5 * length,
+                                      right=.5 * length,
+                                      top=.5 * length,
                                       resolution=self.grid.resolution,
                                       unit_mode=False)
                             )
 
         # Add waveguide
-        wg0 = self.add_rect(layer='Si',
-                            bbox=BBox(left=-3,
-                                      bottom=-2,
-                                      right=-2,
-                                      top=2,
+        wg0 = self.add_rect(layer='SI',
+                            bbox=BBox(left=-.5 * width,
+                                      bottom=-.5 * length,
+                                      right=0.5 * width,
+                                      top=.5 * length,
                                       resolution=self.grid.resolution,
                                       unit_mode=False)
                             )
 
-        # Add waveguide
-        wg1 = self.add_rect(layer='Si',
-                            bbox=BBox(left=2,
-                                      bottom=-2,
-                                      right=3,
-                                      top=2,
-                                      resolution=self.grid.resolution,
-                                      unit_mode=False)
-                            )
+        self.add_photonic_port(name='FDEPort',
+                               center=(0, 0),
+                               orient='R90',
+                               width=width,
+                               layer='SI')
 
 
 if __name__ == '__main__':
@@ -80,7 +81,8 @@ if __name__ == '__main__':
         print('loading BAG project')
         bprj = local_dict['bprj']
 
-    spec_file = 'BPG/examples/specs/example_spec_file.yaml'
+    spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
+    # PLM.generate_gds()
+    PLM.generate_flat_gds()
     PLM.generate_lsf()

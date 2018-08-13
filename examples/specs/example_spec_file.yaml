@@ -3,10 +3,10 @@
 
 # Output Directory Locations
 project_name: Generated_Waveguide
-#project_dir: ~/Photonics_Data/Generated_Waveguide  # If you would like to dump outputs to a specific location, enter it here
+#project_dir: ~/Photonics_Data/Generated_Waveguide  # Use this to dump outputs to a specific location
 
 # This is an optional parameter that can be used to override the layermap used. By default, BPG looks for the
-# BAG_PHOT_LAYERMAP environmental variable set in the .bashrc
+# BPG/layermap variable set in the bag_config.yaml
 # layermap: BPG/examples/tech/gds_map.yaml
 
 # Output Settings
@@ -14,7 +14,7 @@ lsf_filename: SingleModeWaveguide.lsf
 gds_filename: Output
 
 # Generator Params
-layout_package: 'LumericalWaveguide'  # Module that contains the layout generator class
+layout_package: 'examples.Waveguide'  # Module that contains the layout generator class
 layout_class: 'SingleModeWaveguide'  # Layout generator class name
 layout_params:  # Place parameters to be passed to the generator class under here
 
