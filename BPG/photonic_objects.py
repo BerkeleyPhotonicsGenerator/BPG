@@ -27,8 +27,7 @@ coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicInstanceInfo(InstanceInfo):
-    """A dictionary that represents a layout instance.
-    """
+    """ A dictionary that represents a layout instance. """
 
     def __init__(self, res, change_orient=True, **kwargs):
         InstanceInfo.__init__(self, res, change_orient, **kwargs)
@@ -42,7 +41,7 @@ class PhotonicInstanceInfo(InstanceInfo):
         return self['master_key']
 
     def copy(self):
-        """Override copy method of dictionary to return an InstanceInfo instead."""
+        """Override copy method of InstanceInfo to return a PhotonicInstanceInfo instead."""
         return PhotonicInstanceInfo(self._resolution, change_orient=False, **self)
 
 
@@ -742,6 +741,10 @@ class PhotonicRect(Rect):
                 # Extract the thickness values from the layermap file
                 lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
                 lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
+
+                if 'mesh_order' in layer_prop:
+                    lsf_code.append('set("override mesh order from material database", 1);\n')
+                    lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
 
         return lsf_code
 
