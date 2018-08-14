@@ -108,7 +108,7 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
             self.add_code('script_list{{{}}}="{}"'.format(count + 1, name))
 
         # Run a loop over all of the layout scripts
-        self.add_line('\n#Main execution loop')
+        self.add_line('\n# Main execution loop')
         self.add_line('for(i=1:sweep_len){')
         self.add_line('# Setup logic')
         self.add_code('addanalysisgroup')

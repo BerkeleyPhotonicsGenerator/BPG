@@ -94,7 +94,7 @@ class PhotonicLayoutManager(DesignManager):
         """
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
-            layout_params_list = self.specs['layout_params']
+            layout_params_list = [self.specs['layout_params']]
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
 
