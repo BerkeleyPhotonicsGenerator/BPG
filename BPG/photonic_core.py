@@ -5,6 +5,7 @@ import yaml
 import bag
 import bag.io
 
+from bag.core import BagProject, create_tech_info
 from decimal import *
 from bag.core import BagProject
 from bag.layout.core import BagLayout
@@ -40,8 +41,6 @@ class PhotonicBagProject(BagProject):
     """
 
     def __init__(self, bag_config_path=None, port=None):
-        # Grab dummy technology information
-        self.tech_info = PTech()
 
         # Setup bag config path from env if not provided
         if bag_config_path is None:
@@ -57,6 +56,10 @@ class PhotonicBagProject(BagProject):
         # Extract relevant paths
         self.layermap_path = self.bpg_config['layermap']
         self.dataprep_path = self.bpg_config['dataprep']
+
+        # Grab technology information
+        print('Doing tech info setup')
+        self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
     @staticmethod
     def load_yaml(filepath):

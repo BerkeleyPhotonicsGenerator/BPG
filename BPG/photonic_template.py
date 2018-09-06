@@ -10,6 +10,7 @@ import yaml
 import time
 
 from bag.core import BagProject, RoutingGrid
+import bag.io
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
@@ -1819,3 +1820,128 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 unit_mode=True,
                 show=show
             )
+
+    def add_via_stack(self,
+                      bot_layer,  # type: str
+                      top_layer,  # type: str
+                      loc,  # type: Tuple[Union[float, int], Union[float, int]]
+                      min_area_on_bot_top_layer=False,  # type: bool
+                      unit_mode=False,  # type: bool
+                      ):
+        """
+        Adds a via stack with one via in each layer at the provided location.
+        All intermediate layers will be enclosed with an enclosure that satisfies both via rules and min area rules
+
+        Parameters
+        ----------
+        bot_layer : str
+            Name of the bottom layer
+        top_layer : str
+            Name of the top layer
+        loc :
+            (x, y) location of the center of the via stack
+        min_area_on_bot_top_layer : bool
+            True to have enclosures on top and bottom layer satisfy minimum area constraints
+        unit_mode
+            True if input argument is specified in layout resolution units
+
+        Returns
+        -------
+
+        """
+        if not unit_mode:
+            loc = (int(round(loc[0] / self.grid.resolution)), int(round(loc[1] / self.grid.resolution)))
+
+        bot_layer = bag.io.fix_string(bot_layer)
+        top_layer = bag.io.fix_string(top_layer)
+
+        bot_layer_id_global = self.grid.tech_info.get_layer_id(bot_layer)
+        top_layer_id_global = self.grid.tech_info.get_layer_id(top_layer)
+
+        for bot_lay_id in range(bot_layer_id_global, top_layer_id_global):
+
+            bot_lay_name = self.grid.tech_info.get_layer_name(bot_lay_id)
+            if isinstance(bot_lay_name, list):
+                bot_lay_name = bot_layer
+            bot_lay_type = self.grid.tech_info.get_layer_type(bot_lay_name)
+
+            top_lay_name = self.grid.tech_info.get_layer_name(bot_lay_id + 1)
+            top_lay_type = self.grid.tech_info.get_layer_type(top_lay_name)
+
+            via_name = self.grid.tech_info.get_via_name(bot_lay_id)
+            via_type_list = self.grid.tech_info.get_via_types(bmtype=bot_lay_type,
+                                                              tmtype=top_lay_type)
+
+            for via_type, weight in via_type_list:
+                try:
+                    (sp, sp2_list, sp3, dim, enc_b, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
+                        vname=via_name,
+                        vtype=via_type,
+                        mtype=bot_lay_type,
+                        mw_unit=0,
+                        is_bot=True,
+                    )
+
+                    (_, _, _, _, enc_t, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
+                        vname=via_name,
+                        vtype=via_type,
+                        mtype=top_lay_type,
+                        mw_unit=0,
+                        is_bot=True,
+                    )
+                # Didnt get valid via info
+                except ValueError:
+                    continue
+
+                # Got valid via info. just draw the first one we get, then break
+                # Need to find the right extensions. Want the centered one? all are valid...
+                # TODO: for now taking the first
+                enc_b = enc_b[0]
+                enc_t = enc_t[0]
+
+                # Fix minimum area violations:
+                if bot_lay_id > bot_layer_id_global or min_area_on_bot_top_layer:
+                    min_area = self.grid.tech_info.get_min_area(bot_lay_type)
+                    if (2 * enc_b[0] + dim[0]) * (2 * enc_b[1] + dim[1]) < min_area:
+                        min_side_len_unit = int(np.ceil(np.sqrt(min_area)))
+                        enc_b = [np.ceil((min_side_len_unit - dim[0]) / 2), np.ceil((min_side_len_unit - dim[1]) / 2)]
+
+                if bot_lay_id + 1 < top_layer_id_global or min_area_on_bot_top_layer:
+                    min_area = self.grid.tech_info.get_min_area(top_lay_type)
+                    if (2 * enc_t[0] + dim[0]) * (2 * enc_t[1] + dim[1]) < min_area:
+                        min_side_len_unit = int(np.ceil(np.sqrt(min_area)))
+                        enc_t = [np.ceil((min_side_len_unit - dim[0]) / 2), np.ceil((min_side_len_unit - dim[1]) / 2)]
+
+                self.add_via_primitive(
+                    via_type=self.grid.tech_info.get_via_id(bot_layer=bot_lay_name, top_layer=top_lay_name),
+                    loc=loc,
+                    num_rows=1,
+                    num_cols=1,
+                    sp_rows=0,
+                    sp_cols=0,
+                    enc1=[enc_b[0], enc_b[0], enc_b[1], enc_b[1]],
+                    enc2=[enc_t[0], enc_t[0], enc_t[1], enc_t[1]],
+                    orient='R0',
+                    cut_width=dim[0],
+                    cut_height=dim[1],
+                    nx=1,
+                    ny=1,
+                    spx=0,
+                    spy=0,
+                    unit_mode=True,
+                )
+
+    def add_via_stack_by_ind(self,
+                             bot_layer_ind,  # type: int
+                             top_layer_ind,  # type: int
+                             loc,  # type: Tuple[Union[float, int], Union[float, int]]
+                             min_area_on_bot_top_layer=False,  # type: bool
+                             unit_mode=False,  # type: bool
+                             ):
+        return self.add_via_stack(
+            bot_layer=self.grid.tech_info.get_layer_name(bot_layer_ind),
+            top_layer=self.grid.tech_info.get_layer_name(top_layer_ind),
+            loc=loc,
+            min_area_on_bot_top_layer=min_area_on_bot_top_layer,
+            unit_mode=unit_mode
+        )
