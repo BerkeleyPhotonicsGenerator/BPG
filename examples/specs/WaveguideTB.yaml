@@ -1,0 +1,38 @@
+project_name: Generated_Waveguide
+lsf_filename: SingleModeWaveguide
+gds_filename: Output
+
+#------------------
+#   Layout Config
+#------------------
+layout_package: 'examples.Waveguide'
+layout_class: 'SingleModeWaveguide'
+
+# These parameters are passed to the layout class
+layout_params:
+  width: 1.0
+  length: 10.0
+#  - width: 1.1
+#    length: 10.0
+#  - width: 1.2
+#    length: 10.0
+
+#------------------
+#   TB Config
+#------------------
+tb_package: 'examples.WaveguideTB'
+tb_class: 'WaveguideFDE'
+
+# These additional parameters are passed to the testbench class
+tb_params:
+
+#------------------
+#   Cadence Config
+#------------------
+impl_lib: 'waveguide_lib'
+impl_cell: 'waveguide_cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

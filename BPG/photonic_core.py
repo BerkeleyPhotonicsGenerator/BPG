@@ -6,7 +6,10 @@ import bag
 import bag.io
 
 from bag.core import BagProject, create_tech_info
+from decimal import *
+from bag.core import BagProject
 from bag.layout.core import BagLayout
+from .photonic_port import PhotonicPort
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
 from itertools import chain
 
@@ -78,7 +81,12 @@ class PhotonicBagLayout(BagLayout):
 
     def __init__(self, grid, use_cybagoa=False):
         BagLayout.__init__(self, grid, use_cybagoa)
+
+        # Add new features to be supported in content list
         self._round_list = []  # type: List[PhotonicRound]
+        self._sim_list = []
+        self._source_list = []
+        self._monitor_list = []
 
     def finalize(self):
         # type: () -> None
@@ -97,7 +105,12 @@ class PhotonicBagLayout(BagLayout):
                     rect_list.append(obj_content)
 
         # filter out invalid geometries
-        path_list, polygon_list, blockage_list, boundary_list, via_list, round_list = [], [], [], [], [], []
+        path_list = []
+        polygon_list = []
+        blockage_list = []
+        boundary_list = []
+        via_list = []
+        round_list = []
         for targ_list, obj_list in ((path_list, self._path_list),
                                     (polygon_list, self._polygon_list),
                                     (blockage_list, self._blockage_list),
@@ -118,6 +131,7 @@ class PhotonicBagLayout(BagLayout):
                 obj_content = self._format_inst(obj)
                 inst_list.append(obj_content)
 
+        # Assemble raw content list from all
         self._raw_content = [inst_list,
                              self._inst_primitives,
                              rect_list,
@@ -128,11 +142,15 @@ class PhotonicBagLayout(BagLayout):
                              boundary_list,
                              polygon_list,
                              round_list,
+                             self._sim_list,
+                             self._source_list,
+                             self._monitor_list
                              ]
 
         if (not inst_list and not self._inst_primitives and not rect_list and not blockage_list and
                 not boundary_list and not via_list and not self._pin_list and not path_list and
-                not polygon_list and not round_list):
+                not polygon_list and not round_list and not self._sim_list and not self._source_list
+                and not self._monitor_list):
             self._is_empty = True
         else:
             self._is_empty = False
@@ -165,7 +183,8 @@ class PhotonicBagLayout(BagLayout):
 
         cell_name = rename_fun(cell_name)
         (inst_list, inst_prim_list, rect_list, via_list, pin_list,
-         path_list, blockage_list, boundary_list, polygon_list, round_list) = self._raw_content
+         path_list, blockage_list, boundary_list, polygon_list, round_list,
+         sim_list, source_list, monitor_list) = self._raw_content
 
         # update library name and apply layout cell renaming on instances
         inst_tot_list = []
@@ -202,7 +221,8 @@ class PhotonicBagLayout(BagLayout):
             return cell_name, oa_layout
         else:
             ans = [cell_name, inst_tot_list, rect_list, via_list, pin_list, path_list,
-                   blockage_list, boundary_list, polygon_list, round_list, ]
+                   blockage_list, boundary_list, polygon_list, round_list,
+                   sim_list, source_list, monitor_list]
             return ans
 
     def move_all_by(self, dx=0.0, dy=0.0, unit_mode=False):
@@ -224,7 +244,8 @@ class PhotonicBagLayout(BagLayout):
         for obj in chain(self._inst_list, self._inst_primitives, self._rect_list,
                          self._via_primitives, self._via_list, self._pin_list,
                          self._path_list, self._blockage_list, self._boundary_list,
-                         self._polygon_list, self._round_list, ):
+                         self._polygon_list, self._round_list,
+                         self._sim_list, self._source_list, self._monitor_list):
             obj.move_by(dx=dx, dy=dy, unit_mode=unit_mode)
 
     def add_round(self,
@@ -242,6 +263,27 @@ class PhotonicBagLayout(BagLayout):
 
         self._round_list.append(round_obj)
 
+    def add_sim_obj(self, sim_obj):
+        """ Add a new Lumerical simulation object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._sim_list.append(sim_obj)
+
+    def add_source_obj(self, source_obj):
+        """ Add a new Lumerical source object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._source_list.append(source_obj)
+
+    def add_monitor_obj(self, monitor_obj):
+        """ Add a new Lumerical monitor object to the db """
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        self._monitor_list.append(monitor_obj)
+
 
 class PTech:
     def __init__(self):
@@ -258,3 +300,243 @@ class PTech:
 
     def use_flip_parity(self):
         pass
+
+
+class CoordBase:
+    """
+    A class representing the basic unit of measurement for all objects in BPG.
+
+    All user-facing values are assumed to be floating point numbers in units of microns. BAG internal functions
+    assume that we receive 'unit-mode' numbers, which are integers in units of nanometers. Both formats are supported.
+    """
+
+    res = Decimal('1e-3')  # resolution for all numbers in BPG is 1nm
+    micron = Decimal('1e-6')  # size of 1 micron in meters
+    __slots__ = ['_value']
+
+    def __new__(cls, value, *args, **kwargs):
+        """ Assumes a floating point input value in microns, stores an internal integer representation on grid """
+        self = object.__new__(cls)  # Create the immutable instance
+        self._value = round(Decimal(str(value)) / CoordBase.res)
+        return self
+
+    def __repr__(self):
+        return 'CoordBase({})'.format(self.float)
+
+    @property
+    def value(self):
+        return self._value
+
+    @property
+    def unit_mode(self):
+        return self.value
+
+    @property
+    def float(self):
+        """ Returns the rounded floating point number closest to a valid point on the resolution grid """
+        return float(self.value * CoordBase.res)
+
+    @property
+    def microns(self):
+        return self.float
+
+    @property
+    def meters(self):
+        """ Returns the rounded floating point number in meters closest to a valid point on the resolution grid """
+        return float(self.value * CoordBase.res * CoordBase.micron)
+
+
+class XY:
+    """
+    A class representing a single point on the XY plane
+    """
+
+    __slots__ = ['_x', '_y']
+
+    def __new__(cls, xy, *args, **kwargs):
+        """ Assumes a floating point input value in microns for each dimension """
+        self = object.__new__(cls)  # Create the immutable instance
+        self._x = CoordBase(xy[0])
+        self._y = CoordBase(xy[1])
+        return self
+
+    @property
+    def x(self):
+        return self._x.unit_mode
+
+    @property
+    def y(self):
+        return self._y.unit_mode
+
+    @property
+    def xy(self):
+        return [self.x, self.y]
+
+    @property
+    def xy_float(self):
+        return [self._x.float, self._y.float]
+
+    @property
+    def x_float(self):
+        return self._x.float
+
+    @property
+    def y_float(self):
+        return self._y.float
+
+    @property
+    def xy_meters(self):
+        return [self._x.meters, self._y.meters]
+
+    @property
+    def x_meters(self):
+        return self._x.meters
+
+    @property
+    def y_meters(self):
+        return self._y.meters
+
+
+class XYZ:
+    """
+    A class representing a single point on the XYZ space
+    """
+
+    __slots__ = ['_x', '_y', '_z']
+
+    def __new__(cls, xyz, *args, **kwargs):
+        """ Assumes a floating point input value in microns for each dimension """
+        self = object.__new__(cls)  # Create the immutable instance
+        self._x = CoordBase(xyz[0])
+        self._y = CoordBase(xyz[1])
+        self._z = CoordBase(xyz[2])
+        return self
+
+    @property
+    def x(self):
+        return self._x.unit_mode
+
+    @property
+    def y(self):
+        return self._y.unit_mode
+
+    @property
+    def z(self):
+        return self._z.unit_mode
+
+    @property
+    def xyz(self):
+        return [self.x, self.y, self.z]
+
+    @property
+    def x_float(self):
+        return self._x.float
+
+    @property
+    def y_float(self):
+        return self._y.float
+
+    @property
+    def z_float(self):
+        return self._z.float
+
+    @property
+    def xyz_float(self):
+        return [self._x.float, self._y.float, self._z.float]
+
+    @property
+    def x_meters(self):
+        return self._x.meters
+
+    @property
+    def y_meters(self):
+        return self._y.meters
+
+    @property
+    def z_meters(self):
+        return self._z.meters
+
+    @property
+    def xyz_meters(self):
+        return [self._x.meters, self._y.meters, self._z.meters]
+
+
+class Plane:
+    """
+    A class representing a plane that is orthogonal to one of the cardinal axes
+
+    TODO: Implement this class
+    """
+    def __init__(self):
+        pass
+
+
+class Box:
+    """
+    A class representing a 3D rectangle
+    """
+    def __init__(self):
+        self.geometry = {
+            'x': {'center': 0.0, 'span': 0.0},
+            'y': {'center': 0.0, 'span': 0.0},
+            'z': {'center': 0.0, 'span': 0.0}
+        }
+
+    ''' Configuration Methods '''
+    ''' USE THESE METHODS TO SETUP THE SIMULATION '''
+
+    def move_by(self, dx, dy, unit_mode=False):
+        if unit_mode is True:
+            raise ValueError('Boxes dont currently support unit mode movement')
+
+        self.geometry['x']['center'] += dx
+        self.geometry['y']['center'] += dy
+
+    def set_center_span(self, dim, center, span):
+        """
+        Sets the center and span of a given geometry dimension
+
+        Parameters
+        ----------
+        dim : str
+            'x', 'y', or 'z' for the corresponding dimension
+        center : float
+            coordinate location of the center of the geometry
+        span : float
+            length of the geometry along the dimension
+        """
+
+        self.geometry[dim]['center'] = center
+        self.geometry[dim]['span'] = span
+
+    def set_span(self, dim, span):
+        """
+        Sets the span of a given geometry dimension
+
+        Parameters
+        ----------
+        dim : str
+            'x', 'y', or 'z' for the corresponding dimension
+        span : float
+            length of the geometry along the dimension
+        """
+        self.geometry[dim]['span'] = span
+
+    def align_to_port(self,
+                      port,  # type: PhotonicPort
+                      offset=(0, 0),  # type: Tuple,
+                      ):
+        """
+        Moves the center of the simulation object to align to the provided photonic port
+
+        Parameters
+        ----------
+        port : PhotonicPort
+            Photonic port for the simulation object to be aligned to
+        offset : Tuple
+            (x, y) offset relative to the port location
+        """
+        center = port.center_unit
+        self.geometry['x']['center'] = center[0]
+        self.geometry['y']['center'] = center[1]
+

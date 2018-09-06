@@ -19,7 +19,7 @@ from BPG.photonic_core import PhotonicBagLayout
 from .photonic_port import PhotonicPort
 from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
     PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath
-from BPG import LumericalGenerator
+from BPG import LumericalDesignGenerator
 from collections import OrderedDict
 from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
 
@@ -75,6 +75,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.content_list = None
         # Variable where flattened layout content will be stored, in BAG content list format
         self.flat_content_list = None
+        self.flat_content_list_separate = None
         # Variable where flattened layout content will be stored, by layer.
         # Format is a dictionary whose keys are LPPs, and whose values are BAG content list format
         self.flat_content_list_by_layer = {}  # type: Dict[Tuple(str, str), List]
@@ -202,7 +203,8 @@ class PhotonicTemplateDB(TemplateDB):
         start = time.time()
         for content in content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list,
+             sim_list, source_list, monitor_list) = content
             gds_cell = gdspy.Cell(cell_name, exclude_from_current=True)
             gds_lib.add(gds_cell)
 
@@ -360,10 +362,7 @@ class PhotonicTemplateDB(TemplateDB):
 
     def to_lumerical(self, debug=False):
         """ Export the drawn layout to the LSF format """
-        lsfwriter = LumericalGenerator()
         tech_info = self.grid.tech_info
-        lay_unit = tech_info.layout_unit
-        res = tech_info.resolution
 
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
@@ -377,12 +376,19 @@ class PhotonicTemplateDB(TemplateDB):
         if self.flat_content_list is None:
             raise ValueError('Please generate a flat GDS before exporting to Lumerical')
 
-        for content in self.flat_content_list:
-            # for content in self.content_list:
+        for count, content in enumerate(self.flat_content_list_separate):
+            lsfwriter = LumericalDesignGenerator(self.lsf_filepath + '_' + str(count))
+
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list,
+             sim_list, source_list, monitor_list) = content
 
             # add rectangles if they are valid lumerical layers
+            if len(rect_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#------------------ ')
+                lsfwriter.add_line('# Adding Rectangles ')
+                lsfwriter.add_line('#------------------ ')
             for rect in rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 if tuple(rect['layer']) in prop_map:
@@ -392,7 +398,7 @@ class PhotonicTemplateDB(TemplateDB):
                                                            spx=rect['arr_spx'], spy=rect['arr_spy'])
                     else:
                         lsf_repr = PhotonicRect.lsf_export(rect['bbox'], layer_prop)
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
             for via in via_list:
                 pass
@@ -408,13 +414,23 @@ class PhotonicTemplateDB(TemplateDB):
                     lsfwriter.add_code(lsf_repr)
 
             # add polygons if they are valid lumerical layers
+            if len(polygon_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#---------------- ')
+                lsfwriter.add_line('# Adding Polygons ')
+                lsfwriter.add_line('#---------------- ')
             for polygon in polygon_list:
                 if tuple(polygon['layer']) in prop_map:
                     layer_prop = prop_map[tuple(polygon['layer'])]
                     lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
             # add rounds if they are valid lumerical layers
+            if len(round_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#-------------- ')
+                lsfwriter.add_line('# Adding Rounds ')
+                lsfwriter.add_line('#-------------- ')
             for round_obj in round_list:
                 if tuple(round_obj['layer']) in prop_map:
                     nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -442,9 +458,40 @@ class PhotonicTemplateDB(TemplateDB):
                             layer_prop=layer_prop,
                             center=round_obj['center'],
                         )
-                    lsfwriter.add_code(lsf_repr)
+                    lsfwriter.add_code_block(lsf_repr)
 
-        lsfwriter.export_to_lsf(self.lsf_filepath)
+            # Add simulation objects
+            if len(sim_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#-------------------------- ')
+                lsfwriter.add_line('# Adding Simulation Objects ')
+                lsfwriter.add_line('#-------------------------- ')
+            for sim in sim_list:
+                lsf_repr = sim.lsf_export()
+                lsfwriter.add_code_block(lsf_repr)
+
+            # Add simulation sources
+            if len(source_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#---------------------- ')
+                lsfwriter.add_line('# Adding Source Objects ')
+                lsfwriter.add_line('#---------------------- ')
+            for source in source_list:
+                lsf_repr = source.lsf_export()
+                lsfwriter.add_code_block(lsf_repr)
+
+            # Add simulation monitors
+            if len(monitor_list) != 0:
+                lsfwriter.add_line(' ')
+                lsfwriter.add_line('#----------------------- ')
+                lsfwriter.add_line('# Adding Monitor Objects ')
+                lsfwriter.add_line('#----------------------- ')
+            for monitor in monitor_list:
+                lsf_repr = monitor.lsf_export()
+                lsfwriter.add_code_block(lsf_repr)
+
+            lsfwriter.export_to_lsf()
+
         end = time.time()
         if debug:
             print('LSF Generation took %.4g seconds' % (end - start))
@@ -455,7 +502,8 @@ class PhotonicTemplateDB(TemplateDB):
                                  lib_name='',  # type: str
                                  debug=False,  # type: bool
                                  rename_dict=None,  # type: Optional[Dict[str, str]],
-                                 draw_flat_gds=True,
+                                 draw_flat_gds=True,  # type: bool
+                                 sort_by_layer=True,  # type: bool
                                  ) -> None:
         """
         Create all given masters in the database to a flat hierarchy.
@@ -530,7 +578,7 @@ class PhotonicTemplateDB(TemplateDB):
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        list_of_contents = ['', [], [], [], [], [], [], [], [], [], ]
+        list_of_contents = ['', [], [], [], [], [], [], [], [], [], [], [], []]
         for content in content_list:
             for i, data in enumerate(content):
                 list_of_contents[i] += data
@@ -538,11 +586,14 @@ class PhotonicTemplateDB(TemplateDB):
         list_of_contents = [(list_of_contents[0], list_of_contents[1], list_of_contents[2],
                              list_of_contents[3], list_of_contents[4], list_of_contents[5],
                              list_of_contents[6], list_of_contents[7], list_of_contents[8],
-                             list_of_contents[9],)]
+                             list_of_contents[9], list_of_contents[10], list_of_contents[11],
+                             list_of_contents[12])]
 
         self.flat_content_list = list_of_contents
+        self.flat_content_list_separate = content_list
 
-        self.sort_flat_content_by_layers()
+        if sort_by_layer is True:
+            self.sort_flat_content_by_layers()
 
         if debug:
             print('master content retrieval took %.4g seconds' % (end - start))
@@ -571,10 +622,12 @@ class PhotonicTemplateDB(TemplateDB):
         master_content = master.get_content(self.lib_name, self.format_cell_name)
 
         (master_name, master_subinstances, new_rect_list, new_via_list, new_pin_list, new_path_list,
-         new_blockage_list, new_boundary_list, new_polygon_list, new_round_list) = master_content
+         new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
+         new_sim_list, new_source_list, new_monitor_list) = master_content
 
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
-                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
+                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
+                            new_sim_list, new_source_list, new_monitor_list)
 
         # For each instance in this level, recurse to get all its content
         for child_instance_info in master_subinstances:
@@ -635,7 +688,8 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('In _transform_child_content')
 
-        (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,) = content
+        (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,
+         sim_list, source_list, monitor_list) = content
 
         new_rect_list = []
         new_via_list = []
@@ -645,6 +699,9 @@ class PhotonicTemplateDB(TemplateDB):
         new_boundary_list = []
         new_polygon_list = []
         new_round_list = []
+        new_sim_list = []
+        new_source_list = []
+        new_monitor_list = []
 
         # add rectangles
         for rect in rect_list:
@@ -743,8 +800,18 @@ class PhotonicTemplateDB(TemplateDB):
                 ).content
             )
 
+        for sim in sim_list:
+            new_sim_list.append(sim)
+
+        for source in source_list:
+            new_sim_list.append(source)
+
+        for monitor in monitor_list:
+            new_sim_list.append(monitor)
+
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
-                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list)
+                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
+                            new_sim_list, new_source_list, new_monitor_list)
 
         return new_content_list
 
@@ -800,18 +867,20 @@ class PhotonicTemplateDB(TemplateDB):
         """
 
         (cell_name, _, rect_list, via_list, pin_list, path_list,
-         blockage_list, boundary_list, polygon_list, round_list) = self.flat_content_list[0]
+         blockage_list, boundary_list, polygon_list, round_list,
+         sim_list, source_list, monitor_list) = self.flat_content_list[0]
 
         used_layers = []
         offset = 2
 
         for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
-                                                      blockage_list, boundary_list, polygon_list, round_list]):
+                                                      blockage_list, boundary_list, polygon_list, round_list,
+                                                      sim_list, source_list, monitor_list]):
             for content_item in list_content:
                 layer = tuple(content_item['layer'])
                 if layer not in used_layers:
                     used_layers.append(layer)
-                    self.flat_content_list_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [])
+                    self.flat_content_list_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [], [], [], [])
                 self.flat_content_list_by_layer[layer][offset + list_type_ind].append(content_item)
 
     def to_polygon_pointlist_from_content_list(self,
@@ -1320,6 +1389,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
+        # TODO: Require layer name as input
 
         # Create a temporary port object unless one is passed as an argument
         if port is None:
@@ -1472,6 +1542,18 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         self._layout.add_instance(inst)
         return inst
+
+    def add_sim_obj(self, sim_obj):
+        """ Add a new Lumerical simulation object to the db """
+        self._layout.add_sim_obj(sim_obj)
+
+    def add_source_obj(self, source_obj):
+        """ Add a new Lumerical source object to the db """
+        self._layout.add_sim_obj(source_obj)
+
+    def add_monitor_obj(self, monitor_obj):
+        """ Add a new Lumerical monitor object to the db """
+        self._layout.add_sim_obj(monitor_obj)
 
     def add_instances_port_to_port(self,
                                    inst_master,  # type: PhotonicTemplateBase
