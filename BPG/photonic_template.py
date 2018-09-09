@@ -37,7 +37,6 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-
 # SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first Manhattanized). We can do this, but it
 # will be slow. Instead, we think it is OK to NOT Manhattanize pre-data-prep, perform the growth/shrink functions on
 # non-Manhattanized shapes, then Manhattanize at the very end. This should be faster
@@ -914,7 +913,8 @@ class PhotonicTemplateDB(TemplateDB):
         start = time.time()
         for content in content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list) = content
+             path_list, blockage_list, boundary_list, polygon_list, round_list,
+             sim_list, source_list, monitor_list) = content
 
             # add instances
             for inst_info in inst_tot_list:
@@ -1025,7 +1025,7 @@ class PhotonicTemplateDB(TemplateDB):
             start = time.time()
 
             # TODO: fix Manhattan size
-            if push_portshapes_through_dataprep or layer[1] != 'port':
+            if push_portshapes_through_dataprep or layer[1] != 'port' or layer[1] != 'label':
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
