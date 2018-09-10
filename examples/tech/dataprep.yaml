@@ -1,5 +1,4 @@
-
-
+# Example dataprep specification
 
 dataprep_groups:
   - lpp_in:
