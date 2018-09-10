@@ -4,7 +4,7 @@
 project_name: add_rect
 
 # Output Settings
-lsf_filename: add_rect.lsf
+lsf_filename: add_rect
 gds_filename: Output
 
 # Generator Params

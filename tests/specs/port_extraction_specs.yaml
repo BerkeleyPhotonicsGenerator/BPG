@@ -13,7 +13,7 @@ gds_filename: Output
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.port_extraction'
+layout_package: 'port_extraction'
 # Layout generator class name
 layout_class: 'PortExtraction'
 
