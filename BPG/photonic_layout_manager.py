@@ -52,9 +52,16 @@ class PhotonicLayoutManager(DesignManager):
         # Setup the dataprep procedure
         if 'dataprep' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_path = bag_work_dir / self.specs['dataprep']
+            self.lsf_export_path = bag_work_dir / self.specs['dataprep']
         else:
-            self.dataprep_path = self.prj.dataprep_path
+            self.lsf_export_path = self.prj.dataprep_path
+
+        # Setup the lumerical export map
+        if 'lsf_export_map' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.dataprep_path = bag_work_dir / self.specs['lsf_export_map']
+        else:
+            self.dataprep_path = self.prj.lsf_export_path
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -77,7 +84,8 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
                                       gds_lay_file=self.layermap_path, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_path)
+                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_path,
+                                      lsf_export_filepath=self.lsf_export_path)
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """

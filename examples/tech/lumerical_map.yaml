@@ -1,6 +1,17 @@
+# Mapping from design layers to photonic layers
 
+# Perform mapping from design layers to required foundry layers for accurate simulation
+dataprep_groups:
+  # Place buried oxide and cladding around all areas covered by Si
+  - lpp_in:
+      - !!python/tuple ['SI', 'phot']
+    lpp_ops:
+      - !!python/tuple ['BOX', 'phot', 'add', 0.0]
+      - !!python/tuple ['CLAD', 'phot', 'add', 0.0]
 
-# TODO: Add properties for other layers
+# Don't use final OUUO operation
+over_under_under_over:
+
 # Map between each GDS layer and its properties in Lumerical
 lumerical_prop_map:
   !!python/tuple [SI, phot]:
@@ -19,5 +30,4 @@ lumerical_prop_map:
     z_max: !!python/float 2
     alpha: .25
     mesh_order: 3
-
 
