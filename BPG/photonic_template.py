@@ -1000,10 +1000,24 @@ class PhotonicTemplateDB(TemplateDB):
                                                  polygon_content_list, [])]
 
     def dataprep(self,
-                 debug=False,  # type: bool
-                 push_portshapes_through_dataprep=False,  # type: bool
-                 ):
+                 debug: bool=False,
+                 push_portshapes_through_dataprep: bool=False,
+                 ) -> None:
         """
+        Takes the flat content list and performs the specified transformations on the shapes for the purpose
+        of cleaning DRC and prepping tech specific functions.
+
+        Algorithm
+        ---------
+        1) Take the shapes in the flattened content list and convert them to gdspy format
+        2) Parse the dataprep spec file to extract the desired procedure defined through dataprep_groups
+        3) Perform each dataprep operation on the provided layers in order. dataprep_groups is a list
+        where each element contains 2 other lists:
+            3a) lpp_in defines the layers that the operation will be performed on
+            3b) lpp_ops defines the operation to be performed
+            3c) Maps the operation in the spec file to its gdspy implementation and performs it
+        4) Performs a final over_under_under_over operation
+        5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
 
         Parameters
         ----------
@@ -1011,43 +1025,35 @@ class PhotonicTemplateDB(TemplateDB):
             True to print debug information
         push_portshapes_through_dataprep : bool
             True to perform dataprep and convert the port indicator shapes
-
-        Returns
-        -------
-
         """
 
-        # Convert layer shapes to gdspy polygon format
+        # 1) Convert layer shapes to gdspy polygon format
+        start = time.time()
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             if debug:
-                print("Converting layer content to gdspy:  Layer {}".format(layer)
-                      )
-            start = time.time()
-
+                print("Converting layer content to gdspy:  Layer {}".format(layer))
             # TODO: fix Manhattan size
             if push_portshapes_through_dataprep or layer[1] != 'port' or layer[1] != 'label':
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING
+                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
                 )
-
-            end = time.time()
             if debug:
-                print(
-                    "Converting layer coordinate list to gdspy:  Layer {}  took {}s".format(
-                        layer, end - start
-                    )
-                )
+                end = time.time()
+                print("Converting layer coordinate list to gdspy:  Layer {}  took {}s".format(layer, end - start))
 
+        # 2) Parse the dataprep specification file
         with open(self.dataprep_file, 'r') as f:
             dataprep_info = yaml.load(f)
 
+        # 3) Perform each dataprep operation in the list on the provided layers in order
         start = time.time()
         for dataprep_group in dataprep_info['dataprep_groups']:
+            # 3a) Iteratively perform operations on all layers in lpp_in
             for lpp_in in dataprep_group['lpp_in']:
                 shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
-
+                # 3b) Iteratively perform each operation on the current lpp_in
                 for lpp_op in dataprep_group['lpp_ops']:
                     out_layer = (lpp_op[0], lpp_op[1])
                     operation = lpp_op[2]
@@ -1057,26 +1063,24 @@ class PhotonicTemplateDB(TemplateDB):
                         print("Doing dataprep op: {}  on layer {}  to "
                               "layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
 
+                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
                     new_out_layer_polygons = poly_operation(
                         polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH_DURING_OP
+                        do_manh=GLOBAL_DO_MANH_DURING_OP,
                     )
 
                     # Update the layer's content
                     if new_out_layer_polygons is not None:
                         self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
-        end = time.time()
-
         if debug:
+            end = time.time()
             print('All dataprep polygon operations took {}s'.format(end-start))
 
+        # 4) Perform a final over_under_under_over operation
         start = time.time()
-        if debug:
-            print('Performing final OUUO')
-
         if dataprep_info['over_under_under_over'] is None:
             dataprep_info['over_under_under_over'] = []
 
@@ -1089,32 +1093,30 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                do_manh=GLOBAL_DO_MANH_AT_BEGINNING
+                do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
             )
 
             if new_out_layer_polygons is not None:
                 self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
-
-        end = time.time()
         if debug:
+            end = time.time()
             print('Final OUUO took  {}s'.format(end-start))
             print('Starting gdspy/shapely polygon to polygon pointlist conversion')
 
+        # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
         start = time.time()
-
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
                                                        fracture=True,
                                                        do_manh=GLOBAL_DO_FINAL_MANH,
                                                        manh_grid_size=self.grid.resolution,
-                                                       debug=debug)
-
+                                                       debug=debug,
+                                                       )
             new_shapes = []
             for shape in output_shapes:
                 shape = tuple(map(tuple, shape))
                 new_shapes.append([coord for coord in shape])
-
             self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
 
         self.by_layer_polygon_list_to_flat_for_gds_export()
