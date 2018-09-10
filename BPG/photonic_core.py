@@ -1,13 +1,9 @@
 import os
-import string
-import yaml
-
 import bag
 import bag.io
 
 from bag.core import BagProject, create_tech_info
-from decimal import *
-from bag.core import BagProject
+from decimal import Decimal
 from bag.layout.core import BagLayout
 from .photonic_port import PhotonicPort
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
@@ -41,7 +37,6 @@ class PhotonicBagProject(BagProject):
     """
 
     def __init__(self, bag_config_path=None, port=None):
-
         # Setup bag config path from env if not provided
         if bag_config_path is None:
             if 'BAG_CONFIG_PATH' not in os.environ:
@@ -49,17 +44,38 @@ class PhotonicBagProject(BagProject):
             else:
                 bag_config_path = os.environ['BAG_CONFIG_PATH']
 
-        # Load configuration variables
+        # Load core configuration variables
         self.bag_config = self.load_yaml(bag_config_path)
-        self.bpg_config = self.bag_config['bpg_config']
+        if 'bpg_config' in self.bag_config:
+            self.bpg_config = self.bag_config['bpg_config']
+        else:
+            raise ValueError('bpg configuration vars not set in bag_config.yaml')
 
-        # Extract relevant paths
-        self.layermap_path = self.bpg_config['layermap']
-        self.dataprep_path = self.bpg_config['dataprep']
+        # Extract relevant tech configuration paths
+        # TODO: Don't use hardcoded paths...
+        try:
+            self.layermap_path = self.bpg_config['layermap']
+        except KeyError:
+            print('WARNING: Loading generic BPG layermap')
+            self.layermap_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/gds_map.yaml'
+
+        try:
+            self.dataprep_path = self.bpg_config['dataprep']
+        except KeyError:
+            print('WARNING: Loading generic BPG dataprep routine')
+            self.dataprep_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/dataprep.yaml'
+
+        try:
+            self.lsf_export_path = self.bpg_config['lsf_dataprep']
+        except KeyError:
+            print('WARNING: Loading generic lumerical export routine')
+            self.lsf_export_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/lumerical_map.yaml'
 
         # Grab technology information
+        # TODO: Make the tech class loading generic again
         print('Doing tech info setup')
-        self.tech_info = create_tech_info(bag_config_path=bag_config_path)
+        self.tech_info = PTech()
+        #self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
     @staticmethod
     def load_yaml(filepath):
@@ -539,4 +555,3 @@ class Box:
         center = port.center_unit
         self.geometry['x']['center'] = center[0]
         self.geometry['y']['center'] = center[1]
-
