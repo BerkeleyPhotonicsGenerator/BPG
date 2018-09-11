@@ -52,16 +52,16 @@ class PhotonicLayoutManager(DesignManager):
         # Setup the dataprep procedure
         if 'dataprep' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.lsf_export_path = bag_work_dir / self.specs['dataprep']
+            self.dataprep_path = bag_work_dir / self.specs['dataprep']
         else:
-            self.lsf_export_path = self.prj.dataprep_path
+            self.dataprep_path = self.prj.dataprep_path
 
         # Setup the lumerical export map
         if 'lsf_export_map' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_path = bag_work_dir / self.specs['lsf_export_map']
+            self.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
         else:
-            self.dataprep_path = self.prj.lsf_export_path
+            self.lsf_export_path = self.prj.lsf_export_path
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -76,6 +76,7 @@ class PhotonicLayoutManager(DesignManager):
         """
         lib_name = self.specs['impl_lib']
         # Input dummy values for these parameters, we wont be using the grid in BPG
+        # TODO: Allow layer properties to be extracted from the spec file
         layers = [3, 4, 5]
         spaces = [0.1, 0.1, 0.2]
         widths = [0.1, 0.1, 0.2]
@@ -120,10 +121,18 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
 
-    def generate_lsf(self, debug=False):
+    def generate_lsf(self,
+                     use_dataprep: bool=False,
+                     debug=False,
+                     ):
         """ Converts generated layout to lsf format for lumerical import """
         print('\n---Generating the design .lsf file---')
-        self.tdb.to_lumerical(debug=debug)
+        self.tdb.to_lumerical(gds_layermap=self.layermap_path,
+                              lsf_export_config=self.lsf_export_path,
+                              lsf_filepath=self.lsf_path,
+                              use_dataprep=use_dataprep,
+                              debug=debug,
+                              )
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
@@ -159,13 +168,13 @@ class PhotonicLayoutManager(DesignManager):
         for lay_params in layout_params_list:
             template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
             temp_list.append(template)
-
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
                                           lib_name='',
                                           debug=debug,
                                           rename_dict=None,
-                                          draw_flat_gds=generate_gds,)
+                                          draw_flat_gds=generate_gds,
+                                          )
 
         # Create the design LSF file
         self.tdb.to_lumerical(debug=debug)
@@ -232,27 +241,28 @@ class PhotonicLayoutManager(DesignManager):
                                           lib_name='',
                                           debug=debug,
                                           rename_dict=None,
-                                          draw_flat_gds=generate_gds)
+                                          draw_flat_gds=generate_gds,
+                                          )
 
     def dataprep(self, debug=False):
         """
-
         Parameters
         ----------
         debug : bool
             True to print debug information
         Returns
         -------
-
         """
         print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
-
-        self.tdb.dataprep(debug=debug)
-
+        self.tdb.dataprep(dataprep_file=self.dataprep_path,
+                          debug=debug,
+                          push_portshapes_through_dataprep=False,
+                          )
         self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
                                       content_list=self.tdb.post_dataprep_flat_content_list,
-                                      debug=debug)
+                                      debug=debug,
+                                      )
 
     @staticmethod
     def load_yaml(filepath):

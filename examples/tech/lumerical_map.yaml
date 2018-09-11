@@ -6,8 +6,8 @@ dataprep_groups:
   - lpp_in:
       - !!python/tuple ['SI', 'phot']
     lpp_ops:
-      - !!python/tuple ['BOX', 'phot', 'add', 0.0]
-      - !!python/tuple ['CLAD', 'phot', 'add', 0.0]
+      - !!python/tuple ['BOX', 'phot', 'rad', 5.0]
+      - !!python/tuple ['CLAD', 'phot', 'rad', 5.0]
 
 # Don't use final OUUO operation
 over_under_under_over:
