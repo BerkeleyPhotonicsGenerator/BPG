@@ -33,26 +33,6 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
         width = self.params['width']
         length = self.params['length']
 
-        # Add cladding
-        clad = self.add_rect(layer='CLAD',
-                             bbox=BBox(left=-.5 * length,
-                                       bottom=-.5 * length,
-                                       right=.5 * length,
-                                       top=.5 * length,
-                                       resolution=self.grid.resolution,
-                                       unit_mode=False)
-                             )
-
-        # Add buried oxide layer
-        box = self.add_rect(layer='BOX',
-                            bbox=BBox(left=-.5 * length,
-                                      bottom=-.5 * length,
-                                      right=.5 * length,
-                                      top=.5 * length,
-                                      resolution=self.grid.resolution,
-                                      unit_mode=False)
-                            )
-
         # Add waveguide
         wg0 = self.add_rect(layer='SI',
                             bbox=BBox(left=-.5 * width,
@@ -71,6 +51,7 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
 
 
 if __name__ == '__main__':
+    """ Unit Test for the waveguide class """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -83,6 +64,6 @@ if __name__ == '__main__':
 
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    # PLM.generate_gds()
     PLM.generate_flat_gds()
-    PLM.generate_lsf()
+    # PLM.generate_lsf()
+    PLM.generate_lsf(use_dataprep=True)
