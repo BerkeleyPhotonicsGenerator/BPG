@@ -118,3 +118,9 @@ lib_defs: "bag_libs.def"
 
 # place to put new design libraries
 new_lib_path: "BagModules"
+
+# Configuration for Berkeley Photonics Generator
+bpg_config:
+#  layermap: INSERT PATH TO LAYERMAP FILE HERE
+#  dataprep: INSERT PATH TO DATAPREP PROCEDURE HERE
+
