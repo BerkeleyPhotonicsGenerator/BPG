@@ -1601,7 +1601,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def add_instances_port_to_port(self,
                                    inst_master,  # type: PhotonicTemplateBase
                                    instance_port_name,  # type: str
-                                   self_port_name,  # type: str
+                                   self_port=None,  # type: Optional[PhotonicPort]
+                                   self_port_name=None,  # type: Optional[str]
                                    instance_name=None,  # type: Optional[str]
                                    reflect=False,  # type: bool
                                    ):
@@ -1609,10 +1610,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         Instantiates a new instance of the inst_master template.
         The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
-        'self_port_name' port of the current hierarchy level.
+        'self_port' or 'self_port_name' port of the current hierarchy level.
 
         The new instance is rotated about the new instance's master's origin until desired port is aligned.
         Optional reflection is performed after rotation, about the port axis.
+
+        The self port being connected to can be specified either by passing a self_port PhotonicPort object,
+        or by passing the self_port_name, which refers to a port that must exist in the current hierarchy level.
 
         Parameters
         ----------
@@ -1620,7 +1624,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the template master to be added
         instance_port_name : str
             the name of the port in the added instance to connect to
-        self_port_name : str
+        self_port : Optional[PhotonicPort]
+            the photonic port object in the current hierarchy to connect to. Has priority over self_port_name
+        self_port_name : Optional[str]
             the name of the port in the current hierarchy to connect to
         instance_name : Optional[str]
             the name to give the new instance
@@ -1634,7 +1640,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # TODO: If ports dont have same width/layer, do we return error?
 
-        if not self.has_photonic_port(self_port_name):
+        if self_port is None and self_port_name is None:
+            raise ValueError('Either self_port or self_port_name must be specified')
+
+        if self_port_name and not self.has_photonic_port(self_port_name):
             raise ValueError('Photonic port ' + self_port_name + ' does not exist in '
                              + self.__class__.__name__)
 
@@ -1642,7 +1651,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             raise ValueError('Photonic port ' + instance_port_name + ' does not exist in '
                              + inst_master.__class__.__name__)
 
-        my_port = self.get_photonic_port(self_port_name)
+        # self_port has priority over self_port_name if both are specified
+        if self_port:
+            my_port = self_port
+        else:
+            my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
         tmp_port_point = new_port.center_unit
 

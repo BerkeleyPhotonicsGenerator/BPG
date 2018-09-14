@@ -46,7 +46,7 @@ class PhotonicInstanceInfo(InstanceInfo):
 
 
 class PhotonicInstance(Instance):
-    """A layout instance, with optional arraying parameters.
+    """A photonic layout instance, with optional arraying parameters.
 
     Parameters
     ----------
@@ -94,7 +94,10 @@ class PhotonicInstance(Instance):
         self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
         self._photonic_port_creator()
 
-    def __getitem__(self, item):
+    def __getitem__(self,
+                    item,  # type: str
+                    ):
+        # type: (...) -> PhotonicPort
         """ Allow dictionary syntax to grab photonic ports """
         return self.get_photonic_port(name=item)
 
