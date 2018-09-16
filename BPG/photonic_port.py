@@ -57,6 +57,11 @@ class PhotonicPort:
         self._width_unit = width
         self._orientation = orientation
 
+    def __repr__(self):
+        return "PhotonicPort: name: {}, layer: {}, location: ({}, {})".format(
+            self.name, self.layer, self.center[0], self.center[1]
+        )
+
     @property
     def used(self):
         """Returns True if port is used"""
