@@ -40,14 +40,14 @@ coord_type = Tuple[dim_type, dim_type]
 # SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first Manhattanized). We can do this, but it
 # will be slow. Instead, we think it is OK to NOT Manhattanize pre-data-prep, perform the growth/shrink functions on
 # non-Manhattanized shapes, then Manhattanize at the very end. This should be faster
-GLOBAL_DO_MANH_AT_BEGINNING = False
+GLOBAL_DO_MANH_AT_BEGINNING = True
 
 # SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
 GLOBAL_DO_MANH_DURING_OP = True
 
 # True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
 # set, GLOBAL_DO_FINAL_MANH can be False, and we will still have Manhattanized shapes on Manhattan grid
-GLOBAL_DO_FINAL_MANH = False
+GLOBAL_DO_FINAL_MANH = True
 
 
 class PhotonicTemplateDB(TemplateDB):
