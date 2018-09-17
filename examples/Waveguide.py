@@ -66,3 +66,4 @@ if __name__ == '__main__':
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_flat_gds()
     PLM.generate_lsf(use_dataprep=True)
+    # PLM.generate_lsf()
