@@ -875,12 +875,51 @@ class PhotonicTemplateDB(TemplateDB):
         for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
                                                       blockage_list, boundary_list, polygon_list, round_list,
                                                       sim_list, source_list, monitor_list]):
-            for content_item in list_content:
-                layer = tuple(content_item['layer'])
-                if layer not in used_layers:
-                    used_layers.append(layer)
-                    self.flat_content_list_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [], [], [], [])
-                self.flat_content_list_by_layer[layer][offset + list_type_ind].append(content_item)
+            if list_type_ind != 1:
+                for content_item in list_content:
+                    layer = tuple(content_item['layer'])
+                    if layer not in used_layers:
+                        used_layers.append(layer)
+                        self.flat_content_list_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [], [], [], [])
+                    self.flat_content_list_by_layer[layer][offset + list_type_ind].append(content_item)
+
+    # TODO: VIAS FOR DATAPREP
+    # TODO
+    # TODO
+    def _via_to_polygon_pointlist(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
+        blay, bpurp = lay_map[via_lay_info['bot_layer']]
+        tlay, tpurp = lay_map[via_lay_info['top_layer']]
+        vlay, vpurp = lay_map[via_lay_info['via_layer']]
+        cw, ch = via.cut_width, via.cut_height
+        if cw < 0:
+            cw = via_lay_info['cut_width']
+        if ch < 0:
+            ch = via_lay_info['cut_height']
+
+        num_cols, num_rows = via.num_cols, via.num_rows
+        sp_cols, sp_rows = via.sp_cols, via.sp_rows
+        w_arr = num_cols * cw + (num_cols - 1) * sp_cols
+        h_arr = num_rows * ch + (num_rows - 1) * sp_rows
+        x0 -= w_arr / 2
+        y0 -= h_arr / 2
+        bl, br, bt, bb = via.enc1
+        tl, tr, tt, tb = via.enc2
+        bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
+        top_p0, top_p1 = (x0 - tl, y0 - tb), (x0 + w_arr + tr, y0 + h_arr + tt)
+
+        cur_rect = gdspy.Rectangle(bot_p0, bot_p1, layer=blay, datatype=bpurp)
+        gds_cell.add(cur_rect)
+        cur_rect = gdspy.Rectangle(top_p0, top_p1, layer=tlay, datatype=tpurp)
+        gds_cell.add(cur_rect)
+
+        for xidx in range(num_cols):
+            dx = xidx * (cw + sp_cols)
+            for yidx in range(num_rows):
+                dy = yidx * (ch + sp_rows)
+                cur_rect = gdspy.Rectangle((x0 + dx, y0 + dy), (x0 + cw + dx, y0 + ch + dy),
+                                           layer=vlay, datatype=vpurp)
+                gds_cell.add(cur_rect)
+
 
     def to_polygon_pointlist_from_content_list(self,
                                                content_list,  # type: List
@@ -910,6 +949,11 @@ class PhotonicTemplateDB(TemplateDB):
         positive_polygon_pointlist = []
         negative_polygon_pointlist = []
 
+        with open(self._gds_lay_file, 'r') as f:
+            lay_info = yaml.load(f)
+            lay_map = lay_info['layer_map']
+            via_info = lay_info['via_info']
+
         start = time.time()
         for content in content_list:
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
@@ -937,8 +981,22 @@ class PhotonicTemplateDB(TemplateDB):
                 negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
 
             # add vias
+            # TODO: VIAS FOR DATAPREP
             for via in via_list:
-                pass
+                via_lay_info = via_info[via.id]
+
+                nx, ny = via.arr_nx, via.arr_ny
+                x0, y0 = via.loc
+                if nx > 1 or ny > 1:
+                    spx, spy = via.arr_spx, via.arr_spy
+                    for xidx in range(nx):
+                        xc = x0 + xidx * spx
+                        for yidx in range(ny):
+                            yc = y0 + yidx * spy
+                            self._via_to_polygon_pointlist(via, lay_map, via_lay_info, xc, yc)
+                else:
+                    self._via_to_polygon_pointlist(via, lay_map, via_lay_info, x0, y0)
+
 
             # add pins
             for pin in pin_list:
