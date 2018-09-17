@@ -58,7 +58,7 @@ class PhotonicBagProject(BagProject):
         except KeyError:
             print('WARNING: Loading generic BPG layermap')
             self.layermap_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/gds_map.yaml'
-
+        # TOOD: check if file exists as well?
         try:
             self.dataprep_path = self.bpg_config['dataprep']
         except KeyError:
@@ -74,8 +74,8 @@ class PhotonicBagProject(BagProject):
         # Grab technology information
         # TODO: Make the tech class loading generic again
         print('Doing tech info setup')
-        self.tech_info = PTech()
-        #self.tech_info = create_tech_info(bag_config_path=bag_config_path)
+        #self.tech_info = PTech()
+        self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
     @staticmethod
     def load_yaml(filepath):
