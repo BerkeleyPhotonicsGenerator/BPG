@@ -70,6 +70,11 @@ class PhotonicBagProject(BagProject):
             print('WARNING: Loading generic lumerical export routine')
             self.lsf_export_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/lumerical_map.yaml'
 
+        try:
+            self.dataprep_params_path = self.bpg_config['dataprep_params']
+        except KeyError:
+            print('WARNING: dataprep params were not found')
+
         # Grab technology information
         # TODO: Make the tech class loading generic again
         print('Doing tech info setup')
