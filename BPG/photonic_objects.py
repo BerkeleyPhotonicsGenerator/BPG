@@ -1508,3 +1508,40 @@ class PhotonicPinInfo(PinInfo):
 
     def __init__(self, res, **kwargs):
         PinInfo.__init__(self, res, **kwargs)
+
+    @classmethod
+    def from_content(cls,
+                     content,
+                     resolution
+                     ):
+        return PhotonicPinInfo(
+            res=resolution,
+            net_name=content['net_name'],
+            pin_name=content['pin_name'],
+            label=content['label'],
+            layer=content['layer'],
+            bbox=content['bbox'],
+            make_rect=content['make_rect']
+        )
+
+    def transform(self,
+                  loc,
+                  orient,
+                  unit_mode,
+                  copy,
+                  ):
+        new_box = self.bbox.transform(loc=loc, orient=orient, unit_mode=unit_mode)
+        new_box = [[new_box.left, new_box.bottom], [new_box.right, new_box.top]]
+        if copy:
+            self.bbox = new_box
+            return self
+        else:
+            return PhotonicPinInfo(
+                res=self._resolution,
+                net_name=self.net_name,
+                pin_name=self.pin_name,
+                label=self.label,
+                layer=self.layer,
+                bbox=new_box,
+                make_rect=self.make_rect
+            )

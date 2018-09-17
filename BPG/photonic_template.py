@@ -18,7 +18,7 @@ from BPG.photonic_core import PhotonicBagLayout
 
 from .photonic_port import PhotonicPort
 from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath
+    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
 from BPG import LumericalDesignGenerator
 from collections import OrderedDict
 from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
@@ -769,8 +769,17 @@ class PhotonicTemplateDB(TemplateDB):
 
         # add pins
         for pin in pin_list:
-            # TODO: pins...
-            new_pin_list.append(pin)
+            new_pin_list.append(
+                PhotonicPinInfo.from_content(
+                    content=pin,
+                    resolution=self.grid.resolution
+                ).transform(
+                    loc=loc,
+                    orient=orient,
+                    unit_mode=unit_mode,
+                    copy=False
+                )
+            )
 
         for path in path_list:
             new_path_list.append(
