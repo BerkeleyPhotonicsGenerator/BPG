@@ -24,8 +24,7 @@ class PhotonicBagProject(BagProject):
     """
     The main bag controller class.
 
-    This class mainly stores all the user configurations, and issue
-    high level bag commands.
+    This class mainly stores all the user configurations, and issues high level bag commands.
 
     Parameters
     ----------

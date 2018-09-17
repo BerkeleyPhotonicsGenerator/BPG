@@ -1592,11 +1592,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
     def add_source_obj(self, source_obj):
         """ Add a new Lumerical source object to the db """
-        self._layout.add_sim_obj(source_obj)
+        self._layout.add_source_obj(source_obj)
 
     def add_monitor_obj(self, monitor_obj):
         """ Add a new Lumerical monitor object to the db """
-        self._layout.add_sim_obj(monitor_obj)
+        self._layout.add_monitor_obj(monitor_obj)
 
     def add_instances_port_to_port(self,
                                    inst_master,  # type: PhotonicTemplateBase
@@ -1632,6 +1632,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the name to give the new instance
         reflect : bool
             True to flip the added instance after rotation
+
         Returns
         -------
         new_inst : PhotonicInstance
