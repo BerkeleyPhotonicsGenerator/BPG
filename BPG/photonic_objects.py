@@ -1298,6 +1298,10 @@ class PhotonicPolygon(Polygon):
                     'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
                     ]
 
+        if 'mesh_order' in layer_prop:
+            lsf_code.append('set("override mesh order from material database", 1);\n')
+            lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
+
         return lsf_code
 
     @classmethod
