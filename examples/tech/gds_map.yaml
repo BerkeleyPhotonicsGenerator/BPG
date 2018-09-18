@@ -10,10 +10,12 @@ layer_map:
   !!python/tuple [SI, test3]: [2, 43]
   !!python/tuple [SI, test4]: [2, 44]
   !!python/tuple [SI, test5]: [2, 45]
+  !!python/tuple [SI, sim]: [2, 46]
   !!python/tuple [POLY, phot]: [4, 0]
   !!python/tuple [POLY, port]: [4, 100]
   !!python/tuple [POLY, drawing]: [4, 50]
   !!python/tuple [POLY, exclude]: [4, 10]
+  !!python/tuple [POLY, sim]: [4, 46]
   !!python/tuple [CA, phot]: [4, 0]
   !!python/tuple [M1, phot]: [5, 0]
   !!python/tuple [V1, phot]: [6, 0]
@@ -27,7 +29,6 @@ layer_map:
   !!python/tuple [RX, port]: [12, 100]
   !!python/tuple [CLAD, phot]: [14, 0]
   !!python/tuple [BOX, phot]: [15, 0]
-  !!python/tuple [SIM, phot]: [16, 0]
 
 # TODO: Complete implementation of gds_invalid_layers
 gds_invalid_layers:
