@@ -20,7 +20,7 @@ class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
         Box.__init__(self)
         LumericalCodeGenerator.__init__(self)
 
-        self.layer = ('SIM', 'phot')  # Attach simulation objects to a separate layer
+        self.layer = ('SI', 'sim')  # Attach simulation objects to a separate layer
 
     ''' Properties '''
 
