@@ -1,4 +1,3 @@
-import pandas as pd
 import scipy.io as sp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,6 +8,8 @@ class FDEAnalysis:
     """
     Class that imports generated FDE data from Lumerical and prepares the data for analysis. Currently only supports
     handling for a single input mode
+
+    NOTE: This is currently not functioning as expected
     """
 
     def __init__(self, data_path):

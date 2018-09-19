@@ -1,6 +1,6 @@
-project_name: Generated_Waveguide
+project_name: Waveguide
 lsf_filename: SingleModeWaveguide
-gds_filename: Output
+gds_filename: SingleModeWaveguide
 
 #------------------
 #   Layout Config

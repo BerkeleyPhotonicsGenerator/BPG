@@ -50,8 +50,10 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
                                layer='SI')
 
 
-if __name__ == '__main__':
-    """ Unit Test for the waveguide class """
+def test_wg():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -65,5 +67,9 @@ if __name__ == '__main__':
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_flat_gds()
-    PLM.generate_lsf(use_dataprep=True)
-    # PLM.generate_lsf()
+    PLM.generate_lsf()
+
+
+if __name__ == '__main__':
+    """ Unit Test for the waveguide class """
+    test_wg()
