@@ -144,7 +144,10 @@ class PortExtraction(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_port_extraction():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -158,3 +161,7 @@ if __name__ == '__main__':
     spec_file = 'BPG/tests/specs/port_extraction_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
+
+
+if __name__ == '__main__':
+    test_port_extraction()

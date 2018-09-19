@@ -2,7 +2,7 @@ import BPG
 from BPG.photonic_objects import PhotonicRound
 
 
-class AddRoundTest(BPG.PhotonicTemplateBase):
+class AddRound(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
                  params,
@@ -68,7 +68,10 @@ class AddRoundTest(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_add_round():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -83,4 +86,9 @@ if __name__ == '__main__':
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     PLM.generate_flat_gds()
+    # PLM.dataprep()
     PLM.generate_lsf()
+
+
+if __name__ == '__main__':
+    test_add_round()

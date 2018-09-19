@@ -90,7 +90,10 @@ class Path(BPG.PhotonicTemplateBase):
         # )
 
 
-if __name__ == '__main__':
+def test_path():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -107,3 +110,7 @@ if __name__ == '__main__':
     # PLM.generate_lsf()
     # PLM.generate_flat_gds(debug=True, generate_gds=True)
     # PLM.dataprep(debug=True)
+
+
+if __name__ == '__main__':
+    test_path()
