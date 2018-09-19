@@ -120,7 +120,10 @@ class TopLevel(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_flatten():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -135,3 +138,7 @@ if __name__ == '__main__':
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     PLM.generate_flat_gds(debug=False)
+
+
+if __name__ == '__main__':
+    test_flatten()

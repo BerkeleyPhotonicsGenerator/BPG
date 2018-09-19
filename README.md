@@ -9,8 +9,6 @@ to get a compatible development file structure with environmental variables, ple
 Locate, pull, and install via https://github.com/pvnbhargava/Photonics_Dev.
 
 # Documentation
-The official BPG user manual can be found [here](docs/BPG_User_Manual.pdf). A readthedocs website will be hosted once
-the repo is made public
+Once cloned, the most up to date BPG user manual can be found at `./BPG/docs/BPG_User_Manual.pdf`. Alternatively, you
+can read it online [here](docs/BPG_User_Manual.pdf). A readthedocs website will be hosted once the repo is made public
 
-# Basic Usage Instructions
-Please navigate to BPG/docs for more information about usage

@@ -1,13 +1,13 @@
 # Test the functionality of ports with various orientations on waveguide objects
 
-project_name: waveguide_port_test
+project_name: bpg_test_suite
 
 # Output Settings
-lsf_filename: waveguide_port_test.lsf
-gds_filename: waveguide_port_test
+lsf_filename: waveguide_port
+gds_filename: waveguide_port
 
 # Generator Params
-layout_package: 'tests.waveguide_and_port_test'
+layout_package: 'tests.test_wg_port'
 # Layout generator class name
 layout_class: 'WaveguideConnectTest'
 

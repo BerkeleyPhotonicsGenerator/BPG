@@ -2,11 +2,11 @@
 
 # Directory Locations
 # Top level directory for the project
-project_name: add_round
+project_name: bpg_test_suite
 
 # Output Settings
-lsf_filename: add_round.lsf
-gds_filename: Output
+lsf_filename: add_round
+gds_filename: add_round
 
 # Cadence related parameters
 impl_lib: 'add_round_lib'
@@ -15,9 +15,9 @@ impl_cell: 'add_round_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.add_round'
+layout_package: 'tests.test_add_round'
 # Layout generator class name
-layout_class: 'AddRoundTest'
+layout_class: 'AddRound'
 
 
 layout_params:  # Place parameters to be passed to the generator class under here

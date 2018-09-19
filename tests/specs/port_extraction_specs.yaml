@@ -3,17 +3,17 @@
 
 # Directory Locations
 # Top level directory for the project
-project_name: port_extraction
+project_name: bpg_test_suite
 
 
 # Output Settings
-lsf_filename: port_extraction.lsf
-gds_filename: Output
+lsf_filename: port_extraction
+gds_filename: port_extraction
 
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'port_extraction'
+layout_package: 'tests.test_port_extraction'
 # Layout generator class name
 layout_class: 'PortExtraction'
 
