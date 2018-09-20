@@ -105,11 +105,10 @@ def test_path():
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/path_test_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
-    # PLM.generate_lsf()
-    # PLM.generate_flat_gds(debug=True, generate_gds=True)
-    # PLM.dataprep(debug=True)
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm.generate_gds()
+    plm.generate_flat_gds()
+    plm.generate_lsf()
 
 
 if __name__ == '__main__':

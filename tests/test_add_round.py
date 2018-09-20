@@ -86,7 +86,6 @@ def test_add_round():
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
     PLM.generate_flat_gds()
-    # PLM.dataprep()
     PLM.generate_lsf()
 
 
