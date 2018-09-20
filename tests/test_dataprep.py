@@ -79,11 +79,9 @@ def test_dataprep():
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    # PLM.generate_gds()
-    # PLM.generate_lsf()
-    PLM.generate_flat_gds(debug=True, generate_gds=True)
-    PLM.dataprep(debug=True)
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm.generate_flat_gds()
+    plm.dataprep()
 
 
 if __name__ == '__main__':

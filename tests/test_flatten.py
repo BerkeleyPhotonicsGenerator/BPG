@@ -135,9 +135,10 @@ def test_flatten():
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/flatten_test_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
-    PLM.generate_flat_gds(debug=False)
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm.generate_gds()
+    plm.generate_flat_gds()
+    plm.generate_lsf()
 
 
 if __name__ == '__main__':
