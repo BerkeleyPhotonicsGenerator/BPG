@@ -488,7 +488,10 @@ class PortTest(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_wg_port():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -500,6 +503,11 @@ if __name__ == '__main__':
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/waveguide_and_port_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM.generate_gds()
-    # PLM.generate_lsf()
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm.generate_gds()
+    plm.generate_flat_gds()
+    plm.generate_lsf()
+
+
+if __name__ == '__main__':
+    test_wg_port()

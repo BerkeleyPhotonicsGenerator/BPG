@@ -122,7 +122,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
 
     def generate_lsf(self,
-                     use_dataprep: bool=False,
                      debug=False,
                      ):
         """ Converts generated layout to lsf format for lumerical import """
@@ -130,7 +129,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(gds_layermap=self.layermap_path,
                               lsf_export_config=self.lsf_export_path,
                               lsf_filepath=self.lsf_path,
-                              use_dataprep=use_dataprep,
                               debug=debug,
                               )
 
@@ -177,7 +175,11 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
         # Create the design LSF file
-        self.tdb.to_lumerical(debug=debug)
+        self.tdb.to_lumerical(gds_layermap=self.layermap_path,
+                              lsf_export_config=self.lsf_export_path,
+                              lsf_filepath=self.lsf_path,
+                              debug=debug,
+                              )
 
         # Create the sweep LSF file
         filepath = self.tdb.lsf_filepath + '_sweep'

@@ -2,6 +2,7 @@ import os
 import bag
 import bag.io
 
+from pathlib import Path
 from bag.core import BagProject, create_tech_info
 from decimal import Decimal
 from bag.layout.core import BagLayout
@@ -24,8 +25,8 @@ class PhotonicBagProject(BagProject):
     """
     The main bag controller class.
 
-    This class mainly stores all the user configurations, and issue
-    high level bag commands.
+    This class extracts user configuration variables and issues high level bag commands. Most config variables have
+    defaults pointing to files in the BPG/examples/tech folder
 
     Parameters
     ----------
@@ -37,6 +38,9 @@ class PhotonicBagProject(BagProject):
     """
 
     def __init__(self, bag_config_path=None, port=None):
+        # Get the main working directory to be used for all relative paths
+        root_path = os.environ['BAG_WORK_DIR']
+
         # Setup bag config path from env if not provided
         if bag_config_path is None:
             if 'BAG_CONFIG_PATH' not in os.environ:
@@ -44,7 +48,7 @@ class PhotonicBagProject(BagProject):
             else:
                 bag_config_path = os.environ['BAG_CONFIG_PATH']
 
-        # Load core configuration variables
+        # Load core bpg configuration variables from bag_config file
         self.bag_config = self.load_yaml(bag_config_path)
         if 'bpg_config' in self.bag_config:
             self.bpg_config = self.bag_config['bpg_config']
@@ -52,29 +56,31 @@ class PhotonicBagProject(BagProject):
             raise ValueError('bpg configuration vars not set in bag_config.yaml')
 
         # Extract relevant tech configuration paths
-        # TODO: Don't use hardcoded paths...
-        try:
-            self.layermap_path = self.bpg_config['layermap']
-        except KeyError:
-            print('WARNING: Loading generic BPG layermap')
-            self.layermap_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/gds_map.yaml'
-        # TOOD: check if file exists as well?
-        try:
-            self.dataprep_path = self.bpg_config['dataprep']
-        except KeyError:
-            print('WARNING: Loading generic BPG dataprep routine')
-            self.dataprep_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/dataprep.yaml'
 
-        try:
-            self.lsf_export_path = self.bpg_config['lsf_dataprep']
-        except KeyError:
-            print('WARNING: Loading generic lumerical export routine')
-            self.lsf_export_path = os.environ['BAG_WORK_DIR'] + '/BPG/examples/tech/lumerical_map.yaml'
+        self.layermap_path = self.bpg_config.get('layermap', root_path + '/BPG/examples/tech/gds_map.yaml')
+        if not Path(self.layermap_path).is_file():
+            raise ValueError(f'layermap file {self.layermap_path} does not exist!')
+        print(f'Loading layermap from {self.layermap_path}')
+
+        self.dataprep_path = self.bpg_config.get('dataprep', root_path + '/BPG/examples/tech/dataprep.yaml')
+        if not Path(self.dataprep_path).is_file():
+            raise ValueError(f'dataprep file {self.dataprep_path} does not exist!')
+        print(f'Loading dataprep procedure from {self.dataprep_path}')
+
+        self.lsf_export_path = self.bpg_config.get('lsf_dataprep',
+                                                   root_path + '/BPG/examples/tech/lumerical_map.yaml')
+        if not Path(self.lsf_export_path).is_file():
+            raise ValueError(f'layermap file {self.lsf_export_path} does not exist!')
+        print(f'Loading lumerical export config from {self.lsf_export_path}')
+
+        # TODO: Create a dummy dataprep params file so that we can do a file exists check
+        self.dataprep_params_path = self.bpg_config.get('dataprep_params', '')
+        print(f'Loading dataprep parameters from {self.dataprep_params_path}')
 
         # Grab technology information
         # TODO: Make the tech class loading generic again
-        print('Doing tech info setup')
-        #self.tech_info = PTech()
+        print('Setting up tech info class')
+        # self.tech_info = PTech()
         self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
     @staticmethod
@@ -85,7 +91,8 @@ class PhotonicBagProject(BagProject):
 
 # From bag/layout/core
 class PhotonicBagLayout(BagLayout):
-    """This class contains layout information of a cell.
+    """
+    This class contains layout information of a cell.
 
     Parameters
     ----------

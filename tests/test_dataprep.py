@@ -64,7 +64,10 @@ class SubLevel2(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_dataprep():
+    """
+    Unit Test
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
@@ -76,8 +79,10 @@ if __name__ == '__main__':
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    # PLM.generate_gds()
-    # PLM.generate_lsf()
-    PLM.generate_flat_gds(debug=True, generate_gds=True)
-    PLM.dataprep(debug=True)
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm.generate_flat_gds()
+    plm.dataprep()
+
+
+if __name__ == '__main__':
+    test_dataprep()

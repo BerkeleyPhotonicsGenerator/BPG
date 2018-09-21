@@ -1,22 +1,21 @@
 # A sample specification file to generate a Waveguide project
 
 # Directory Locations
-project_name: add_rect
+project_name: bpg_test_suite
 
 # Output Settings
 lsf_filename: add_rect
-gds_filename: Output
+gds_filename: add_rect
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.add_rect'
-layout_class: 'AddRectTest'  # Layout generator class name
+layout_package: 'tests.test_add_rect'
+layout_class: 'AddRect'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here
   x: 0.5
   y: 10
   center: !!python/tuple [10, 10]
-
   point1: !!python/tuple [-5, -4]
   point2: !!python/tuple [-3, -1]
 
