@@ -10,8 +10,8 @@ project_name: Generated_Waveguide
 # layermap: BPG/examples/tech/gds_map.yaml
 
 # Output Settings
-lsf_filename: SingleModeWaveguide.lsf
-gds_filename: Output
+lsf_filename: SingleModeWaveguide
+gds_filename: SingleModeWaveguide
 
 # Generator Params
 layout_package: 'examples.Waveguide'  # Module that contains the layout generator class

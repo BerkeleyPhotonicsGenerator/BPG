@@ -1,3 +1,7 @@
+"""
+This file currently does not fit the standard automated test setup format...it will be ignored by pytest
+"""
+
 from matplotlib import pyplot
 from shapely.geometry import LineString
 # from descartes import PolygonPatch
@@ -10,6 +14,7 @@ from bag.layout.util import BBox
 def plot_coords(ax, x, y, color='#999999', zorder=1):
     ax.plot(x, y, 'o', color=color, zorder=zorder)
 
+
 def plot_line(ax, ob, color='r'):
     parts = hasattr(ob, 'geoms') and ob or [ob]
     for part in parts:
@@ -18,7 +23,7 @@ def plot_line(ax, ob, color='r'):
 
 
 def get_polygon(boundary_list):
-    #### this function cannot handle situations with islands in the hole
+    # this function cannot handle situations with islands in the hole
     boundary_list_shapely = []
     for sgboundary in boundary_list:
         boundary_list_shapely.append(sgboundary[0])
@@ -27,7 +32,7 @@ def get_polygon(boundary_list):
 
 
 def get_polygon_sglayer(bdry_sglayer_list):
-    #### this function cannot handle situations with islands in the hole
+    # this function cannot handle situations with islands in the hole
     bdry_sglayer_list_shapely = []
 
     for bdry_sglayer in bdry_sglayer_list:
@@ -37,6 +42,7 @@ def get_polygon_sglayer(bdry_sglayer_list):
             bdry_sglayer_list_shapely.append(bdry_sglayer[0])
     polygon = cascaded_union(polygonize_full(bdry_sglayer_list_shapely))
     return polygon
+
 
 def get_polygon_mtlayer(bdry_mtlayer_list):
     polygon_list = []
@@ -49,7 +55,7 @@ def get_polygon_mtlayer(bdry_mtlayer_list):
 
 
 def oversize(polygon, offset):
-    #### this function cannot handle situations with islands in the hole
+    # this function cannot handle situations with islands in the hole
     if (offset < 0):
         print('Warning: offset = %f < 0 indicates you are doing undersize')
     polygon_oversized = polygon.buffer(offset, cap_style=3, join_style=2)
@@ -57,23 +63,21 @@ def oversize(polygon, offset):
 
 
 def undersize(polygon, offset):
-    #### this function cannot handle situations with islands in the hole
+    # this function cannot handle situations with islands in the hole
     if (offset < 0):
         print('Warning: offset = %f < 0 indicates you are doing oversize')
     polygon_undersized = polygon.buffer(-offset, cap_style=3, join_style=2)
     return polygon_undersized
 
 
-
-
 class AddRectTest(BPG.PhotonicTemplateBase):
+    """ Class for generating rectangles for dataprep testing """
     def __init__(self, temp_db,
                  lib_name,
                  params,
                  used_names,
                  **kwargs,
                  ):
-        """ Class for generating a single mode waveguide shape in Lumerical """
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
 
     @classmethod
@@ -122,6 +126,7 @@ class AddRectTest(BPG.PhotonicTemplateBase):
             unit_mode=False
         )
 
+
 if __name__ == '__main__':
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
@@ -143,8 +148,6 @@ if __name__ == '__main__':
     poly_list = get_polygon_mtlayer(test)
     poly_origin = poly_list[0]
     # poly_origin = get_polygon_sglayer(test[0])
-
-
 
     fig = pyplot.figure(1, dpi=90)
 
@@ -194,5 +197,3 @@ if __name__ == '__main__':
     ax.set_title('5) oversized then undersized polygon')
 
     pyplot.show()
-
-    # asdf

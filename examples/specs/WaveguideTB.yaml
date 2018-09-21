@@ -1,6 +1,6 @@
-project_name: Generated_Waveguide
+project_name: Waveguide
 lsf_filename: SingleModeWaveguide
-gds_filename: Output
+gds_filename: SingleModeWaveguide
 
 #------------------
 #   Layout Config
@@ -12,11 +12,6 @@ layout_class: 'SingleModeWaveguide'
 layout_params:
   width: 1.0
   length: 10.0
-
-#  - width: 1.1
-#    length: 10.0
-#  - width: 1.2
-#    length: 10.0
 
 #------------------
 #   TB Config

@@ -10,6 +10,7 @@ from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
+from .photonic_core import CoordBase
 import gdspy
 import numpy as np
 import sys
@@ -695,7 +696,8 @@ class PhotonicRect(Rect):
     def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
         """
         Describes the current rectangle shape in terms of lsf parameters for lumerical use.
-        Note that Lumerical uses meters as the base unit, so all coords are multiplied by 1e-6
+        Note that Lumerical uses meters as the base unit, and all input coords are assumed to be in
+        microns. This method inherently resizes
 
         Parameters
         ----------
@@ -718,13 +720,17 @@ class PhotonicRect(Rect):
             list of str containing the lsf code required to create specified rectangles
         """
 
-        # Calculate the width and length of the rectangle
-        x_span = (bbox[1][0] - bbox[0][0]) * 1e-6
-        y_span = (bbox[1][1] - bbox[0][1]) * 1e-6
+        # Calculate the width and length of the rectangle in meters
+        x_span = CoordBase(bbox[1][0] - bbox[0][0]).meters
+        y_span = CoordBase(bbox[1][1] - bbox[0][1]).meters
 
-        # Calculate the center of the first rectangle rounded to the nearest nm
-        base_x_center = round((bbox[1][0] + bbox[0][0]) / 2, 3) * 1e-6
-        base_y_center = round((bbox[1][1] + bbox[0][1]) / 2, 3) * 1e-6
+        # Calculate the center of the first rectangle in meters
+        base_x_center = CoordBase((bbox[1][0] + bbox[0][0]) / 2).meters
+        base_y_center = CoordBase((bbox[1][1] + bbox[0][1]) / 2).meters
+
+        # Get vertical dimensions
+        z_min = CoordBase(layer_prop['z_min']).meters
+        z_max = CoordBase(layer_prop['z_max']).meters
 
         # Write the lumerical code for each rectangle in the array
         lsf_code = []
@@ -737,13 +743,13 @@ class PhotonicRect(Rect):
 
                 # Compute the x and y coordinates for each rectangle
                 lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + spx * x_count))
+                lsf_code.append('set("x", {});\n'.format(base_x_center + CoordBase(spx * x_count).meters))
                 lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + spy * y_count))
+                lsf_code.append('set("y", {});\n'.format(base_y_center + CoordBase(spy * y_count).meters))
 
                 # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
+                lsf_code.append('set("z min", {});\n'.format(z_min))
+                lsf_code.append('set("z max", {});\n'.format(z_max))
 
                 if 'mesh_order' in layer_prop:
                     lsf_code.append('set("override mesh order from material database", 1);\n')
@@ -1283,13 +1289,18 @@ class PhotonicPolygon(Polygon):
 
                     # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
                     'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [point[0] * 1e-6 for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [point[1] * 1e-6 for point in vertices]),
+                    'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),
+                    'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
                     'set("vertices", V);\n',
 
                     # Set the thickness values from the layermap file
-                    'set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6),
-                    'set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6)]
+                    'set("z min", {});\n'.format(CoordBase(layer_prop['z_min']).meters),
+                    'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
+                    ]
+
+        if 'mesh_order' in layer_prop:
+            lsf_code.append('set("override mesh order from material database", 1);\n')
+            lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
 
         return lsf_code
 

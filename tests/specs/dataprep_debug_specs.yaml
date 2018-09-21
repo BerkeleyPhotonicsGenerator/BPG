@@ -3,20 +3,20 @@
 
 # Directory Locations
 # Top level directory for the project
-project_name: 'dataprep_debug'
+project_name: bpg_test_suite
 
 # file containing technology information
 # layermap: ./tech/gds_map.yaml
 # dataprep: './BPG/examples/tech/dataprep.yaml'
 
 # Output Settings
-lsf_filename: add_rect.lsf
-gds_filename: Output
+lsf_filename: dataprep_debug
+gds_filename: dataprep_debug
 
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'dataprep_debug_test'
+layout_package: 'tests.test_dataprep'
 # Layout generator class name
 layout_class: 'SubLevel2'
 

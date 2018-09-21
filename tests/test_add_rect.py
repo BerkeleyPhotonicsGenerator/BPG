@@ -2,7 +2,7 @@ import BPG
 from bag.layout.util import BBox
 
 
-class AddRectTest(BPG.PhotonicTemplateBase):
+class AddRect(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
                  params,
@@ -59,17 +59,27 @@ class AddRectTest(BPG.PhotonicTemplateBase):
         )
 
 
-if __name__ == '__main__':
+def test_add_rect():
+    """
+    Unit test definition
+    """
     # Load a previous BPG Project if it exists, otherwise create a new one
     local_dict = locals()
     if 'prj' not in local_dict:
-        print('creating BAG project')
+        print('Creating BAG project')
         bprj = BPG.PhotonicBagProject()
 
     else:
-        print('loading BAG project')
+        print('Loading BAG project')
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
     PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
     PLM.generate_gds()
+    PLM.generate_flat_gds()
+    PLM.dataprep()
+    PLM.generate_lsf()
+
+
+if __name__ == '__main__':
+    test_add_rect()
