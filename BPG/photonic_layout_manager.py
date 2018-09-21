@@ -119,7 +119,11 @@ class PhotonicLayoutManager(DesignManager):
             template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
             temp_list.append(template)
 
-        self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
+        self.tdb.batch_layout(self.prj,
+                              template_list=temp_list,
+                              name_list=cell_name_list,
+                              lib_name='',
+                              )
 
     def generate_lsf(self,
                      debug=False,
@@ -168,7 +172,7 @@ class PhotonicLayoutManager(DesignManager):
             temp_list.append(template)
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
-                                          lib_name='',
+                                          lib_name='_tb',
                                           debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
@@ -240,7 +244,7 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb._prj = self.prj
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
-                                          lib_name='',
+                                          lib_name='_flat',
                                           debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
@@ -261,7 +265,7 @@ class PhotonicLayoutManager(DesignManager):
                           debug=debug,
                           push_portshapes_through_dataprep=False,
                           )
-        self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
+        self.tdb.create_masters_in_db(lib_name='_dataprep',
                                       content_list=self.tdb.post_dataprep_flat_content_list,
                                       debug=debug,
                                       )
