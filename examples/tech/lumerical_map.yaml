@@ -12,7 +12,8 @@ dataprep_groups:
 # Don't use final OUUO operation for Lumerical export
 over_under_under_over:
 
-# Map between valid GDS layers and their properties in Lumerical
+# Map between valid GDS layers and their properties in Lumerical. Material name can be the built-ins within the
+# Lumerical material database or those added in the materials key below
 lumerical_prop_map:
   !!python/tuple [SI, phot]:
     material: 'Si (Silicon) - Palik'
@@ -31,7 +32,7 @@ lumerical_prop_map:
     alpha: .25
     mesh_order: 3
 
-# Material properties taken from Silicon Photonics Design by Lukas, pg. 97
+# Material properties referenced from Silicon Photonics Design by Lukas, pg. 97
 materials:
   Si:
     Permittivity: !!python/float 7.98737492
