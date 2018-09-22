@@ -273,6 +273,10 @@ class PhotonicLayoutManager(DesignManager):
                                       )
 
     def create_materials_file(self):
+        """
+        Takes the custom materials stated in the lumerical_map and generates a Lumerical lsf file that defines the
+        materials for use in simulation.
+        """
         # 1) load the lumerical map file
         inpath = self.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
