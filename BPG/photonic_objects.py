@@ -47,7 +47,9 @@ class PhotonicInstanceInfo(InstanceInfo):
 
 
 class PhotonicInstance(Instance):
-    """A photonic layout instance, with optional arraying parameters.
+    """
+    A photonic layout instance, with optional arraying parameters. This class adds the ability
+    to read
 
     Parameters
     ----------
@@ -76,35 +78,30 @@ class PhotonicInstance(Instance):
     """
 
     def __init__(self,
-                 parent_grid,  # type: RoutingGrid
-                 lib_name,  # type: str
-                 master,  # type: PhotonicTemplateBase
-                 loc,  # type: Tuple[ldim, ldim]
-                 orient,  # type: str
-                 name=None,  # type: Optional[str]
-                 nx=1,  # type: int
-                 ny=1,  # type: int
-                 spx=0,  # type: ldim
-                 spy=0,  # type: ldim
-                 unit_mode=False,  # type: bool
-                 ):
-        # type: (...) -> None
+                 parent_grid: RoutingGrid,
+                 lib_name: str,
+                 master,
+                 loc: Tuple[ldim, ldim],
+                 orient: str,
+                 name: str=None,
+                 nx: int=1,
+                 ny: int=1,
+                 spx: int=0,
+                 spy: int=0,
+                 unit_mode: bool=False,
+                 ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
 
         self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
         self._photonic_port_creator()
 
-    def __getitem__(self,
-                    item,  # type: str
-                    ):
-        # type: (...) -> PhotonicPort
+    def __getitem__(self, item: str):
         """ Allow dictionary syntax to grab photonic ports """
         return self.get_photonic_port(name=item)
 
     @property
-    def content(self):
-        # type: () -> PhotonicInstanceInfo
+    def content(self) -> PhotonicInstanceInfo:
         """A dictionary representation of this instance."""
         return PhotonicInstanceInfo(self.resolution,
                                     lib=self._lib_name,
@@ -120,8 +117,7 @@ class PhotonicInstance(Instance):
                                     master_key=self.master.key
                                     )
 
-    def _photonic_port_creator(self):
-        # type: (...) -> None
+    def _photonic_port_creator(self) -> None:
         """
         Helper for creating the photonic ports of this instance
         Returns

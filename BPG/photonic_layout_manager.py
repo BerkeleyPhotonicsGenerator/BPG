@@ -8,6 +8,7 @@ from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
 from .photonic_template import PhotonicTemplateDB
 from .lumerical_generator import LumericalSweepGenerator
+from .lumerical_materials import LumericalMaterialGenerator
 
 
 class PhotonicLayoutManager(DesignManager):
@@ -119,13 +120,18 @@ class PhotonicLayoutManager(DesignManager):
             template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
             temp_list.append(template)
 
-        self.tdb.batch_layout(self.prj, temp_list, cell_name_list)
+        self.tdb.batch_layout(self.prj,
+                              template_list=temp_list,
+                              name_list=cell_name_list,
+                              lib_name='',
+                              )
 
-    def generate_lsf(self,
-                     debug=False,
-                     ):
+    def generate_lsf(self, debug=False, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
         print('\n---Generating the design .lsf file---')
+        if create_materials is True:
+            self.create_materials_file()
+
         self.tdb.to_lumerical(gds_layermap=self.layermap_path,
                               lsf_export_config=self.lsf_export_path,
                               lsf_filepath=self.lsf_path,
@@ -168,7 +174,7 @@ class PhotonicLayoutManager(DesignManager):
             temp_list.append(template)
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
-                                          lib_name='',
+                                          lib_name='_tb',
                                           debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
@@ -240,7 +246,7 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb._prj = self.prj
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
-                                          lib_name='',
+                                          lib_name='_flat',
                                           debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
@@ -261,10 +267,31 @@ class PhotonicLayoutManager(DesignManager):
                           debug=debug,
                           push_portshapes_through_dataprep=False,
                           )
-        self.tdb.create_masters_in_db(lib_name=self.specs['impl_lib'],
+        self.tdb.create_masters_in_db(lib_name='_dataprep',
                                       content_list=self.tdb.post_dataprep_flat_content_list,
                                       debug=debug,
                                       )
+
+    def create_materials_file(self):
+        """
+        Takes the custom materials stated in the lumerical_map and generates a Lumerical lsf file that defines the
+        materials for use in simulation.
+        """
+        # 1) load the lumerical map file
+        inpath = self.lsf_export_path
+        outpath = self.scripts_dir / 'materials.lsf'
+        with open(inpath, 'r') as f:
+            lumerical_map = yaml.load(f)
+
+        # 2) Extract the custom materials under the materials key
+        mat_map = lumerical_map['materials']
+
+        # 3) Create the LumericalMaterialGenerator class and load the data in
+        lmg = LumericalMaterialGenerator(str(outpath))
+        lmg.import_material_file(mat_map)
+
+        # 4) Export to LSF
+        lmg.export_to_lsf()
 
     @staticmethod
     def load_yaml(filepath):
