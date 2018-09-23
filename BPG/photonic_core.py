@@ -559,5 +559,5 @@ class Box:
             (x, y) offset relative to the port location
         """
         center = port.center_unit
-        self.geometry['x']['center'] = center[0]
-        self.geometry['y']['center'] = center[1]
+        self.geometry['x']['center'] = center[0] + offset[0]
+        self.geometry['y']['center'] = center[1] + offset[1]
