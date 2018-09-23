@@ -408,7 +408,7 @@ class PhotonicTemplateDB(TemplateDB):
         # 3) Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
         self.lsf_dataprep(lsf_export_config, debug=debug)
         content_list = self.post_dataprep_flat_content_list
-        self.create_masters_in_db(lib_name='lsf_dp', content_list=content_list)
+        self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
 
         # 4) For each element in the flat content list, convert it into lsf code and append to running file
         for count, content in enumerate(content_list):
