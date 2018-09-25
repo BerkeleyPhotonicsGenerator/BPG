@@ -9,10 +9,11 @@ dataprep_groups:
       - !!python/tuple ['BOX', 'phot', 'rad', 5.0]
       - !!python/tuple ['CLAD', 'phot', 'rad', 5.0]
 
-# Don't use final OUUO operation
+# Don't use final OUUO operation for Lumerical export
 over_under_under_over:
 
-# Map between each GDS layer and its properties in Lumerical
+# Map between valid GDS layers and their properties in Lumerical. Material name can be the built-ins within the
+# Lumerical material database or those added in the materials key below
 lumerical_prop_map:
   !!python/tuple [SI, phot]:
     material: 'Si (Silicon) - Palik'
@@ -31,3 +32,17 @@ lumerical_prop_map:
     alpha: .25
     mesh_order: 3
 
+# Material properties referenced from Silicon Photonics Design by Lukas, pg. 97
+materials:
+  Si:
+    Permittivity: !!python/float 7.98737492
+    Lorentz Linewidth: !!python/float 1e8
+    Lorentz Resonance: !!python/float 3.93282466e+15
+    Lorentz Permittivity: !!python/float 3.68799143
+    color: !!python/list [0.85, 0, 0, 1]
+  SiO2:
+    Permittivity: 2.119881
+    Lorentz Linewidth: !!python/float 1e10
+    Lorentz Resonance: !!python/float 3.309238e+13
+    Lorentz Permittivity: !!python/float 49.43721
+    color: !!python/list [0.5, 0.5, 0.5, 1]

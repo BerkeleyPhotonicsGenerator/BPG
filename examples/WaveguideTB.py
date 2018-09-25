@@ -11,7 +11,7 @@ class WaveguideFDE(LumericalTB):
     def construct_tb(self):
         """
         Places the FDE solver at the port built into the waveguide class
-        Note: LumericalTB automatically creates the Waveguide class and places it at the origin
+        Note: LumericalTB automatically creates the Waveguide class and places it at the origin as stated in spec file
         """
         fde = self.add_FDE_solver()  # Create blank fde solver
 
