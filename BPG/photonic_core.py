@@ -38,6 +38,8 @@ class PhotonicBagProject(BagProject):
     """
 
     def __init__(self, bag_config_path=None, port=None):
+        BagProject.__init__(self, bag_config_path, port)
+
         # Get the main working directory to be used for all relative paths
         root_path = os.environ['BAG_WORK_DIR']
 
