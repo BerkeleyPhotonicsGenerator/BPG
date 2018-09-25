@@ -408,7 +408,7 @@ class PhotonicTemplateDB(TemplateDB):
         # 3) Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
         self.lsf_dataprep(lsf_export_config, debug=debug)
         content_list = self.post_dataprep_flat_content_list
-        self.create_masters_in_db(lib_name='lsf_dp', content_list=content_list)
+        self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
 
         # 4) For each element in the flat content list, convert it into lsf code and append to running file
         for count, content in enumerate(content_list):
@@ -1268,7 +1268,7 @@ class PhotonicTemplateDB(TemplateDB):
                 self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
+                    do_manh=False,
                 )
 
         # 2) Parse the dataprep specification file
@@ -1291,7 +1291,7 @@ class PhotonicTemplateDB(TemplateDB):
                         polygon2=shapes_in,
                         operation=operation,
                         size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH_DURING_OP,
+                        do_manh=False,
                     )
 
                     # Update the layer's content
@@ -1308,7 +1308,7 @@ class PhotonicTemplateDB(TemplateDB):
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
-                do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
+                do_manh=False,
             )
 
             if new_out_layer_polygons is not None:
@@ -1319,7 +1319,7 @@ class PhotonicTemplateDB(TemplateDB):
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
                                                        fracture=True,
-                                                       do_manh=GLOBAL_DO_FINAL_MANH,
+                                                       do_manh=False,
                                                        manh_grid_size=self.grid.resolution,
                                                        debug=debug,
                                                        )
