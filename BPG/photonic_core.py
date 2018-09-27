@@ -39,7 +39,7 @@ class PhotonicBagProject(BagProject):
 
     def __init__(self, bag_config_path=None, port=None):
         BagProject.__init__(self, bag_config_path, port)
-        
+
         # Get the main working directory to be used for all relative paths
         root_path = os.environ['BAG_WORK_DIR']
 
@@ -78,6 +78,10 @@ class PhotonicBagProject(BagProject):
         # TODO: Create a dummy dataprep params file so that we can do a file exists check
         self.dataprep_params_path = self.bpg_config.get('dataprep_params', '')
         print(f'Loading dataprep parameters from {self.dataprep_params_path}')
+
+        # TODO: Should dataprep_skill.il be protected by a tech class?
+        self.dataprep_skill_path = self.bpg_config.get('dataprep_skill_path',
+                                                       root_path + 'BPG/BPG/dataprep_skill.il')
 
         # Grab technology information
         # TODO: Make the tech class loading generic again

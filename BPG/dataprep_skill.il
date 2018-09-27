@@ -1,3 +1,6 @@
+
+printf("\n\n\nDefining skill dataprep functions. \n\n\n")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ; Flatten
 ;
@@ -132,6 +135,11 @@ procedure( Manh(PolygonPoints
             PointsOrthogonalRoundedUnique
 		)
 
+        if( debug
+        then
+            printf("Manh\n")
+        )
+
         ; Snap original coordinates to Manhattan grid by rounding
         PolygonPointsTemp = nil ; initialization.
         foreach(Point PolygonPoints
@@ -144,6 +152,11 @@ procedure( Manh(PolygonPoints
             )
         ) ; end foreach.
         PolygonPoints = PolygonPointsTemp
+
+if( debug
+        then
+            printf("155\n")
+        )
 
         ; Adding last point to the beginning to ensure the polygon is closed
 	    PolygonPoints = cons(
@@ -396,7 +409,7 @@ procedure( CoordPrep(PolygonPoints
 	    SubPolygons = nil ; initialization
         for(IndSubPolygon floor(XMin/SubPolygonXPitch) floor(XMax/SubPolygonXPitch)
             SubPolygonToAdd = setof(PolygonPoint PolygonPoints
-                                    IndSubPolygon*SubPolygonXPitch-0.5*GridSize < =xCoord(PolygonPoint) &&
+                                    IndSubPolygon*SubPolygonXPitch-0.5*GridSize <= xCoord(PolygonPoint) &&
                                     xCoord(PolygonPoint) <= (IndSubPolygon+1)*SubPolygonXPitch+0.5*GridSize)
                                     ; Bug: without 0.5*GridSize there are random rounding errors
             SubPolygons = cons( SubPolygonToAdd SubPolygons)
@@ -488,6 +501,11 @@ procedure( CreateSubPolygons(CellView
             DbObjects
             Under
 		)
+
+        if( debug
+        then
+            printf("CreateSubPolygons\n")
+        )
 
         ; Importing global variables:
 	    GridSize = GlobalGridSize
@@ -938,6 +956,7 @@ procedure( DataPrep(CellView
             Infos
             NeedNewRoughShapes
 		)
+		printf("Running DataPrep\n")
 
         ; Importing global variables:
         GridSize = GlobalGridSize
@@ -951,6 +970,10 @@ procedure( DataPrep(CellView
         ; Sweeping all parameters, first groups, then LppsIn, then Infos = LppOut, Operation, SizeAmount
         foreach(DataPrepGroup DataPrepGroups
             LppsIn = nth(0 DataPrepGroup)
+            if( DebugText
+            then
+                printf("New DataPrepGroup \n")
+            )
             foreach(LppIn LppsIn
                 Infos = nth(1 DataPrepGroup)
                 ShapesIn = setof(Shape CellView~>shapes Shape~>lpp == LppIn)
@@ -1036,8 +1059,9 @@ procedure( DataPrep(CellView
                         ) ; end if.
                     ) ; end if.
 
-                    if( Operation == "Ouo"
+                    if( Operation == "ouo"
                     then
+                        printf("Performing OUO on \n")
                         ; Perform Over Under Under Over only if LppOut is not in the list
                         ; NotToExtendOrOverUnderOrUnderOverLpps:
                         if( not(member(LppIn NotToExtendOrOverUnderOrUnderOverLpps)!= nil)
@@ -1090,3 +1114,146 @@ procedure( DataPrep(CellView
     ) ;end of body of code (let)
 ) ; end of procedure definition
 
+
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; DataPrepWrapper
+;
+; This procedure performs DataPrep on a cell.
+; It takes a lib name and cell name, and creates a new dataprep-ed cell in the
+; same library and with cell_name_DataPrep.
+;
+; Arguments
+; ---------
+;   lib_name :
+;       Name of library in which cell to dataprep resides
+;   cell_name :
+;       Name of cell to dataprep
+;   debug : Optional = nil
+;       t to print debug information
+;
+; Returns
+; -------
+;   --  :
+;       Throws error if DataPrep fails
+;
+; Outputs
+; -------
+;   lib_nam__cell_name_DataPrep :
+;       Output cellview that is the dataprep-ed version of the original cell view
+;       Original cellview is not modified.
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+procedure( DataPrepWrapper(lib_name
+                           cell_name
+                           @optional (debug nil)
+                           )
+    let(
+        (
+            cv
+            dp_cv
+        )
+
+        ; Try to get the dB object of the cellview
+        unless( cv = dbOpenCellViewByType( lib_name cell_name "layout" "maskLayout" "r")
+            error("DataPrepWrapper: Cannot open cellView %s__%s (layout)." lib_name cell_name)
+        )
+
+        ; Try to get the dB object of the new dataprep-ed cellview
+        unless( dp_cv = dbOpenCellViewByType( lib_name strcat(cell_name "_DataPrep") "layout" "maskLayout" "w")
+            error("DataPrepWrapper: Cannot create new cellView %s__%s (layout)." lib_name strcat(cell_name "_DataPrep"))
+        )
+
+        inst = dbCreateInst(dp_cv cv "DataPrep" '(0 0) "R0")
+        dbClose(cv)
+
+        printf("Just before dataprep\n")
+        DataPrep(dp_cv nil debug)
+
+        dbSave(dp_cv)
+        dbClose(dp_cv)
+
+    ) ; end let
+) ; end procedure
+
+
+
+procedure( ManhCell(lib_name
+                    cell_name
+                    @optional (debug nil)
+                    )
+    let(
+        (
+            cv
+            dp_cv
+            new_shapes
+            lpp
+            GlobalManhTOrNil
+            TempCoords
+        )
+        GlobalManhattanTOrNil = 't  ; # TODO
+        if( debug
+        then
+            printf("ManhCell\n")
+        )
+
+        ; debug = 't  ; # TODO
+        ; Try to get the dB object of the cellview
+        unless( cv = dbOpenCellViewByType( lib_name cell_name "layout" "maskLayout" "r")
+            error("DataPrepWrapper: Cannot open cellView %s__%s (layout)." lib_name cell_name)
+        )
+
+        ; Try to get the dB object of the new dataprep-ed cellview
+        unless( dp_cv = dbOpenCellViewByType( lib_name strcat(cell_name "_Manh") "layout" "maskLayout" "w")
+            error("DataPrepWrapper: Cannot create new cellView %s__%s (layout)." lib_name strcat(cell_name "_Manh"))
+        )
+
+        inst = dbCreateInst(dp_cv cv "DataPrep" '(0 0) "R0")
+
+;        ShapesIn = setof(Shape CellView~>shapes Shape~>lpp == LppIn)
+
+        Flatten(dp_cv)
+
+        new_shapes = nil
+        foreach(shape dp_cv~>shapes
+            printf("in foreach \n")
+            printf(shape~>objType)
+            lpp = shape~>lpp
+            if(shape~>objType == "rect"
+            then
+                printf("rect path\n")
+                TempCoords = list(
+                        list(
+                            xCoord(car(shape~>bBox))
+                             yCoord(car(shape~>bBox))
+                        )
+                        list(
+                            xCoord(cadr(shape~>bBox))
+                            yCoord(cadr(shape~>bBox))
+                        )
+                    )
+                new_shapes = append( list(dbCreateRect(dp_cv lpp TempCoords)) new_shapes)
+                DeleteShapes(list(shape))
+            else
+                if( shape~>objType == "polygon"
+                then
+                    printf("polygon path\n")
+                    new_shapes = append(CreateSubPolygons(dp_cv lpp shape~>points GlobalGridSize) new_shapes) ; # TODO
+                DeleteShapes(list(shape))
+                )
+            )
+            ; Manh(shape GlobalManhGridSize)
+;            DeleteShapes(shape)
+        )
+        dbSave(dp_cv)
+        dbClose(dp_cv)
+        dbClose(cv)
+
+
+    ) ; end let
+) ; end procedure
+
+
+printf("\n\n\nDefined skill dataprep functions successfully!\n\n\n")

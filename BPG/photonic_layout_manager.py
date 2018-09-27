@@ -23,8 +23,8 @@ class PhotonicLayoutManager(DesignManager):
         self.prj: contains the BagProject instance
         self.specs: contains the specs passed in spec_file
         """
-
-        self.tdb = None  # PhotonicTemplateDB instance for layout creation
+        # PhotonicTemplateDB instance for layout creation
+        self.tdb = None  # type: PhotonicTemplateDB
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
@@ -57,6 +57,12 @@ class PhotonicLayoutManager(DesignManager):
         else:
             self.dataprep_path = self.prj.dataprep_path
 
+        if 'dataprep_params' in self.specs:
+            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+            self.dataprep_params_path = bag_work_dir / self.specs['dataprep_params']
+        else:
+            self.dataprep_params_path = self.prj.dataprep_params_path
+
         # Setup the lumerical export map
         if 'lsf_export_map' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
@@ -76,6 +82,9 @@ class PhotonicLayoutManager(DesignManager):
         Makes a new PhotonicTemplateDB instance assuming all contained layouts are generated independently of the grid
         """
         lib_name = self.specs['impl_lib']
+        # TODO: is this the right place for setting self.impl_lib?
+        self.impl_lib = lib_name
+
         # Input dummy values for these parameters, we wont be using the grid in BPG
         # TODO: Allow layer properties to be extracted from the spec file
         layers = [3, 4, 5]
@@ -106,7 +115,15 @@ class PhotonicLayoutManager(DesignManager):
         if layout_params_list is None:
             layout_params_list = [self.specs['layout_params']]
         if cell_name_list is None:
-            cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
+            if len(layout_params_list) > 1:
+                cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
+            else:
+                cell_name_list = [self.specs['impl_cell']]
+
+        # TODO: Do this here?
+        # Save the cell name list and layout param list
+        self.layout_params_list = layout_params_list
+        self.cell_name_list = cell_name_list
 
         print('\n---Generating .gds file---')
         cls_package = self.specs['layout_package']
@@ -271,6 +288,47 @@ class PhotonicLayoutManager(DesignManager):
                                       content_list=self.tdb.post_dataprep_flat_content_list,
                                       debug=debug,
                                       )
+
+    def dataprep_skill(self, debug=False):
+        print('\n---Running dataprep_skill---')
+
+        # Must call self.generate_gds first
+        # Do not export a gds
+        self.tdb.export_gds = False
+        self.tdb.create_masters_in_db(lib_name=self.impl_lib,
+                                      content_list=self.tdb.content_list,
+                                      debug=debug,
+                                      )
+        lib_path = os.path.join(self.tdb._prj.impl_db.default_lib_path, self.impl_lib)
+
+        self.tdb._prj.impl_db.setup_bpg_skill(
+            output_path=lib_path,
+            dataprep_procedure_path=self.dataprep_path,
+            dataprep_parameters_path=self.dataprep_params_path,
+            dataprep_skill_function_path=self.prj.dataprep_skill_path
+        )
+
+        print('\n---Running manh---\n')
+        for cell in self.cell_name_list:
+            self.prj.impl_db.manh(lib_name=self.impl_lib,
+                                  cell_name=cell,
+                                  debug=True
+                                  )
+
+        print('\n---Running dataprep on non-manh---\n')
+        for cell in self.cell_name_list:
+            self.prj.impl_db.dataprep(lib_name=self.impl_lib,
+                                      cell_name=cell,
+                                      debug=True
+                                      )
+
+        print('\n---Running dataprep on manh---\n')
+        for cell in self.cell_name_list:
+            self.prj.impl_db.dataprep(lib_name=self.impl_lib,
+                                      cell_name=cell+'_Manh',
+                                      debug=True
+                                      )
+
 
     def create_materials_file(self):
         """

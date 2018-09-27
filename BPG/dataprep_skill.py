@@ -3,11 +3,12 @@ import sys
 import os
 
 
-SKILL_FILE_PATH = sys.path.append(os.environ['BAG_TECH_CONFIG_DIR'], 'BPG_skill_definitions.il')
+# SKILL_FILE_PATH = sys.path.append(os.environ['BAG_TECH_CONFIG_DIR'], 'BPG_skill_definitions.il')
 
 
 def create_global_skill_variables(dataprep_procedure_path,
                                   dataprep_parameters_path,
+                                  output_file_path,
                                   ):
     """
 
@@ -60,7 +61,7 @@ def create_global_skill_variables(dataprep_procedure_path,
     ))
     outlines.append("\n\n\n")
 
-    with open(SKILL_FILE_PATH, 'w') as stream:
+    with open(output_file_path, 'w') as stream:
         stream.writelines(outlines)
 
 
@@ -175,3 +176,17 @@ def _dataprep_params_dict_to_skill_function(dataprep_params):
     outlines.append(") ; end of procedure\n")
 
     return outlines
+
+
+def setup_bpg_skill(output_file_path,
+                    dataprep_procedure_path,
+                    dataprep_parameters_path,
+                    dataprep_skill_function_path,
+                    ):
+    """
+
+    Returns
+    -------
+
+    """
+
