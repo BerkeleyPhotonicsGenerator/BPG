@@ -4,6 +4,7 @@ from math import ceil, sqrt
 import numpy as np
 import sys
 import shapely.geometry
+import pdb
 
 ################################################################################
 # define parameters for testing
@@ -11,8 +12,9 @@ import shapely.geometry
 # TODO: Move numbers into a tech file
 global_grid_size = 0.001
 global_rough_grid_size = 0.01
-global_min_width = 2
-global_min_space = 4
+# TODO: set different oversize / undersize offsets for different layers
+global_min_width = 0.05
+global_min_space = 0.05
 GLOBAL_OPERATION_PRECISION = 0.0001
 GLOBAL_CLEAN_UP_GRID_SIZE = 0.0001
 # TODO: make sure we set tolerance properly. larger numbers will cut off acute angles more when oversizing
