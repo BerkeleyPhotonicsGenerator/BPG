@@ -8,6 +8,7 @@ import abc
 import numpy as np
 import yaml
 import time
+import pdb
 
 from bag.core import BagProject, RoutingGrid
 import bag.io
@@ -360,6 +361,11 @@ class PhotonicTemplateDB(TemplateDB):
                                            layer=vlay, datatype=vpurp)
                 gds_cell.add(cur_rect)
 
+
+
+
+
+
     def to_lumerical(self,
                      gds_layermap: str,
                      lsf_export_config: str,
@@ -530,6 +536,8 @@ class PhotonicTemplateDB(TemplateDB):
             end = time.time()
             print('LSF Generation took %.4g seconds' % (end - start))
 
+
+
     def instantiate_flat_masters(self,
                                  master_list,  # type: Sequence[DesignMaster]
                                  name_list=None,  # type: Optional[Sequence[Optional[str]]]
@@ -651,6 +659,7 @@ class PhotonicTemplateDB(TemplateDB):
         -------
 
         """
+        print("_flatten_instantiate_master_helper")
         start = time.time()
 
         master_content = master.get_content(self.lib_name, self.format_cell_name)
@@ -659,9 +668,43 @@ class PhotonicTemplateDB(TemplateDB):
          new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
          new_sim_list, new_source_list, new_monitor_list) = master_content
 
+
+        with open(self._gds_lay_file, 'r') as f:
+            lay_info = yaml.load(f)
+            lay_map = lay_info['layer_map']
+            via_info = lay_info['via_info']
+
+        for via in new_via_list:
+
+            # TODO:
+            via_lay_info = via_info[via.id]
+
+            nx, ny = via.arr_nx, via.arr_ny
+            x0, y0 = via.loc
+            if nx > 1 or ny > 1:
+                spx, spy = via.arr_spx, via.arr_spy
+                for xidx in range(nx):
+                    xc = x0 + xidx * spx
+                    for yidx in range(ny):
+                        yc = y0 + yidx * spy
+                        new_polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, xc, yc))
+
+            else:
+                new_polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, x0, y0))
+
+        new_via_list = []
+
+
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
                             new_sim_list, new_source_list, new_monitor_list)
+
+
+        #### $$$$
+        # if (new_via_list != []):
+        #     # pdb.set_trace()
+        #     print("have vias")
+
 
         # For each instance in this level, recurse to get all its content
         for child_instance_info in master_subinstances:
@@ -696,7 +739,7 @@ class PhotonicTemplateDB(TemplateDB):
                                  loc=(0, 0),  # type: coord_type
                                  orient='R0',  # type: str
                                  unit_mode=False,  # type: bool
-                                 debug=False,  # type: bool
+                                 debug=True,  # type: bool
                                  ):
         """
         Translates and rotates the passed content list
@@ -722,11 +765,17 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('In _transform_child_content')
 
+
+
         (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,
          sim_list, source_list, monitor_list) = content
 
+
+
+
+
         new_rect_list = []
-        new_via_list = []
+        new_via_list = []       # via list which can not be handled by DataPrep
         new_pin_list = []
         new_path_list = []
         new_blockage_list = []
@@ -752,6 +801,8 @@ class PhotonicTemplateDB(TemplateDB):
             )
 
         # add vias
+        # TODO: transform via objects to rectangles on layers
+        # print(via_list)
         for via in via_list:
             new_via_list.append(
                 PhotonicVia.from_content(
@@ -763,6 +814,26 @@ class PhotonicTemplateDB(TemplateDB):
                     copy=False
                 ).content
             )
+
+            # TODO:
+            with open(self._gds_lay_file, 'r') as f:
+                lay_info = yaml.load(f)
+                lay_map = lay_info['layer_map']
+                via_info = lay_info['via_info']
+            via_lay_info = via_info[via.id]
+
+            nx, ny = via.arr_nx, via.arr_ny
+            x0, y0 = via.loc
+            if nx > 1 or ny > 1:
+                spx, spy = via.arr_spx, via.arr_spy
+                for xidx in range(nx):
+                    xc = x0 + xidx * spx
+                    for yidx in range(ny):
+                        yc = y0 + yidx * spy
+                        polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, xc, yc))
+
+            else:
+                polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, x0, y0))
 
         # add pins
         for pin in pin_list:
@@ -852,11 +923,72 @@ class PhotonicTemplateDB(TemplateDB):
         for monitor in monitor_list:
             new_sim_list.append(monitor)
 
+        new_via_list = []
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
                             new_sim_list, new_source_list, new_monitor_list)
 
+
         return new_content_list
+
+    def via_to_polygon_list(self, via, lay_map, via_lay_info, x0, y0):
+        # convert a via content to a polygon content
+        # blay, bpurp = lay_map[via_lay_info['bot_layer']]
+        # tlay, tpurp = lay_map[via_lay_info['top_layer']]
+        # vlay, vpurp = lay_map[via_lay_info['via_layer']]
+
+        blay = via_lay_info['bot_layer']
+        tlay = via_lay_info['top_layer']
+        vlay = via_lay_info['via_layer']
+        # pdb.set_trace()
+        cw, ch = via.cut_width, via.cut_height
+        if cw < 0:
+            cw = via_lay_info['cut_width']
+        if ch < 0:
+            ch = via_lay_info['cut_height']
+
+        num_cols, num_rows = via.num_cols, via.num_rows
+        sp_cols, sp_rows = via.sp_cols, via.sp_rows
+        w_arr = num_cols * cw + (num_cols - 1) * sp_cols
+        h_arr = num_rows * ch + (num_rows - 1) * sp_rows
+        x0 -= w_arr / 2
+        y0 -= h_arr / 2
+        bl, br, bt, bb = via.enc1
+        tl, tr, tt, tb = via.enc2
+
+        bot_left, bot_bot, bot_right, bot_top = x0 - bl, y0 - bb, x0 + w_arr + br, y0 + h_arr + bt
+        top_left, top_bot, top_right, top_top = x0 - tl, y0 - tb, x0 + w_arr + tr, y0 + h_arr + tt
+
+
+        bot_polygon = {
+            'layer': blay,
+            'points': [(bot_left, bot_bot), (bot_left, bot_top), (bot_right, bot_top), (bot_right, bot_bot)]
+        }
+          #  gdspy.Rectangle(bot_p0, bot_p1, layer=blay, datatype=bpurp)
+        # top_rect = gdspy.Rectangle(top_p0, top_p1, layer=tlay, datatype=tpurp)
+        top_polygon = {
+            'layer': tlay,
+            'points': [(top_left, top_bot), (top_left, top_top), (top_right, top_top), (top_right, top_bot)]
+        }
+
+        polygon_list = [bot_polygon, top_polygon]
+
+
+        for xidx in range(num_cols):
+            dx = xidx * (cw + sp_cols)
+            via_left, via_right = x0 + dx, x0 + cw + dx
+            for yidx in range(num_rows):
+                dy = yidx * (ch + sp_rows)
+                via_bot, via_top = y0 + dy, y0 + ch + dy
+                via_polygon = {
+                    'layer': vlay,
+                    'points': [(via_left, via_bot), (via_left, via_top), (via_right, via_top), (via_right, via_bot)]
+                }
+                polygon_list.append(via_polygon)
+
+        # print(polygon_list)
+        # pdb.set_trace()
+        return polygon_list
 
     def get_polygon_point_lists_on_layer(self,
                                          layer,  # type: Tuple[str, str]
@@ -1025,21 +1157,9 @@ class PhotonicTemplateDB(TemplateDB):
                 negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
 
             # add vias
-            # TODO: VIAS FOR DATAPREP
+            # TODO: are we keeping via objects after flattening?
             for via in via_list:
-                via_lay_info = via_info[via.id]
-
-                nx, ny = via.arr_nx, via.arr_ny
-                x0, y0 = via.loc
-                if nx > 1 or ny > 1:
-                    spx, spy = via.arr_spx, via.arr_spy
-                    for xidx in range(nx):
-                        xc = x0 + xidx * spx
-                        for yidx in range(ny):
-                            yc = y0 + yidx * spy
-                            self._via_to_polygon_pointlist(via, lay_map, via_lay_info, xc, yc)
-                else:
-                    self._via_to_polygon_pointlist(via, lay_map, via_lay_info, x0, y0)
+                pass
 
 
             # add pins
