@@ -1,0 +1,36 @@
+# Test specs for ensuring port extraction works as expected
+
+
+# Directory Locations
+# Top level directory for the project
+project_name: skill_project_name
+
+# file containing technology information
+# layermap: ./tech/gds_map.yaml
+# dataprep: './BPG/examples/tech/dataprep.yaml'
+
+# Output Settings
+lsf_filename: dataprep_debug
+gds_filename: skill_gds_name
+
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'examples.skill_dataprep_playground'
+# Layout generator class name
+layout_class: 'SkillClassName'
+
+
+# Place parameters to be passed to the generator class under here
+layout_params:
+  test: 1
+  test2: 2
+
+# Cadence related parameters
+impl_lib: 'Skill_impl_lib'
+impl_cell: 'Skill_impl_cell'
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

@@ -4,6 +4,7 @@
 from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, \
     Optional, Tuple, Iterable, Sequence
 
+import os
 import abc
 import numpy as np
 import yaml
@@ -11,6 +12,7 @@ import time
 
 from bag.core import BagProject, RoutingGrid
 import bag.io
+from bag.io import get_encoding
 from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
@@ -33,6 +35,10 @@ try:
     import gdspy
 except ImportError:
     gdspy = None
+try:
+    import cybagoa
+except ImportError:
+    cybagoa = None
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -87,6 +93,90 @@ class PhotonicTemplateDB(TemplateDB):
         self.lsf_filepath = lsf_filepath
         self.dataprep_file = dataprep_file
         self.lsf_export_file = lsf_export_filepath
+        self._export_gds = True
+
+    @property
+    def export_gds(self):
+        # type: () -> bool
+        return self._export_gds
+
+    @export_gds.setter
+    def export_gds(self, val):
+        # type: (bool) -> None
+        self._export_gds = val
+
+    def create_masters_in_db(self, lib_name, content_list, debug=False, export_gds=None):
+        # type: (str, Sequence[Any], bool) -> None
+        """Create the masters in the design database.
+
+        Parameters
+        ----------
+        lib_name : str
+            library to create the designs in.
+        content_list : Sequence[Any]
+            a list of the master contents.  Must be created in this order.
+        debug : bool
+            True to print debug messages
+        """
+        if self._prj is None:
+            raise ValueError('BagProject is not defined.')
+        if export_gds is None:
+            export_gds = self._export_gds
+
+        if self._gds_lay_file and export_gds:
+            self._create_gds(lib_name, content_list, debug=debug)
+        elif self._use_cybagoa:
+            # remove write locks from old layouts
+            cell_view_list = [(item[0], 'layout') for item in content_list]
+            if self._pure_oa:
+                pass
+            else:
+                # create library if it does not exist
+                self._prj.create_library(self._lib_name)
+                self._prj.release_write_locks(self._lib_name, cell_view_list)
+
+            if debug:
+                print('Instantiating layout')
+            # create OALayouts
+            start = time.time()
+            if 'CDSLIBPATH' in os.environ:
+                cds_lib_path = os.path.abspath(os.path.join(os.environ['CDSLIBPATH'], 'cds.lib'))
+            else:
+                cds_lib_path = os.path.abspath('./cds.lib')
+            with cybagoa.PyOALayoutLibrary(cds_lib_path, self._lib_name, self._prj.default_lib_path,
+                                           self._prj.tech_info.via_tech_name,
+                                           get_encoding()) as lib:
+                lib.add_layer('prBoundary', 235)
+                lib.add_purpose('label', 237)
+                lib.add_purpose('drawing1', 241)
+                lib.add_purpose('drawing2', 242)
+                lib.add_purpose('drawing3', 243)
+                lib.add_purpose('drawing4', 244)
+                lib.add_purpose('drawing5', 245)
+                lib.add_purpose('drawing6', 246)
+                lib.add_purpose('drawing7', 247)
+                lib.add_purpose('drawing8', 248)
+                lib.add_purpose('drawing9', 249)
+                lib.add_purpose('boundary', 250)
+                lib.add_purpose('pin', 251)
+
+                for cell_name, oa_layout in content_list:
+                    lib.create_layout(cell_name, 'layout', oa_layout)
+            end = time.time()
+            if debug:
+                print('layout instantiation took %.4g seconds' % (end - start))
+        else:
+            # create library if it does not exist
+            self._prj.create_library(self._lib_name)
+
+            if debug:
+                print('Instantiating layout')
+            via_tech_name = self._grid.tech_info.via_tech_name
+            start = time.time()
+            self._prj.instantiate_layout(self._lib_name, 'layout', via_tech_name, content_list)
+            end = time.time()
+            if debug:
+                print('layout instantiation took %.4g seconds' % (end - start))
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
