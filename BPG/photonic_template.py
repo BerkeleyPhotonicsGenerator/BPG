@@ -671,7 +671,6 @@ class PhotonicTemplateDB(TemplateDB):
 
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
-            lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
         for via in new_via_list:
@@ -687,23 +686,18 @@ class PhotonicTemplateDB(TemplateDB):
                     xc = x0 + xidx * spx
                     for yidx in range(ny):
                         yc = y0 + yidx * spy
-                        new_polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, xc, yc))
+                        new_polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, xc, yc))
 
             else:
-                new_polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, x0, y0))
+                new_polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, x0, y0))
 
+        # TODO: do we need to clean up the new_via_list here or just keep it?
         new_via_list = []
 
 
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
                             new_sim_list, new_source_list, new_monitor_list)
-
-
-        #### $$$$
-        # if (new_via_list != []):
-        #     # pdb.set_trace()
-        #     print("have vias")
 
 
         # For each instance in this level, recurse to get all its content
@@ -801,8 +795,6 @@ class PhotonicTemplateDB(TemplateDB):
             )
 
         # add vias
-        # TODO: transform via objects to rectangles on layers
-        # print(via_list)
         for via in via_list:
             new_via_list.append(
                 PhotonicVia.from_content(
@@ -818,7 +810,6 @@ class PhotonicTemplateDB(TemplateDB):
             # TODO:
             with open(self._gds_lay_file, 'r') as f:
                 lay_info = yaml.load(f)
-                lay_map = lay_info['layer_map']
                 via_info = lay_info['via_info']
             via_lay_info = via_info[via.id]
 
@@ -830,10 +821,10 @@ class PhotonicTemplateDB(TemplateDB):
                     xc = x0 + xidx * spx
                     for yidx in range(ny):
                         yc = y0 + yidx * spy
-                        polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, xc, yc))
+                        polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, xc, yc))
 
             else:
-                polygon_list.extend(self.via_to_polygon_list(via, lay_map, via_lay_info, x0, y0))
+                polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, x0, y0))
 
         # add pins
         for pin in pin_list:
@@ -923,6 +914,7 @@ class PhotonicTemplateDB(TemplateDB):
         for monitor in monitor_list:
             new_sim_list.append(monitor)
 
+        # TODO: do we need to clean up the new_via_list here or just keep it?
         new_via_list = []
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
@@ -931,11 +923,8 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
-    def via_to_polygon_list(self, via, lay_map, via_lay_info, x0, y0):
-        # convert a via content to a polygon content
-        # blay, bpurp = lay_map[via_lay_info['bot_layer']]
-        # tlay, tpurp = lay_map[via_lay_info['top_layer']]
-        # vlay, vpurp = lay_map[via_lay_info['via_layer']]
+    def via_to_polygon_list(self, via, via_lay_info, x0, y0):
+
 
         blay = via_lay_info['bot_layer']
         tlay = via_lay_info['top_layer']
