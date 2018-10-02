@@ -29,6 +29,8 @@ coord_type = Tuple[dim_type, dim_type]
 
 class PhotonicInstanceInfo(InstanceInfo):
     """ A dictionary that represents a layout instance. """
+    param_list = ['lib', 'cell', 'view', 'name', 'loc', 'orient', 'num_rows',
+                  'num_cols', 'sp_rows', 'sp_cols', 'master_key']
 
     def __init__(self, res, change_orient=True, **kwargs):
         InstanceInfo.__init__(self, res, change_orient, **kwargs)
@@ -44,6 +46,10 @@ class PhotonicInstanceInfo(InstanceInfo):
     def copy(self):
         """Override copy method of InstanceInfo to return a PhotonicInstanceInfo instead."""
         return PhotonicInstanceInfo(self._resolution, change_orient=False, **self)
+
+    def content(self):
+        kv_iter = ((key, self[key]) for key in self.param_list)
+        return dict(kv_iter)
 
 
 class PhotonicInstance(Instance):
@@ -101,7 +107,7 @@ class PhotonicInstance(Instance):
         return self.get_photonic_port(name=item)
 
     @property
-    def content(self) -> PhotonicInstanceInfo:
+    def content(self) -> Dict:
         """A dictionary representation of this instance."""
         return PhotonicInstanceInfo(self.resolution,
                                     lib=self._lib_name,

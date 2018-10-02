@@ -24,7 +24,7 @@ from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPol
     PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
 from BPG import LumericalDesignGenerator
 from collections import OrderedDict
-from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
+# from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
 
 from numpy import pi
 
@@ -1299,7 +1299,7 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: get the right name
         self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
                                                  polygon_content_list, [], [], [], [])]
-
+    '''
     def dataprep(self,
                  dataprep_file: str,
                  push_portshapes_through_dataprep: bool = False,
@@ -1429,6 +1429,7 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('Converting from gdspy polygon manipulation format to a '
                   'flat list of polygon coords took {}s'.format(end - start))
+    '''
 
     def lsf_dataprep(self,
                      dataprep_file: str,
