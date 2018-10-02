@@ -4,13 +4,13 @@ from math import ceil, sqrt
 import numpy as np
 import sys
 import shapely.geometry
-import pdb
+import yaml
 
 ################################################################################
 # define parameters for testing
 ################################################################################
 # TODO: Move numbers into a tech file
-global_grid_size = 0.001
+GLOBAL_GRID_SIZE = 0.001
 global_rough_grid_size = 0.01
 # TODO: set different oversize / undersize offsets for different layers
 global_min_width = 0.05
@@ -24,308 +24,358 @@ GLOBAL_DO_CLEANUP = True
 MAX_SIZE = sys.maxsize
 
 
-################################################################################
-# clean up functions for coordinate lists and gdspy objects
-################################################################################
-def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
-                         coord2,  # type: Tuple[float, float]
-                         coord3,  # type: Tuple[float, float]
-                         eps_grid=1e-4,  # type: float
-                         ):
-    # type: (...) -> bool
-    """
-    Determines if three coordinates are in the same line
-
-    Parameters
-    ----------
-    coord1 : Tuple[float, float]
-        First coordinate
-    coord2 : Tuple[float, float]
-        Second coordinate
-    coord3 : Tuple[float, float]
-        Third coordinate
-    eps_grid : float
-        grid resolution below which points are considered to be the same
-
-    Returns
-    -------
-    : bool
-        True if coordinates are in a line, False if not in a line
-    """
-    dx1_2 = coord1[0] - coord2[0]
-    dy1_2 = coord1[1] - coord2[1]
-    dx2_3 = coord2[0] - coord3[0]
-    dy2_3 = coord2[1] - coord3[1]
-
-    # if any of the two consecutive coords are actually the same, the three coords are in a line
-    if ((abs(dx1_2) < eps_grid) and (abs(dy1_2) < eps_grid)) or ((abs(dx2_3) < eps_grid) and (abs(dy2_3) < eps_grid)):
-        return True
-    else:
-        """
-        if x&y coords are accurate, we should have dx1_acc * dy2_acc =dx2_acc * dy1_acc,
-        because of inaccuracy in float numbers, we have
-        |dx1 * dy2 - dx2 * dy1| = |(dx1_acc + err1) * (dy2_acc + err2) - (dx2_acc + err3) * (dy1_acc + err4)|
-                                ~ |dx1 * err2 + dy2 * err1 - dx2 * err4 - dy1 * err3|
-                                < sum(|dx1|, |dx2|, |dy1|, |dy2|) * |err_max|
-        """
-        error_abs = abs(dx1_2 * dy2_3 - dx2_3 * dy1_2)
-        error_rlt = error_abs / (abs(dx1_2) + abs(dx2_3) + abs(dy1_2) + abs(dy2_3))
-        return error_rlt < eps_grid
-
-
-def cleanup_loop(coords_list_ori,  # type: List[Tuple[float, float]]
-                 eps_grid=1e-4,  # type: float
+class Dataprep():
+    def __init__(self,
+                 dataprep_routine_filepath,
+                 dataprep_parameters_filepath,
+                 flat_content_list_by_layer,
                  ):
-    # type: (...) -> Dict[str]
-    """
+        self._dataprep_routine_filepath = dataprep_routine_filepath
+        self._dataprep_parameters_filepath = dataprep_parameters_filepath
+        
+        self.flat_content_list_by_layer = flat_content_list_by_layer
+        
+        with open(self._dataprep_routine_filepath, 'r') as f:
+            self.dataprep_routine = yaml.load(f)
+        
+        with open(self._dataprep_parameters_filepath, 'r') as f:
+            self.dataprep_parameters = yaml.load(f)
+            
+    def get_info(self,
+                 rule,  # type: str
+                 layer,  # type: Union[str, Tuple[str, str]]
+                 ):
+        # type: (...) -> float
+        """
+        
+        Parameters
+        ----------
+        rule : str
+            The name of the DRC rule to check, such as MinWidth, MinSpace, etc.
+        layer : Union[str, Tuple[str, str]]
+            The layer name or lpp of the layer.
 
-    Parameters
-    ----------
-    coords_list_ori : List[Tuple[float, float]]
-        The list of x-y coordinates composing a polygon shape
-    eps_grid :
-        grid resolution below which points are considered to be the same
+        Returns
+        -------
+            The DRC rule value.
+        """
+        if isinstance(layer, tuple):
+            layer = layer[0]
+            
+        if rule not in self.dataprep_parameters:
+            raise ValueError('Rule {rule} not specified in dataprep parameters'.format(rule=rule))
+        
+        layer_values = self.dataprep_parameters[rule]
+        if layer not in layer_values:
+            raise ValueError('Layer {layer} not present in dataprep parameters for rule {rule}'.format(
+                layer=layer, rule=rule
+            ))
+        
+        return layer_values[layer]
+        
+    ################################################################################
+    # clean up functions for coordinate lists and gdspy objects
+    ################################################################################
+    @staticmethod
+    def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
+                             coord2,  # type: Tuple[float, float]
+                             coord3,  # type: Tuple[float, float]
+                             eps_grid=1e-4,  # type: float
+                             ):
+        # type: (...) -> bool
+        """
+        Determines if three coordinates are in the same line
+    
+        Parameters
+        ----------
+        coord1 : Tuple[float, float]
+            First coordinate
+        coord2 : Tuple[float, float]
+            Second coordinate
+        coord3 : Tuple[float, float]
+            Third coordinate
+        eps_grid : float
+            grid resolution below which points are considered to be the same
+    
+        Returns
+        -------
+        : bool
+            True if coordinates are in a line, False if not in a line
+        """
+        dx1_2 = coord1[0] - coord2[0]
+        dy1_2 = coord1[1] - coord2[1]
+        dx2_3 = coord2[0] - coord3[0]
+        dy2_3 = coord2[1] - coord3[1]
+    
+        # if any of the two consecutive coords are actually the same, the three coords are in a line
+        if ((abs(dx1_2) < eps_grid) and (abs(dy1_2) < eps_grid)) or \
+                ((abs(dx2_3) < eps_grid) and (abs(dy2_3) < eps_grid)):
+            return True
+        else:
+            """
+            if x&y coords are accurate, we should have dx1_acc * dy2_acc =dx2_acc * dy1_acc,
+            because of inaccuracy in float numbers, we have
+            |dx1 * dy2 - dx2 * dy1| = |(dx1_acc + err1) * (dy2_acc + err2) - (dx2_acc + err3) * (dy1_acc + err4)|
+                                    ~ |dx1 * err2 + dy2 * err1 - dx2 * err4 - dy1 * err3|
+                                    < sum(|dx1|, |dx2|, |dy1|, |dy2|) * |err_max|
+            """
+            error_abs = abs(dx1_2 * dy2_3 - dx2_3 * dy1_2)
+            error_rlt = error_abs / (abs(dx1_2) + abs(dx2_3) + abs(dy1_2) + abs(dy2_3))
+            return error_rlt < eps_grid
 
-    Returns
-    -------
-    output_dict : Dict[str]
-        Dictionary of 'coords_list_out' and 'fully_cleaned'
-    """
-    # once a coordinate is deleted from the coords list, set fully_cleaned to False
-    fully_cleaned = True
-
-    # append the first two coords in the origin list to a new list
-    coords_list_out = [coords_list_ori[0], coords_list_ori[1]]
-
-    # if the last coord in the new list has the same x or y coordinate with
-    # both the second last coord and the coord to append, delete this coord
-    coord_1stlast = coords_list_out[-1]
-    coord_2ndlast = coords_list_out[-2]
-
-    for i in range(2, len(coords_list_ori)):
-        coord_to_append = coords_list_ori[i]
-        if coords_apprx_in_line(coord_2ndlast, coord_1stlast, coord_to_append, eps_grid=eps_grid):
+    def cleanup_loop(self,
+                     coords_list_in,  # type: List[Tuple[float, float]]
+                     eps_grid=1e-4,  # type: float
+                     ):
+        # type: (...) -> Dict[str]
+        """
+    
+        Parameters
+        ----------
+        coords_list_in : List[Tuple[float, float]]
+            The list of x-y coordinates composing a polygon shape
+        eps_grid :
+            grid resolution below which points are considered to be the same
+    
+        Returns
+        -------
+        output_dict : Dict[str]
+            Dictionary of 'coords_list_out' and 'fully_cleaned'
+        """
+        # once a coordinate is deleted from the coords list, set fully_cleaned to False
+        fully_cleaned = True
+    
+        # append the first two coords in the origin list to a new list
+        coords_list_out = [coords_list_in[0], coords_list_in[1]]
+    
+        # if the last coord in the new list has the same x or y coordinate with
+        # both the second last coord and the coord to append, delete this coord
+        coord_1stlast = coords_list_out[-1]
+        coord_2ndlast = coords_list_out[-2]
+    
+        for i in range(2, len(coords_list_in)):
+            coord_to_append = coords_list_in[i]
+            if self.coords_apprx_in_line(coord_2ndlast, coord_1stlast, coord_to_append, eps_grid=eps_grid):
+                fully_cleaned = False
+                coords_list_out = coords_list_out[:-1]
+                coords_list_out.append(coord_to_append)
+                coord_1stlast = coord_to_append
+            else:
+                coords_list_out.append(coord_to_append)
+                coord_2ndlast = coord_1stlast
+                coord_1stlast = coord_to_append
+    
+        # now all the coordinates except the first and the last (the same one) should be on a corner of the polygon,
+        # unless the following appended coord has been deleted
+        # check if the first & last coord is redundant
+        if self.coords_apprx_in_line(coords_list_out[-2], coords_list_out[0], coords_list_out[1], eps_grid=eps_grid):
             fully_cleaned = False
-            coords_list_out = coords_list_out[:-1]
-            coords_list_out.append(coord_to_append)
-            coord_1stlast = coord_to_append
-        else:
-            coords_list_out.append(coord_to_append)
-            coord_2ndlast = coord_1stlast
-            coord_1stlast = coord_to_append
-
-    # now all the coordinates except the first and the last (the same one) should be on a corner of the polygon,
-    # unless the following appended coord has been deleted
-    # check if the first & last coord is redundant
-    if coords_apprx_in_line(coords_list_out[-2], coords_list_out[0], coords_list_out[1], eps_grid=eps_grid):
-        fully_cleaned = False
-        coords_list_out = coords_list_out[1:-1]
+            coords_list_out = coords_list_out[1:-1]
+            coords_list_out.append(coords_list_out[0])
+    
+        # LAST STEP: just in case that the first and the last coord are slightly different
+        coords_list_out = coords_list_out[0:-1]
         coords_list_out.append(coords_list_out[0])
+    
+        return {'coords_list_out': coords_list_out, 'fully_cleaned': fully_cleaned}
 
-    # LAST STEP: just in case that the first and the last coord are slightly different
-    coords_list_out = coords_list_out[0:-1]
-    coords_list_out.append(coords_list_out[0])
+    def coords_cleanup(self,
+                       coords_list_in,  # type: List[Tuple[float, float]]
+                       eps_grid=1e-4,  # type: float
+                       debug=False,  # type: bool
+                       ):
+        # type (...) -> List[Tuple[float, float]]
+        """
+        clean up coordinates in the list that are redundant or harmful for following Shapely functions
+    
+        Parameters
+        ----------
+        coords_list_in : List[Tuple[float, float]]
+            list of coordinates that enclose a polygon
+        eps_grid : float
+            a size smaller than the resolution grid size,
+            if the difference of x/y coordinates of two points is smaller than it,
+            these two points should actually share the same x/y coordinate
+        debug : bool
+    
+        Returns
+        ----------
+        coords_list_out : List[Tuple[float, float]]
+            The cleaned coordinate list
+        """
+        if debug:
+            print('coord_list_ori', coords_list_in)
+    
+        fully_cleaned = False
+        coords_list_out = coords_list_in
+    
+        # in some cases, some coordinates become on the line if the following coord is deleted,
+        # need to loop until no coord is deleted during one loop
+        while not fully_cleaned:
+            cleaned_result = self.cleanup_loop(coords_list_out, eps_grid=eps_grid)
+            coords_list_out = cleaned_result['coords_list_out']
+            fully_cleaned = cleaned_result['fully_cleaned']
+    
+        return coords_list_out
 
-    return {'coords_list_out': coords_list_out, 'fully_cleaned': fully_cleaned}
-
-
-def coords_cleanup(coords_list_ori,  # type: List[Tuple[float, float]]
-                   eps_grid=1e-4,  # type: float
-                   debug=False,  # type: bool
-                   ):
-    # type (...) -> List[Tuple[float, float]]
-    """
-    clean up coordinates in the list that are redundant or harmful for following Shapely functions
-
-    Parameters
-    ----------
-    coords_list_ori : List[Tuple[float, float]]
-        list of coordinates that enclose a polygon
-    eps_grid : float
-        a size smaller than the resolution grid size,
-        if the difference of x/y coordinates of two points is smaller than it,
-        these two points should actually share the same x/y coordinate
-    debug : bool
-
-    Returns
-    ----------
-    coords_list_out : List[Tuple[float, float]]
-        The cleaned coordinate list
-    """
-    if debug:
-        print('coord_list_ori', coords_list_ori)
-
-    fully_cleaned = False
-    coords_list_out = coords_list_ori
-
-    # in some cases, some coordinates become on the line if the following coord is deleted,
-    # need to loop until no coord is deleted during one loop
-    while not fully_cleaned:
-        cleaned_result = cleanup_loop(coords_list_out, eps_grid=eps_grid)
-        coords_list_out = cleaned_result['coords_list_out']
-        fully_cleaned = cleaned_result['fully_cleaned']
-
-    return coords_list_out
-
-
-def dataprep_cleanup_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                           do_cleanup=True  # type: bool
-                           ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
-    """
-    Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
-
-    First offsets by size 0 with precision higher than the global grid size.
-    Then calls an explicit rounding function to the grid size.
-    This is done because it is unclear how the clipper/gdspy library handles precision
-
-    Parameters
-    ----------
-    polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The polygon to clean
-    do_cleanup : bool
-        True to perform the cleanup. False will return input polygon unchanged
-    Returns
-    -------
-    clean_polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The cleaned up polygon
-    """
-    if do_cleanup:
-        if polygon is None:
-            clean_polygon = None
-        elif isinstance(polygon, (gdspy.Polygon, gdspy.PolygonSet)):
-            clean_polygon = gdspy.offset(
-                polygons=polygon,
-                distance=0,
-                tolerance=GLOBAL_OFFSET_TOLERANCE,
-                max_points=MAX_SIZE,
-                join_first=True,
-                precision=GLOBAL_CLEAN_UP_GRID_SIZE
-            )
-
-            clean_coords = []
-            if isinstance(clean_polygon, gdspy.Polygon):
-                clean_coords = global_grid_size * np.round(clean_polygon.points / global_grid_size, 0)
-                clean_polygon = gdspy.Polygon(points=clean_coords)
-            elif isinstance(clean_polygon, gdspy.PolygonSet):
-                for poly in clean_polygon.polygons:
-                    clean_coords.append(global_grid_size * np.round(poly / global_grid_size, 0))
-                clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
-
+    @staticmethod
+    def dataprep_cleanup_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                               do_cleanup=True  # type: bool
+                               ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        """
+        Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
+    
+        First offsets by size 0 with precision higher than the global grid size.
+        Then calls an explicit rounding function to the grid size.
+        This is done because it is unclear how the clipper/gdspy library handles precision
+    
+        Parameters
+        ----------
+        polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The polygon to clean
+        do_cleanup : bool
+            True to perform the cleanup. False will return input polygon unchanged
+        Returns
+        -------
+        clean_polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The cleaned up polygon
+        """
+        if do_cleanup:
+            if polygon is None:
+                clean_polygon = None
+            elif isinstance(polygon, (gdspy.Polygon, gdspy.PolygonSet)):
+                clean_polygon = gdspy.offset(
+                    polygons=polygon,
+                    distance=0,
+                    tolerance=GLOBAL_OFFSET_TOLERANCE,
+                    max_points=MAX_SIZE,
+                    join_first=True,
+                    precision=GLOBAL_CLEAN_UP_GRID_SIZE
+                )
+    
+                clean_coords = []
+                if isinstance(clean_polygon, gdspy.Polygon):
+                    clean_coords = GLOBAL_GRID_SIZE * np.round(clean_polygon.points / GLOBAL_GRID_SIZE, 0)
+                    clean_polygon = gdspy.Polygon(points=clean_coords)
+                elif isinstance(clean_polygon, gdspy.PolygonSet):
+                    for poly in clean_polygon.polygons:
+                        clean_coords.append(GLOBAL_GRID_SIZE * np.round(poly / GLOBAL_GRID_SIZE, 0))
+                    clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
+    
+            else:
+                raise ValueError('input polygon must be a gdspy.Polygon, gdspy.PolygonSet or NonType')
+    
         else:
-            raise ValueError('input polygon must be a gdspy.Polygon, gdspy.PolygonSet or NonType')
+            clean_polygon = polygon
+    
+        return clean_polygon
 
-    else:
-        clean_polygon = polygon
+    ################################################################################
+    # type-converting functions for coordlist/gdspy/shapely
+    ################################################################################
+    @staticmethod
+    def coord_to_shapely(
+            self,
+            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+    ):
+        # type: (...) -> Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
+        """
+        Converts list of coordinate lists into shapely polygon objects
+    
+        Parameters
+        ----------
+        pos_neg_list_list :
+            The tuple of positive and negative lists of coordinate lists
+    
+        Returns
+        -------
+        polygon_out : Union[Polygon, Multipolygon]
+            The Shapely representation of the polygon
+        """
+        pos_coord_list_list = pos_neg_list_list[0]
+        neg_coord_list_list = pos_neg_list_list[1]
+    
+        polygon_out = shapely.geometry.Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
+    
+        if len(pos_coord_list_list) > 1:
+            for pos_coord_list in pos_coord_list_list[1:]:
+                polygon_pos = shapely.geometry.Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
+                polygon_out = polygon_out.union(polygon_pos)
+        if len(neg_coord_list_list):
+            for neg_coord_list in neg_coord_list_list:
+                polygon_neg = shapely.geometry.Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
+                polygon_out = polygon_out.difference(polygon_neg)
+    
+        return polygon_out
 
-    return clean_polygon
-
-
-################################################################################
-# type-converting functions for coordlist/gdspy/shapely
-################################################################################
-def coord_to_shapely(
-        pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-):
-    # type: (...) -> Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
-    """
-    Converts list of coordinate lists into shapely polygon objects
-
-    Parameters
-    ----------
-    pos_neg_list_list :
-        The tuple of positive and negative lists of coordinate lists
-
-    Returns
-    -------
-    polygon_out : Union[Polygon, Multipolygon]
-        The Shapely representation of the polygon
-    """
-    pos_coord_list_list = pos_neg_list_list[0]
-    neg_coord_list_list = pos_neg_list_list[1]
-
-    polygon_out = shapely.geometry.Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
-
-    # print(pos_coord_list_list)
-    # asgege
-    if len(pos_coord_list_list) > 1:
-        for pos_coord_list in pos_coord_list_list[1:]:
-            polygon_pos = shapely.geometry.Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
-            polygon_out = polygon_out.union(polygon_pos)
-    if len(neg_coord_list_list):
-        for neg_coord_list in neg_coord_list_list:
-            polygon_neg = shapely.geometry.Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
-            polygon_out = polygon_out.difference(polygon_neg)
-
-    return polygon_out
-
-
-def dataprep_coord_to_gdspy(
-        pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-        manh_grid_size,  # type: float
-        do_manh,  # type: bool
-):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
-    """
-    Converts list of polygon coordinate lists into GDSPY polygon objects
-    The expected input list will be a list of all polygons on a given layer
-
-    Parameters
-    ----------
-    pos_neg_list_list : Tuple[List, List]
-        A tuple containing two lists: the list of positive polygon shapes and the list of negative polygon shapes.
-        Each polygon shape is a list of point tuples
-    manh_grid_size : float
-        The Manhattanization grid size
-    do_manh : bool
-        True to perform Manhattanization
-
-    Returns
-    -------
-    polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The gdpsy.Polygon formatted polygons
-    """
-    pos_coord_list_list = pos_neg_list_list[0]
-    neg_coord_list_list = pos_neg_list_list[1]
-
-    # Offset by 0 to clean up shape
-    polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=GLOBAL_DO_CLEANUP)
-
-    if len(pos_coord_list_list) > 1:
-        for pos_coord_list in pos_coord_list_list[1:]:
-            polygon_pos = dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=GLOBAL_DO_CLEANUP)
-
-            polygon_out = dataprep_cleanup_gdspy(
-                gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
-                                   precision=GLOBAL_OPERATION_PRECISION,
-                                   max_points=MAX_SIZE),
-                do_cleanup=GLOBAL_DO_CLEANUP
-            )
-    if len(neg_coord_list_list):
-        for neg_coord_list in neg_coord_list_list:
-            polygon_neg = dataprep_cleanup_gdspy(
-                gdspy.Polygon(neg_coord_list),
-                do_cleanup=GLOBAL_DO_CLEANUP
-            )
-
-            # Offset by 0 to clean up shape
-            polygon_out = dataprep_cleanup_gdspy(
-                gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
-                                   precision=GLOBAL_OPERATION_PRECISION,
-                                   max_points=MAX_SIZE),
-                do_cleanup=GLOBAL_DO_CLEANUP
-            )
-
-    polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
-
-    # TODO: is the cleanup necessary
-    # Offset by 0 to clean up shape
-    polygon_out = dataprep_cleanup_gdspy(
-        polygon_out,
-        do_cleanup=GLOBAL_DO_CLEANUP
-    )
-
-    return polygon_out
+    def dataprep_coord_to_gdspy(
+            self,
+            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+            manh_grid_size,  # type: float
+            do_manh,  # type: bool
+    ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+        """
+        Converts list of polygon coordinate lists into GDSPY polygon objects
+        The expected input list will be a list of all polygons on a given layer
+    
+        Parameters
+        ----------
+        pos_neg_list_list : Tuple[List, List]
+            A tuple containing two lists: the list of positive polygon shapes and the list of negative polygon shapes.
+            Each polygon shape is a list of point tuples
+        manh_grid_size : float
+            The Manhattanization grid size
+        do_manh : bool
+            True to perform Manhattanization
+    
+        Returns
+        -------
+        polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The gdpsy.Polygon formatted polygons
+        """
+        pos_coord_list_list = pos_neg_list_list[0]
+        neg_coord_list_list = pos_neg_list_list[1]
+    
+        # Offset by 0 to clean up shape
+        polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=GLOBAL_DO_CLEANUP)
+    
+        if len(pos_coord_list_list) > 1:
+            for pos_coord_list in pos_coord_list_list[1:]:
+                polygon_pos = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=GLOBAL_DO_CLEANUP)
+    
+                polygon_out = self.dataprep_cleanup_gdspy(
+                    gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
+                                       precision=GLOBAL_OPERATION_PRECISION,
+                                       max_points=MAX_SIZE),
+                    do_cleanup=GLOBAL_DO_CLEANUP
+                )
+        if len(neg_coord_list_list):
+            for neg_coord_list in neg_coord_list_list:
+                polygon_neg = self.dataprep_cleanup_gdspy(
+                    gdspy.Polygon(neg_coord_list),
+                    do_cleanup=GLOBAL_DO_CLEANUP
+                )
+    
+                # Offset by 0 to clean up shape
+                polygon_out = self.dataprep_cleanup_gdspy(
+                    gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
+                                       precision=GLOBAL_OPERATION_PRECISION,
+                                       max_points=MAX_SIZE),
+                    do_cleanup=GLOBAL_DO_CLEANUP
+                )
+    
+        polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
+    
+        # TODO: is the cleanup necessary
+        # Offset by 0 to clean up shape
+        polygon_out = dataprep_cleanup_gdspy(
+            polygon_out,
+            do_cleanup=GLOBAL_DO_CLEANUP
+        )
+    
+        return polygon_out
 
 
 def shapely_to_gdspy_polygon(polygon_shapely,  # type: shapely.geometry.Polygon
@@ -399,7 +449,7 @@ def shapely_to_gdspy(geom_shapely,  # type: Union[shapely.geometry.Polygon, shap
 def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
                                fracture=True,  # type: bool
                                do_manh=True,  # type: bool
-                               manh_grid_size=global_grid_size,  # type: float
+                               manh_grid_size=GLOBAL_GRID_SIZE,  # type: float
                                debug=False,  # type: bool
                                # TODO: manh grid size is magic number
                                ):
@@ -824,10 +874,10 @@ def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
     polygon_oouuo_rough = gdspy_manh(polygon_oouuo, rough_grid_size, do_manh)
 
     # undersize then oversize
-    polygon_roughsized = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_oouuo_rough, global_grid_size),
-                                                 global_grid_size)
+    polygon_roughsized = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_oouuo_rough, GLOBAL_GRID_SIZE),
+                                                 GLOBAL_GRID_SIZE)
 
-    polygon_roughsized = dataprep_oversize_gdspy(polygon_roughsized, max(size_amount - 2 * global_grid_size, 0))
+    polygon_roughsized = dataprep_oversize_gdspy(polygon_roughsized, max(size_amount - 2 * GLOBAL_GRID_SIZE, 0))
 
     return polygon_roughsized
 
@@ -835,7 +885,7 @@ def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.Polygo
 def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
                    polygon2,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
                    operation,  # type: str
-                   size_amount,  # type: float
+                   size_amount,  # type: Union[float, Tuple[float, float]]
                    do_manh=False,  # type: bool
                    ):
     # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
@@ -849,8 +899,9 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
         The shapes on the input layer that will be added/subtracted to/from the output layer
     operation : str
         The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
-    size_amount : float
-        The amount to over/undersize the shapes to be added/subtracted
+    size_amount : Union[float, Tuple[Float, Float]]
+        The amount to over/undersize the shapes to be added/subtracted.
+        For ouo and rouo, the 0.5*minWidth related over and under size amount
     do_manh : bool
         True to perform Manhattanization during the 'rad' operation
 
@@ -862,7 +913,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
     # TODO: clean up the input polygons first ?
 
     # TODO: properly get the grid size from a tech file
-    grid_size = global_grid_size
+    grid_size = GLOBAL_GRID_SIZE
 
     # If there are no shapes to operate on, return the shapes currently on the output layer
     if polygon2 is None:
@@ -904,7 +955,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 polygon_ref = polygon2
                 extended_amount = size_amount
 
-                grid_size = global_grid_size
+                grid_size = GLOBAL_GRID_SIZE
                 extended_amount = grid_size * ceil(extended_amount / grid_size)
                 polygon_ref_sized = dataprep_oversize_gdspy(polygon_ref, extended_amount)
                 polygon_extended = dataprep_oversize_gdspy(polygon_toextend, extended_amount)
@@ -945,7 +996,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 polygon_out = None
             else:
                 rough_grid_size = global_rough_grid_size
-                grid_size = global_grid_size
+                grid_size = GLOBAL_GRID_SIZE
                 min_width = global_min_width
                 min_space = global_min_space
                 underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
@@ -967,7 +1018,7 @@ def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, Non
                 coord_list = polyop_gdspy_to_point_list(polygon_ouuo,
                                                         fracture=False,
                                                         do_manh=False,
-                                                        manh_grid_size=global_grid_size,
+                                                        manh_grid_size=GLOBAL_GRID_SIZE,
                                                         debug=False
                                                         )
                 polygon_simplified = simplify_coord_to_gdspy([coord_list, []],
