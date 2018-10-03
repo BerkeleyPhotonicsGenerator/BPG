@@ -157,6 +157,7 @@ class PhotonicLayoutManager(DesignManager):
             temp_params['layout_package'] = self.specs['layout_package']
             temp_params['layout_class'] = self.specs['layout_class']
             temp_params['layout_params'] = params
+            temp_params['tb_params'] = tb_params
             layout_params_list.append(temp_params)
             cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
 
