@@ -21,6 +21,7 @@ tb_class: 'WaveguideFDE'
 
 # These additional parameters are passed to the testbench class
 tb_params:
+  test_param: 10
 
 #------------------
 #   Cadence Config
