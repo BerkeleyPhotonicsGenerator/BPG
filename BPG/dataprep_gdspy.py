@@ -9,7 +9,6 @@ from BPG.photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 from math import ceil, sqrt
 from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Any, Optional
 
-
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
     from bag.layout.routing import RoutingGrid
@@ -24,8 +23,8 @@ MAX_SIZE = sys.maxsize
 
 class Dataprep:
     def __init__(self,
-                 photonic_tech_info: PhotonicTechInfo,
-                 grid: RoutingGrid,
+                 photonic_tech_info: "PhotonicTechInfo",
+                 grid: "RoutingGrid",
                  flat_content_list,
                  flat_content_list_separate,
                  ):
@@ -893,13 +892,12 @@ class Dataprep:
 
     def poly_operation(self,
                        lpp_out: Union[str, Tuple[str, str]],
-                       polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                       polygon2,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                       operation,  # type: str
-                       size_amount,  # type: Union[float, Tuple[float, float]]
-                       do_manh=False,  # type: bool,
-                       ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                       polygon1: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                       polygon2: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                       operation: str,
+                       size_amount: Union[float, Tuple[float, float]],
+                       do_manh: bool = False,
+                       ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
 
         Parameters
@@ -1018,8 +1016,8 @@ class Dataprep:
                 if polygon2 is None:
                     polygon_out = None
                 else:
-                    min_space = self.photonic_tech_info.min_space[lpp_out]
-                    min_width = self.photonic_tech_info.min_width[lpp_out]
+                    min_space = self.photonic_tech_info.min_space(lpp_out)
+                    min_width = self.photonic_tech_info.min_width(lpp_out)
                     underofover_size = \
                         self.global_grid_size * ceil(0.5 * min_space / self.global_grid_size)
                     overofunder_size = \
@@ -1043,7 +1041,6 @@ class Dataprep:
                                                                  fracture=False,
                                                                  do_manh=False,
                                                                  manh_grid_size=self.global_rough_grid_size,
-                                                                 debug=False
                                                                  )
                     polygon_simplified = self.simplify_coord_to_gdspy([coord_list, []],
                                                                       # TODO: Figure out the magic number
@@ -1226,8 +1223,6 @@ class Dataprep:
                                            ):
         """
         Finds the layer-specific Manhattanization size.
-        To do this, checks for the min_edge_length parameter in the PhotonicTechInfo.
-        If a value is not present, returns self.global_grid_size
 
         Parameters
         ----------
@@ -1237,7 +1232,18 @@ class Dataprep:
         -------
 
         """
-        return self.photonic_tech_info.min_edge_length(layer, return_grid_res_on_error=True)
+        if isinstance(layer, tuple):
+            layer = layer[0]
+
+        per_layer_manh = self.photonic_tech_info.dataprep_routine_data['manh_size_per_layer']
+        if layer not in per_layer_manh:
+            logging.info(f'Layer {layer} is not in the manh_size_per_layer dictionary in dataprep_routine file.\n'
+                         f'Defaulting to global_grid_size')
+            manh_size = self.global_grid_size
+        else:
+            manh_size = per_layer_manh[layer]
+
+        return manh_size
 
     def dataprep(self,
                  push_portshapes_through_dataprep: bool = False,
@@ -1281,7 +1287,10 @@ class Dataprep:
 
         # 3) Perform each dataprep operation in the list on the provided layers in order
         start0 = time.time()
-        for dataprep_group in self.photonic_tech_info.dataprep_parameters['dataprep_groups']:
+        dataprep_groups = self.photonic_tech_info.dataprep_routine_data.get('dataprep_groups', [])
+        if dataprep_groups is None:
+            dataprep_groups = []
+        for dataprep_group in dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
             for lpp_in in dataprep_group['lpp_in']:
                 shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
@@ -1316,8 +1325,9 @@ class Dataprep:
 
         # 4) Perform a final over_under_under_over operation
         start0 = time.time()
-        # TODO: Verify this works
-        ouuo_list = self.photonic_tech_info.dataprep_parameters.get('over_under_under_over', [])
+        ouuo_list = self.photonic_tech_info.dataprep_routine_data.get('over_under_under_over', [])
+        if ouuo_list is None:
+            ouuo_list = []
 
         for lpp in ouuo_list:
             logging.info(f'Performing OUUO on {lpp}s')
@@ -1429,7 +1439,11 @@ class Dataprep:
                 )
 
         # 3) Perform each dataprep operation in the list on the provided layers in order
-        for dataprep_group in self.photonic_tech_info.lsf_export_parameters['dataprep_groups']:
+        dataprep_groups = self.photonic_tech_info.lsf_export_parameters.get('dataprep_groups', [])
+        if dataprep_groups is None:
+            dataprep_groups = []
+
+        for dataprep_group in dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
             for lpp_in in dataprep_group['lpp_in']:
                 shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
@@ -1453,8 +1467,9 @@ class Dataprep:
                         self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
 
         # 4) Perform a final over_under_under_over operation
-        # TODO: Verify this
         ouuo_list = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
+        if ouuo_list is None:
+            ouuo_list = []
 
         for lpp in ouuo_list:
             new_out_layer_polygons = self.poly_operation(

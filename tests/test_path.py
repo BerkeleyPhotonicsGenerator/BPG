@@ -2,8 +2,6 @@ import BPG
 from BPG.photonic_objects import PhotonicPath
 import numpy as np
 from BPG.photonic_objects import PhotonicPolygon
-from BPG.poly_simplify import simplify_coord_to_gdspy
-from BPG.dataprep_gdspy import polyop_gdspy_to_point_list
 
 
 class Path(BPG.PhotonicTemplateBase):

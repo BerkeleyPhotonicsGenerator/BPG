@@ -20,10 +20,9 @@ class PhotonicLayoutManager(DesignManager):
     Class that manages the creation of Photonic Layouts and Lumerical LSF files
     """
     def __init__(self,
-                 bprj: PhotonicBagProject,
+                 bprj: "PhotonicBagProject",
                  spec_file,
                  ):
-        self.prj: PhotonicBagProject  # type case self.prj
 
         DesignManager.__init__(self, bprj, spec_file)
         """
@@ -33,8 +32,8 @@ class PhotonicLayoutManager(DesignManager):
         """
 
         # PhotonicTemplateDB instance for layout creation
-        self.prj: PhotonicBagProject
-        self.tdb: PhotonicTemplateDB = None
+        self.prj: "PhotonicBagProject"
+        self.tdb: "PhotonicTemplateDB" = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
@@ -91,7 +90,7 @@ class PhotonicLayoutManager(DesignManager):
         if 'routing_grid' in self.specs:
             grid_specs = self.specs['routing_grid']
         else:
-            grid_specs = self.prj.photonic_tech_info['default_routing_grid']
+            grid_specs = self.prj.photonic_tech_info.photonic_tech_params['default_routing_grid']
 
         layers = grid_specs['layers']
         spaces = grid_specs['spaces']
@@ -287,10 +286,7 @@ class PhotonicLayoutManager(DesignManager):
         """
         print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
-        self.tdb.dataprep(dataprep_file=self.prj.photonic_tech_info.dataprep_path,
-                          debug=debug,
-                          push_portshapes_through_dataprep=False,
-                          )
+        self.tdb.dataprep()
         self.tdb.create_masters_in_db(lib_name='_dataprep',
                                       content_list=self.tdb.post_dataprep_flat_content_list,
                                       debug=debug,
