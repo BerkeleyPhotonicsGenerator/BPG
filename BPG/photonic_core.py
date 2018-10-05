@@ -1,18 +1,21 @@
 import os
 import bag
 import bag.io
+import abc
+import yaml
 
 from pathlib import Path
-from bag.core import BagProject, create_tech_info
+from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
 from decimal import Decimal
 from bag.layout.core import BagLayout
 from .photonic_port import PhotonicPort
-from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 from itertools import chain
 
 if TYPE_CHECKING:
     from BPG.photonic_objects import PhotonicRound
     from bag.layout.objects import InstanceInfo
+    from bag.layout.core import TechInfo
 
 try:
     import cybagoa
@@ -40,9 +43,6 @@ class PhotonicBagProject(BagProject):
     def __init__(self, bag_config_path=None, port=None):
         BagProject.__init__(self, bag_config_path, port)
 
-        # Get the main working directory to be used for all relative paths
-        root_path = os.environ['BAG_WORK_DIR']
-
         # Setup bag config path from env if not provided
         if bag_config_path is None:
             if 'BAG_CONFIG_PATH' not in os.environ:
@@ -57,42 +57,46 @@ class PhotonicBagProject(BagProject):
         else:
             raise ValueError('bpg configuration vars not set in bag_config.yaml')
 
-        # Extract relevant tech configuration paths
-
-        self.layermap_path = self.bpg_config.get('layermap', root_path + '/BPG/examples/tech/gds_map.yaml')
-        if not Path(self.layermap_path).is_file():
-            raise ValueError(f'layermap file {self.layermap_path} does not exist!')
-        print(f'Loading layermap from {self.layermap_path}')
-
-        self.dataprep_path = self.bpg_config.get('dataprep', root_path + '/BPG/examples/tech/dataprep.yaml')
-        if not Path(self.dataprep_path).is_file():
-            raise ValueError(f'dataprep file {self.dataprep_path} does not exist!')
-        print(f'Loading dataprep procedure from {self.dataprep_path}')
-
-        self.lsf_export_path = self.bpg_config.get('lsf_dataprep',
-                                                   root_path + '/BPG/examples/tech/lumerical_map.yaml')
-        if not Path(self.lsf_export_path).is_file():
-            raise ValueError(f'layermap file {self.lsf_export_path} does not exist!')
-        print(f'Loading lumerical export config from {self.lsf_export_path}')
-
-        # TODO: Create a dummy dataprep params file so that we can do a file exists check
-        self.dataprep_params_path = self.bpg_config.get('dataprep_params', '')
-        print(f'Loading dataprep parameters from {self.dataprep_params_path}')
-
-        # TODO: Should dataprep_skill.il be protected by a tech class?
-        self.dataprep_skill_path = self.bpg_config.get('dataprep_skill_path',
-                                                       root_path + 'BPG/BPG/dataprep_skill.il')
-
         # Grab technology information
         # TODO: Make the tech class loading generic again
         print('Setting up tech info class')
         # self.tech_info = PTech()
         self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
+        self.photonic_tech_info = create_photonic_tech_info(bpg_config=self.bpg_config,
+                                                            tech_info=self.tech_info)
+
     @staticmethod
     def load_yaml(filepath):
         """ Setup standardized method for yaml loading """
         return bag.core._parse_yaml_file(filepath)
+
+
+def create_photonic_tech_info(bpg_config,  # type: Dict
+                              tech_info,  # type: TechInfo
+                              ):
+    # type: (...) -> PhotonicTechInfo
+    """Create PhotonicTechInfo object."""
+
+    if 'photonic_tech_config_path' not in bpg_config:
+        raise ValueError('photonic_tech_config_path not defined in bag_config.yaml.')
+
+    photonic_tech_params = _parse_yaml_file(bpg_config['photonic_tech_config_path'])
+    if 'photonic_tech_class' in photonic_tech_params:
+        photonic_tech_cls = _import_class_from_str(photonic_tech_params['photonic_tech_class'])
+        photonic_tech_info = photonic_tech_cls(photonic_tech_params,
+                                               tech_info.resolution,
+                                               tech_info.layout_unit,
+                                               )
+    else:
+        # Make a default photonic_tech_info as a place holder.
+        print('*WARNING*: No PhotonicTechInfo class defined.  Using a dummy version.')
+        photonic_tech_info = DummyPhotonicTechInfo(photonic_tech_params,
+                                                   tech_info.resolution,
+                                                   tech_info.layout_unit
+                                                   )
+
+    return photonic_tech_info
 
 
 # From bag/layout/core
@@ -312,6 +316,424 @@ class PhotonicBagLayout(BagLayout):
             raise Exception('Layout is already finalized.')
 
         self._monitor_list.append(monitor_obj)
+
+
+class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
+    def __init__(self, photonic_tech_params, resolution, layout_unit):
+        self._resolution = resolution
+        self._layout_unit = layout_unit
+        self.photonic_tech_params = photonic_tech_params
+
+        # Get the main working directory to be used for all relative paths
+        root_path = os.environ['BAG_WORK_DIR']
+
+        # Layermap
+        self.layermap_path = self.photonic_tech_params.get('layermap',
+                                                           root_path + '/BPG/examples/tech/gds_map.yaml')
+        if not Path(self.layermap_path).is_file():
+            raise ValueError(f'layermap file {self.layermap_path} does not exist!')
+        print(f'Loading layermap from {self.layermap_path}')
+
+        # LSF Export Map
+        # TODO: allow this to fail?
+        self.lsf_export_path = self.photonic_tech_params.get('lsf_dataprep_filepath',
+                                                             root_path + '/BPG/examples/tech/lumerical_map.yaml')
+        if not Path(self.lsf_export_path).is_file():
+            raise ValueError(f'layermap file {self.lsf_export_path} does not exist!')
+        print(f'Loading lumerical export config from {self.lsf_export_path}')
+
+        # Dataprep routine
+        # TODO: allow this to fail?
+        self.dataprep_routine_filepath = self.photonic_tech_params.get('dataprep_routine_filepath',
+                                                                       root_path + '/BPG/examples/tech/dataprep.yaml')
+        if not Path(self.dataprep_routine_filepath).is_file():
+            raise ValueError(f'dataprep file {self.dataprep_routine_filepath} does not exist!')
+        print(f'Loading dataprep procedure from {self.dataprep_routine_filepath}')
+
+        # TODO: Create a dummy dataprep params file so that we can do a file exists check
+        self.dataprep_parameters_filepath = self.photonic_tech_params.get('dataprep_parameters_filepath', None)
+        print(f'Loading dataprep parameters from {self.dataprep_parameters_filepath}')
+
+        self.dataprep_skill_path = self.photonic_tech_params.get('dataprep_skill_path',
+                                                                 root_path + 'BPG/BPG/dataprep_skill.il')
+
+        with open(self.layermap_path, 'r') as f:
+            layer_info = yaml.load(f)
+            self.layer_map = layer_info['layer_map']
+            self.via_info = layer_info['via_info']
+
+        with open(self.lsf_export_path, 'r') as f:
+            self.lsf_export_parameters = yaml.load(f)
+
+        if self.dataprep_parameters_filepath:
+            with open(self.dataprep_parameters_filepath, 'r') as f:
+                self.dataprep_parameters = yaml.load(f)
+        else:
+            self.dataprep_parameters = None
+            print('Warning: dataprep_parameters_filepath not specified in tech config. Dataprep and DRC lookup '
+                  'functions may not work.')
+
+        if self.dataprep_routine_filepath:
+            with open(self.dataprep_routine_filepath, 'r') as f:
+                self.dataprep_routine_data = yaml.load(f)
+            self.global_dataprep_size_amount = self.dataprep_routine_data['GlobalDataprepSizeAmount']
+            self.global_grid_size = self.dataprep_routine_data['GlobalGridSize']
+            self.global_rough_grid_size = self.dataprep_routine_data['GlobalRoughGridSize']
+        else:
+            self.dataprep_routine_data = None
+            print('Warning: dataprep_routine_filepath not specified in tech config. Dataprep and DRC lookup '
+                  'functions may not work.')
+
+
+    @abc.abstractmethod
+    def min_width_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        # type: (...) -> int
+        """
+        Returns the minimum width (in resolution units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_width_unit : float
+            The minimum width in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_width(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        # type: (...) -> float
+        """
+        Returns the minimum width (in layout units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_width : float
+            The minimum width for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_space_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        # type: (...) -> int
+        """
+        Returns the minimum space (in resolution units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_space_unit : float
+            The minimum space in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_space(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        # type: (...) -> float
+        """
+        Returns the minimum space (in layout units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_space : float
+            The minimum space for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def max_width_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        # type: (...) -> int
+        """
+        Returns the maximum width (in resolution units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        max_width_unit : float
+            The maximum width in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def max_width(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        # type: (...) -> float
+        """
+        Returns the maximum width (in layout units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        max_width : float
+            The maximum width for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_area_unit(self,
+                      layer,  # type: Union[str, Tuple[str, str]]
+                      ):
+        # type: (...) -> int
+        """
+        Returns the minimum area (in resolution units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_area_unit : float
+            The minimum area in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_area(self,
+                 layer,  # type: Union[str, Tuple[str, str]]
+                 ):
+        # type: (...) -> float
+        """
+        Returns the minimum area (in layout units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_area : float
+            The minimum area for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_edge_length_unit(self,
+                             layer,  # type: Union[str, Tuple[str, str]]
+                             ):
+        # type: (...) -> int
+        """
+        Returns the minimum edge length (in resolution units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_edge_length : float
+            The minimum edge length in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def min_edge_length(self,
+                        layer,  # type: Union[str, Tuple[str, str]]
+                        ):
+        # type: (...) -> float
+        """
+        Returns the minimum edge length (in layout units) for a given layer.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        min_edge_length : float
+            The minimum edge length for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def height_unit(self,
+                    layer,  # type: Union[str, Tuple[str, str]]
+                    ):
+        # type: (...) -> int
+        """
+        Returns the height from the top of the silicon region (defined as 0) to the bottom surface of the given
+        layer, in resolution units.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        height_unit : float
+            The height of the bottom surface in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def height(self,
+               layer,  # type: Union[str, Tuple[str, str]]
+               ):
+        # type: (...) -> float
+        """
+        Returns the height from the top of the silicon region (defined as 0) to the bottom surface of the given
+        layer, in layout units.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        height : float
+            The height of the bottom surface for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def thickness_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        # type: (...) -> int
+        """
+        Returns the thickness of the layer, in resolution units
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        thickness_unit : float
+            The thickness in resolution units for shapes on the layer
+        """
+
+    @abc.abstractmethod
+    def thickness(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        # type: (...) -> float
+        """
+        Returns the thickness of the layer, in layout units.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        thickness : float
+            The thickness of shapes on the layer
+        """
+
+
+class DummyPhotonicTechInfo(PhotonicTechInfo):
+    """
+    A dummy PhotonicTechInfo class
+
+    Parameters
+    ----------
+
+    """
+    def __init__(self, photonic_tech_params, resolution, layout_unit):
+        PhotonicTechInfo.__init__(self, {}, resolution, layout_unit)
+
+    def min_area(self,
+                 layer,  # type: Union[str, Tuple[str, str]]
+                 ):
+        return 0
+
+    def min_area_unit(self,
+                      layer,  # type: Union[str, Tuple[str, str]]
+                      ):
+        return 0
+
+    def min_edge_length(self,
+                        layer,  # type: Union[str, Tuple[str, str]]
+                        ):
+        return 0
+
+    def min_edge_length_unit(self,
+                             layer,  # type: Union[str, Tuple[str, str]]
+                             ):
+        return 0
+
+    def min_space(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        return 0
+
+    def min_space_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        return 0
+
+    def min_width(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        return 0
+
+    def min_width_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        return 0
+
+    def max_width(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        return 0
+
+    def max_width_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        return 0
+
+    def height(self,
+               layer,  # type: Union[str, Tuple[str, str]]
+               ):
+        return 0
+
+    def height_unit(self,
+                    layer,  # type: Union[str, Tuple[str, str]]
+                    ):
+        return 0
+
+    def thickness(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        return 0
+
+    def thickness_unit(self,
+                       layer,  # type: Union[str, Tuple[str, str]]
+                       ):
+        return 0
 
 
 class PTech:
