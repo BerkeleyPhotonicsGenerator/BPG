@@ -49,7 +49,7 @@ coord_type = Tuple[dim_type, dim_type]
 class PhotonicTemplateDB(TemplateDB):
     def __init__(self: "PhotonicTemplateDB",
                  lib_defs: str,
-                 routing_grid: RoutingGrid,
+                 routing_grid: "RoutingGrid",
                  libname: str,
                  prj: Optional[BagProject] = None,
                  name_prefix: str = '',
@@ -59,7 +59,7 @@ class PhotonicTemplateDB(TemplateDB):
                  flatten: bool = False,
                  gds_filepath: str = '',
                  lsf_filepath: str = '',
-                 photonic_tech_info: PhotonicTechInfo = None,
+                 photonic_tech_info: "PhotonicTechInfo" = None,
                  **kwargs,
                  ):
         TemplateDB.__init__(self, lib_defs, routing_grid, libname, prj,
