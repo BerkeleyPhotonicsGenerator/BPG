@@ -1,4 +1,3 @@
-import BPG
 import yaml
 import importlib
 import os
@@ -10,21 +9,32 @@ from .photonic_template import PhotonicTemplateDB
 from .lumerical_generator import LumericalSweepGenerator
 from .lumerical_materials import LumericalMaterialGenerator
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from BPG.photonic_core import PhotonicBagProject
+
 
 class PhotonicLayoutManager(DesignManager):
     """
     Class that manages the creation of Photonic Layouts and Lumerical LSF files
     """
-    def __init__(self, bprj, spec_file):
-        DesignManager.__init__(self, bprj, spec_file)
+    def __init__(self,
+                 bprj: PhotonicBagProject,
+                 spec_file,
+                 ):
+        self.prj: PhotonicBagProject  # type case self.prj
 
+        DesignManager.__init__(self, bprj, spec_file)
         """
         [ Relevant Inherited Variables ]
         self.prj: contains the BagProject instance
         self.specs: contains the specs passed in spec_file
         """
+
         # PhotonicTemplateDB instance for layout creation
-        self.tdb = None  # type: PhotonicTemplateDB
+        self.prj: PhotonicBagProject
+        self.tdb: PhotonicTemplateDB = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
@@ -43,32 +53,25 @@ class PhotonicLayoutManager(DesignManager):
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
 
+        # Overwrite tech parameters if specified in the spec file
         # Setup the abstract tech layermap
         if 'layermap' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.layermap_path = bag_work_dir / self.specs['layermap']
-        else:
-            self.layermap_path = self.prj.layermap_path
+            self.prj.photonic_tech_info.layermap_path = bag_work_dir / self.specs['layermap']
 
         # Setup the dataprep procedure
         if 'dataprep' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_path = bag_work_dir / self.specs['dataprep']
-        else:
-            self.dataprep_path = self.prj.dataprep_path
+            self.prj.photonic_tech_info.dataprep_routine_filepath = bag_work_dir / self.specs['dataprep']
 
         if 'dataprep_params' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.dataprep_params_path = bag_work_dir / self.specs['dataprep_params']
-        else:
-            self.dataprep_params_path = self.prj.dataprep_params_path
+            self.prj.photonic_tech_info.dataprep_parameters_filepath = bag_work_dir / self.specs['dataprep_params']
 
         # Setup the lumerical export map
         if 'lsf_export_map' in self.specs:
             bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-            self.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
-        else:
-            self.lsf_export_path = self.prj.lsf_export_path
+            self.prj.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -82,21 +85,26 @@ class PhotonicLayoutManager(DesignManager):
         Makes a new PhotonicTemplateDB instance assuming all contained layouts are generated independently of the grid
         """
         lib_name = self.specs['impl_lib']
-        # TODO: is this the right place for setting self.impl_lib?
         self.impl_lib = lib_name
 
-        # Input dummy values for these parameters, we wont be using the grid in BPG
-        # TODO: Allow layer properties to be extracted from the spec file
-        layers = [3, 4, 5]
-        spaces = [0.1, 0.1, 0.2]
-        widths = [0.1, 0.1, 0.2]
-        bot_dir = 'y'
+        # Extract routing grid information from spec file if provided. If not, default to dummy values
+        if 'routing_grid' in self.specs:
+            grid_specs = self.specs['routing_grid']
+        else:
+            grid_specs = self.prj.photonic_tech_info['default_routing_grid']
+
+        layers = grid_specs['layers']
+        spaces = grid_specs['spaces']
+        widths = grid_specs['widths']
+        bot_dir = grid_specs['bot_dir']
+
         routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
 
         self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
-                                      gds_lay_file=self.layermap_path, gds_filepath=self.gds_path,
-                                      lsf_filepath=self.lsf_path, dataprep_file=self.dataprep_path,
-                                      lsf_export_filepath=self.lsf_export_path)
+                                      gds_lay_file=self.prj.photonic_tech_info.layermap_path,
+                                      gds_filepath=self.gds_path, lsf_filepath=self.lsf_path,
+                                      photonic_tech_info=self.prj.photonic_tech_info
+                                      )
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """
@@ -120,7 +128,6 @@ class PhotonicLayoutManager(DesignManager):
             else:
                 cell_name_list = [self.specs['impl_cell']]
 
-        # TODO: Do this here?
         # Save the cell name list and layout param list
         self.layout_params_list = layout_params_list
         self.cell_name_list = cell_name_list
@@ -149,8 +156,8 @@ class PhotonicLayoutManager(DesignManager):
         if create_materials is True:
             self.create_materials_file()
 
-        self.tdb.to_lumerical(gds_layermap=self.layermap_path,
-                              lsf_export_config=self.lsf_export_path,
+        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
                               debug=debug,
                               )
@@ -198,8 +205,8 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
         # Create the design LSF file
-        self.tdb.to_lumerical(gds_layermap=self.layermap_path,
-                              lsf_export_config=self.lsf_export_path,
+        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
                               debug=debug,
                               )
@@ -280,7 +287,7 @@ class PhotonicLayoutManager(DesignManager):
         """
         print('\n---Performing dataprep---')
         self.generate_flat_gds(generate_gds=False)
-        self.tdb.dataprep(dataprep_file=self.dataprep_path,
+        self.tdb.dataprep(dataprep_file=self.prj.photonic_tech_info.dataprep_path,
                           debug=debug,
                           push_portshapes_through_dataprep=False,
                           )
@@ -303,8 +310,8 @@ class PhotonicLayoutManager(DesignManager):
 
         self.tdb._prj.impl_db.setup_bpg_skill(
             output_path=lib_path,
-            dataprep_procedure_path=self.dataprep_path,
-            dataprep_parameters_path=self.dataprep_params_path,
+            dataprep_procedure_path=self.prj.photonic_tech_info.dataprep_path,
+            dataprep_parameters_path=self.prj.photonic_tech_info.dataprep_params_path,
             dataprep_skill_function_path=self.prj.dataprep_skill_path
         )
 
@@ -336,7 +343,7 @@ class PhotonicLayoutManager(DesignManager):
         materials for use in simulation.
         """
         # 1) load the lumerical map file
-        inpath = self.lsf_export_path
+        inpath = self.prj.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
         with open(inpath, 'r') as f:
             lumerical_map = yaml.load(f)

@@ -9,7 +9,6 @@ import abc
 import numpy as np
 import yaml
 import time
-import pdb
 
 from bag.core import BagProject, RoutingGrid
 import bag.io
@@ -18,6 +17,7 @@ from bag.layout.template import TemplateBase, TemplateDB
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from bag.util.cache import _get_unique_name, DesignMaster
 from BPG.photonic_core import PhotonicBagLayout
+from BPG.dataprep_gdspy import Dataprep
 
 from .photonic_port import PhotonicPort
 from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
@@ -31,6 +31,7 @@ from numpy import pi
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo
     from bag.layout.objects import InstanceInfo, Instance
+    from BPG.photonic_core import PhotonicTechInfo
 
 try:
     import gdspy
@@ -44,34 +45,21 @@ except ImportError:
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
 
-# SKILL has DO_MANH_AT_BEGINNING effectively set to True (all shapes are first Manhattanized). We can do this, but it
-# will be slow. Instead, we think it is OK to NOT Manhattanize pre-data-prep, perform the growth/shrink functions on
-# non-Manhattanized shapes, then Manhattanize at the very end. This should be faster
-GLOBAL_DO_MANH_AT_BEGINNING = True
-
-# SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad
-GLOBAL_DO_MANH_DURING_OP = True
-
-# True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING and _..._DIRUING_OP are
-# set, GLOBAL_DO_FINAL_MANH can be False, and we will still have Manhattanized shapes on Manhattan grid
-GLOBAL_DO_FINAL_MANH = True
-
 
 class PhotonicTemplateDB(TemplateDB):
-    def __init__(self,  # type: TemplateDB
-                 lib_defs,  # type: str
-                 routing_grid,  # type: RoutingGrid
-                 libname,  # type: str
-                 prj=None,  # type: Optional[BagProject]
-                 name_prefix='',  # type: str
-                 name_suffix='',  # type: str
-                 use_cybagoa=False,  # type: bool
-                 gds_lay_file='',  # type: str
-                 flatten=False,  # type: bool
-                 gds_filepath='',  # type: str
-                 lsf_filepath='',  # type: str
-                 dataprep_file='',  # type: str
-                 lsf_export_filepath='',  # type: str
+    def __init__(self: "PhotonicTemplateDB",
+                 lib_defs: str,
+                 routing_grid: RoutingGrid,
+                 libname: str,
+                 prj: Optional[BagProject] = None,
+                 name_prefix: str = '',
+                 name_suffix: str = '',
+                 use_cybagoa: bool = False,
+                 gds_lay_file: str = '',
+                 flatten: bool = False,
+                 gds_filepath: str = '',
+                 lsf_filepath: str = '',
+                 photonic_tech_info: PhotonicTechInfo = None,
                  **kwargs,
                  ):
         TemplateDB.__init__(self, lib_defs, routing_grid, libname, prj,
@@ -85,16 +73,20 @@ class PhotonicTemplateDB(TemplateDB):
         self.flat_content_list_separate = None
         # Variable where flattened layout content will be stored, by layer.
         # Format is a dictionary whose keys are LPPs, and whose values are BAG content list format
-        self.flat_content_list_by_layer = {}  # type: Dict[Tuple(str, str), List]
+        self.flat_content_list_by_layer = {}  # type: Dict[Tuple(str, str), Tuple]
         self.flat_gdspy_polygonsets_by_layer = {}
         self.post_dataprep_polygon_pointlist_by_layer = {}
         self.post_dataprep_flat_content_list = []
 
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
-        self.dataprep_file = dataprep_file
-        self.lsf_export_file = lsf_export_filepath
+
+        self.photonic_tech_info = photonic_tech_info
+        self.dataprep_routine_filepath = photonic_tech_info.dataprep_routine_filepath
+        self.dataprep_params_filepath = photonic_tech_info.dataprep_parameters_filepath
+        self.lsf_export_file = photonic_tech_info.lsf_export_path
         self._export_gds = True
+        self.dataprep_object = None
 
     @property
     def export_gds(self):
@@ -118,6 +110,9 @@ class PhotonicTemplateDB(TemplateDB):
             a list of the master contents.  Must be created in this order.
         debug : bool
             True to print debug messages
+        export_gds : bool
+            True to export the gds.
+            False to not export a gds even if a gds layermap is provided.
         """
         if self._prj is None:
             raise ValueError('BagProject is not defined.')
@@ -451,11 +446,6 @@ class PhotonicTemplateDB(TemplateDB):
                                            layer=vlay, datatype=vpurp)
                 gds_cell.add(cur_rect)
 
-
-
-
-
-
     def to_lumerical(self,
                      gds_layermap: str,
                      lsf_export_config: str,
@@ -502,7 +492,7 @@ class PhotonicTemplateDB(TemplateDB):
             raise ValueError('Please generate a flat GDS before exporting to Lumerical')
 
         # 3) Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
-        self.lsf_dataprep(lsf_export_config, debug=debug)
+        self.lsf_dataprep()
         content_list = self.post_dataprep_flat_content_list
         self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
 
@@ -758,7 +748,6 @@ class PhotonicTemplateDB(TemplateDB):
          new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
          new_sim_list, new_source_list, new_monitor_list) = master_content
 
-
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
             via_info = lay_info['via_info']
@@ -784,11 +773,9 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: do we need to clean up the new_via_list here or just keep it?
         new_via_list = []
 
-
         new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
                             new_sim_list, new_source_list, new_monitor_list)
-
 
         # For each instance in this level, recurse to get all its content
         for child_instance_info in master_subinstances:
@@ -849,14 +836,8 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('In _transform_child_content')
 
-
-
         (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,
          sim_list, source_list, monitor_list) = content
-
-
-
-
 
         new_rect_list = []
         new_via_list = []       # via list which can not be handled by DataPrep
@@ -1010,16 +991,12 @@ class PhotonicTemplateDB(TemplateDB):
                             new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
                             new_sim_list, new_source_list, new_monitor_list)
 
-
         return new_content_list
 
     def via_to_polygon_list(self, via, via_lay_info, x0, y0):
-
-
         blay = via_lay_info['bot_layer']
         tlay = via_lay_info['top_layer']
         vlay = via_lay_info['via_layer']
-        # pdb.set_trace()
         cw, ch = via.cut_width, via.cut_height
         if cw < 0:
             cw = via_lay_info['cut_width']
@@ -1038,20 +1015,16 @@ class PhotonicTemplateDB(TemplateDB):
         bot_left, bot_bot, bot_right, bot_top = x0 - bl, y0 - bb, x0 + w_arr + br, y0 + h_arr + bt
         top_left, top_bot, top_right, top_top = x0 - tl, y0 - tb, x0 + w_arr + tr, y0 + h_arr + tt
 
-
         bot_polygon = {
             'layer': blay,
             'points': [(bot_left, bot_bot), (bot_left, bot_top), (bot_right, bot_top), (bot_right, bot_bot)]
         }
-          #  gdspy.Rectangle(bot_p0, bot_p1, layer=blay, datatype=bpurp)
-        # top_rect = gdspy.Rectangle(top_p0, top_p1, layer=tlay, datatype=tpurp)
         top_polygon = {
             'layer': tlay,
             'points': [(top_left, top_bot), (top_left, top_top), (top_right, top_top), (top_right, top_bot)]
         }
 
         polygon_list = [bot_polygon, top_polygon]
-
 
         for xidx in range(num_cols):
             dx = xidx * (cw + sp_cols)
@@ -1065,61 +1038,25 @@ class PhotonicTemplateDB(TemplateDB):
                 }
                 polygon_list.append(via_polygon)
 
-        # print(polygon_list)
-        # pdb.set_trace()
         return polygon_list
-
-    def get_polygon_point_lists_on_layer(self,
-                                         layer,  # type: Tuple[str, str]
-                                         debug=False,  # type: bool
-                                         ):
-        """
-        Returns a list of all shapes
-
-        Parameters
-        ----------
-        layer : Tuple[str, str]
-            the layer purpose pair to get all shapes in shapely format
-        debug : bool
-            true to print debug info
-
-        Returns
-        -------
-
-        """
-        content = [self.get_content_on_layer(layer)]
-        return self.to_polygon_pointlist_from_content_list(content_list=content, debug=debug)
-
-    def get_content_on_layer(self,
-                             layer,  # type: Tuple[str, str]
-                             ):
-        # type: (...) -> Tuple
-        """Returns only the content that exists on a given layer
-
-        Parameters
-        ----------
-        layer : Tuple[str, str]
-            the layer whose content is desired
-
-        Returns
-        -------
-        content : Tuple
-            the shape content on the provided layer
-        """
-        if layer not in self.flat_content_list_by_layer.keys():
-            return ()
-        else:
-            return self.flat_content_list_by_layer[layer]
 
     def sort_flat_content_by_layers(self):
         """
         Sorts the flattened content list into a dictionary of content lists, with keys corresponding to a given lpp
 
+        Notes
+        -----
+        1) Unpack the flattened content list
+        2) Loop over objects in the content list, ignoring vias
+        3) Create new layer dictionary key if object layer is new, and whose value is a content list style array
+        4) Append object to proper location in the per-layer content list array
+
         Returns
         -------
 
         """
 
+        # 1) Unpack the flattened content list
         (cell_name, _, rect_list, via_list, pin_list, path_list,
          blockage_list, boundary_list, polygon_list, round_list,
          sim_list, source_list, monitor_list) = self.flat_content_list[0]
@@ -1127,440 +1064,44 @@ class PhotonicTemplateDB(TemplateDB):
         used_layers = []
         offset = 2
 
+        # 2) Loop over objects in the content list, ignoring vias
         for list_type_ind, list_content in enumerate([rect_list, via_list, pin_list, path_list,
                                                       blockage_list, boundary_list, polygon_list, round_list,
                                                       sim_list, source_list, monitor_list]):
+            # Ignore vias
             if list_type_ind != 1:
+                # 3) Create new layer dictionary key if object layer is new,
+                # and whose value is a content list style array
                 for content_item in list_content:
                     layer = tuple(content_item['layer'])
                     if layer not in used_layers:
                         used_layers.append(layer)
-                        self.flat_content_list_by_layer[layer] = (cell_name, [], [], [], [], [], [], [], [], [], [], [], [])
+                        self.flat_content_list_by_layer[layer] = (
+                            cell_name, [], [], [], [], [], [], [], [], [], [], [], []
+                        )
+                    # 4) Append object to proper location in the per-layer content list array
                     self.flat_content_list_by_layer[layer][offset + list_type_ind].append(content_item)
 
-    # TODO: VIAS FOR DATAPREP
-    # TODO
-    # TODO
-    def _via_to_polygon_pointlist(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
-        blay, bpurp = lay_map[via_lay_info['bot_layer']]
-        tlay, tpurp = lay_map[via_lay_info['top_layer']]
-        vlay, vpurp = lay_map[via_lay_info['via_layer']]
-        cw, ch = via.cut_width, via.cut_height
-        if cw < 0:
-            cw = via_lay_info['cut_width']
-        if ch < 0:
-            ch = via_lay_info['cut_height']
+    def dataprep(self):
+        # Initialize dataprep structure
+        # Call dataprep method
 
-        num_cols, num_rows = via.num_cols, via.num_rows
-        sp_cols, sp_rows = via.sp_cols, via.sp_rows
-        w_arr = num_cols * cw + (num_cols - 1) * sp_cols
-        h_arr = num_rows * ch + (num_rows - 1) * sp_rows
-        x0 -= w_arr / 2
-        y0 -= h_arr / 2
-        bl, br, bt, bb = via.enc1
-        tl, tr, tt, tb = via.enc2
-        bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
-        top_p0, top_p1 = (x0 - tl, y0 - tb), (x0 + w_arr + tr, y0 + h_arr + tt)
+        if self.dataprep_object is None:
+            self.dataprep_object = Dataprep(self.photonic_tech_info,
+                                            self.grid,
+                                            self.flat_content_list,
+                                            self.flat_content_list_separate
+                                            )
+        self.post_dataprep_flat_content_list = self.dataprep_object.dataprep(push_portshapes_through_dataprep=False)
 
-        cur_rect = gdspy.Rectangle(bot_p0, bot_p1, layer=blay, datatype=bpurp)
-        gds_cell.add(cur_rect)
-        cur_rect = gdspy.Rectangle(top_p0, top_p1, layer=tlay, datatype=tpurp)
-        gds_cell.add(cur_rect)
-
-        for xidx in range(num_cols):
-            dx = xidx * (cw + sp_cols)
-            for yidx in range(num_rows):
-                dy = yidx * (ch + sp_rows)
-                cur_rect = gdspy.Rectangle((x0 + dx, y0 + dy), (x0 + cw + dx, y0 + ch + dy),
-                                           layer=vlay, datatype=vpurp)
-                gds_cell.add(cur_rect)
-
-
-    def to_polygon_pointlist_from_content_list(self,
-                                               content_list,  # type: List
-                                               debug=False,  # type: bool
-                                               ):
-        # type: (...) -> Tuple[List, List]
-        """
-        Convert the provided content list into two lists of polygon pointlists.
-        The first returned list represents the positive boundaries of polygons.
-        The second returned list represents the 'negative' boundaries of holes in polygons.
-        All shapes in the passed content list are converted, regardless of layer.
-        It is expected that the content list passed to this function only has a single LPP's content
-
-        Parameters
-        ----------
-        content_list : List
-            The content list to be converted to a polygon pointlist
-        debug : bool
-            True to print debug information
-
-        Returns
-        -------
-        positive_polygon_pointlist, negative_polygon_pointlist : Tuple[List, List]
-            The positive shape and negative shape (holes) polygon boundaries
-        """
-
-        positive_polygon_pointlist = []
-        negative_polygon_pointlist = []
-
-        with open(self._gds_lay_file, 'r') as f:
-            lay_info = yaml.load(f)
-            lay_map = lay_info['layer_map']
-            via_info = lay_info['via_info']
-
-        start = time.time()
-        for content in content_list:
-            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list,
-             sim_list, source_list, monitor_list) = content
-
-            # add instances
-            for inst_info in inst_tot_list:
-                pass
-
-            # add rectangles
-            for rect in rect_list:
-                nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
-                if nx > 1 or ny > 1:
-                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
-                        rect['bbox'], nx, ny,
-                        spx=rect['arr_spx'], spy=rect['arr_spy']
-                    )
-                else:
-                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
-                        rect['bbox']
-                    )
-
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            # add vias
-            # TODO: are we keeping via objects after flattening?
-            for via in via_list:
-                pass
-
-
-            # add pins
-            for pin in pin_list:
-                pass
-
-            for path in path_list:
-                # Treat like polygons
-                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            for blockage in blockage_list:
-                pass
-
-            for boundary in boundary_list:
-                pass
-
-            for polygon in polygon_list:
-                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(polygon['points'])
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            for round_obj in round_list:
-                polygon_pointlist_pos_neg = PhotonicRound.polygon_pointlist_export(
-                    rout=round_obj['rout'],
-                    rin=round_obj['rin'],
-                    theta0=round_obj['theta0'],
-                    theta1=round_obj['theta1'],
-                    center=round_obj['center'],
-                    nx=round_obj.get('nx', 1),
-                    ny=round_obj.get('ny', 1),
-                    spx=round_obj.get('spx', 0.0),
-                    spy=round_obj.get('spy', 0.0),
-                    resolution=self.grid.resolution,
-                )
-
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-        end = time.time()
-        if debug:
-            print('layout instantiation took %.4g seconds' % (end - start))
-
-        return positive_polygon_pointlist, negative_polygon_pointlist
-
-    def by_layer_polygon_list_to_flat_for_gds_export(self):
-        """Converts a LPP-keyed dictionary of polygon pointlists to a flat content list format for GDS export"""
-        polygon_content_list = []
-        for layer, polygon_pointlists in self.post_dataprep_polygon_pointlist_by_layer.items():
-            for polygon_points in polygon_pointlists:
-                polygon_content_list.append(
-                    dict(
-                        layer=(layer[0], layer[1]),
-                        points=polygon_points,
-                    )
-                )
-        # TODO: get the right name
-        self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
-                                                 polygon_content_list, [], [], [], [])]
-    '''
-    def dataprep(self,
-                 dataprep_file: str,
-                 push_portshapes_through_dataprep: bool = False,
-                 debug: bool = False,
-                 ) -> None:
-        """
-        Takes the flat content list and performs the specified transformations on the shapes for the purpose
-        of cleaning DRC and prepping tech specific functions.
-
-        Notes
-        -----
-        1) Take the shapes in the flattened content list and convert them to gdspy format
-        2) Parse the dataprep spec file to extract the desired procedure defined through dataprep_groups
-        3) Perform each dataprep operation on the provided layers in order. dataprep_groups is a list
-        where each element contains 2 other lists:
-            3a) lpp_in defines the layers that the operation will be performed on
-            3b) lpp_ops defines the operation to be performed
-            3c) Maps the operation in the spec file to its gdspy implementation and performs it
-        4) Performs a final over_under_under_over operation
-        5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
-
-        Parameters
-        ----------
-        dataprep_file : str
-            path to yaml containing dataprep procedure
-        debug : bool
-            True to print debug information
-        push_portshapes_through_dataprep : bool
-            True to perform dataprep and convert the port indicator shapes
-        """
-
-        # 1) Convert layer shapes to gdspy polygon format
-        start = time.time()
-        for layer, gds_shapes in self.flat_content_list_by_layer.items():
-            if debug:
-                print("Converting layer content to gdspy:  Layer {}".format(layer))
-            # TODO: fix Manhattan size
-            if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label'):
-                self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
-                    self.get_polygon_point_lists_on_layer(layer),
-                    manh_grid_size=0.001,
-                    do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
-                )
-            if debug:
-                end = time.time()
-                print("Converting layer coordinate list to gdspy:  Layer {}  took {}s".format(layer, end - start))
-
-        # 2) Parse the dataprep specification file
-        with open(dataprep_file, 'r') as f:
-            dataprep_info = yaml.load(f)
-
-        # 3) Perform each dataprep operation in the list on the provided layers in order
-        start = time.time()
-        for dataprep_group in dataprep_info['dataprep_groups']:
-            # 3a) Iteratively perform operations on all layers in lpp_in
-            for lpp_in in dataprep_group['lpp_in']:
-                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
-                # 3b) Iteratively perform each operation on the current lpp_in
-                for lpp_op in dataprep_group['lpp_ops']:
-                    out_layer = (lpp_op[0], lpp_op[1])
-                    operation = lpp_op[2]
-                    amount = lpp_op[3]
-
-                    if debug:
-                        print("Doing dataprep op: {}  on layer {}  to "
-                              "layer  {}  with size  {}".format(operation, lpp_in, out_layer, amount))
-
-                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
-                    new_out_layer_polygons = poly_operation(
-                        polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
-                        polygon2=shapes_in,
-                        operation=operation,
-                        size_amount=amount,
-                        do_manh=GLOBAL_DO_MANH_DURING_OP,
-                    )
-
-                    # Update the layer's content
-                    if new_out_layer_polygons is not None:
-                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
-        if debug:
-            end = time.time()
-            print('All dataprep polygon operations took {}s'.format(end - start))
-
-        # 4) Perform a final over_under_under_over operation
-        start = time.time()
-        if dataprep_info['over_under_under_over'] is None:
-            dataprep_info['over_under_under_over'] = []
-
-        for lpp in dataprep_info['over_under_under_over']:
-            if debug:
-                print("Doing final OUUO on layer {}".format(lpp))
-
-            new_out_layer_polygons = poly_operation(
-                polygon1=None,
-                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
-                operation='ouo',
-                size_amount=0,
-                do_manh=GLOBAL_DO_MANH_AT_BEGINNING,
-            )
-
-            if new_out_layer_polygons is not None:
-                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
-        if debug:
-            end = time.time()
-            print('Final OUUO took  {}s'.format(end - start))
-            print('Starting gdspy/shapely polygon to polygon pointlist conversion')
-
-        # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
-        start = time.time()
-        # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
-        for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
-            output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
-                                                       fracture=True,
-                                                       do_manh=GLOBAL_DO_FINAL_MANH,
-                                                       manh_grid_size=self.grid.resolution,
-                                                       debug=debug,
-                                                       )
-            new_shapes = []
-            for shape in output_shapes:
-                shape = tuple(map(tuple, shape))
-                new_shapes.append([coord for coord in shape])
-            self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
-
-        self.by_layer_polygon_list_to_flat_for_gds_export()
-
-        end = time.time()
-        if debug:
-            print('Converting from gdspy polygon manipulation format to a '
-                  'flat list of polygon coords took {}s'.format(end - start))
-    '''
-
-    def lsf_dataprep(self,
-                     dataprep_file: str,
-                     push_portshapes_through_dataprep: bool = False,
-                     debug: bool = False,
-                     ) -> None:
-        """
-        Takes the flat content list and prepares the shapes to be exported to lumerical.
-
-        Notes
-        -----
-        1) Take the shapes in the flattened content list and convert them to gdspy format
-        2) Parse the dataprep spec file to extract the desired procedure defined through dataprep_groups
-        3) Perform each dataprep operation on the provided layers in order. dataprep_groups is a list
-        where each element contains 2 other lists:
-            3a) lpp_in defines the layers that the operation will be performed on
-            3b) lpp_ops defines the operation to be performed
-            3c) Maps the operation in the spec file to its gdspy implementation and performs it
-        4) Performs a final over_under_under_over operation
-        5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
-
-        Parameters
-        ----------
-        dataprep_file : str
-            path to yaml containing dataprep procedure
-        debug : bool
-            True to print debug information
-        push_portshapes_through_dataprep : bool
-            True to perform dataprep and convert the port indicator shapes
-        """
-
-        # 1) Convert layer shapes to gdspy polygon format
-        for layer, gds_shapes in self.flat_content_list_by_layer.items():
-            # If shapes on the layer need to be dataprepped, convert them to gdspy polygons and add to list
-            if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim'):
-                self.flat_gdspy_polygonsets_by_layer[layer] = dataprep_coord_to_gdspy(
-                    self.get_polygon_point_lists_on_layer(layer),
-                    manh_grid_size=0.001,
-                    do_manh=False,
-                )
-
-        # 2) Parse the dataprep specification file
-        with open(dataprep_file, 'r') as f:
-            dataprep_info = yaml.load(f)
-
-        # 3) Perform each dataprep operation in the list on the provided layers in order
-        for dataprep_group in dataprep_info['dataprep_groups']:
-            # 3a) Iteratively perform operations on all layers in lpp_in
-            for lpp_in in dataprep_group['lpp_in']:
-                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
-                # 3b) Iteratively perform each operation on the current lpp_in
-                for lpp_op in dataprep_group['lpp_ops']:
-                    out_layer = (lpp_op[0], lpp_op[1])
-                    operation = lpp_op[2]
-                    amount = lpp_op[3]
-                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
-                    new_out_layer_polygons = poly_operation(
-                        polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
-                        polygon2=shapes_in,
-                        operation=operation,
-                        size_amount=amount,
-                        do_manh=False,
-                    )
-
-                    # Update the layer's content
-                    if new_out_layer_polygons is not None:
-                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
-
-        # 4) Perform a final over_under_under_over operation
-        if dataprep_info['over_under_under_over'] is None:
-            dataprep_info['over_under_under_over'] = []
-
-        for lpp in dataprep_info['over_under_under_over']:
-            new_out_layer_polygons = poly_operation(
-                polygon1=None,
-                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
-                operation='ouo',
-                size_amount=0,
-                do_manh=False,
-            )
-
-            if new_out_layer_polygons is not None:
-                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
-
-        # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
-        # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
-        for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
-            output_shapes = polyop_gdspy_to_point_list(gdspy_polygons,
-                                                       fracture=True,
-                                                       do_manh=False,
-                                                       manh_grid_size=self.grid.resolution,
-                                                       debug=debug,
-                                                       )
-            new_shapes = []
-            for shape in output_shapes:
-                shape = tuple(map(tuple, shape))
-                new_shapes.append([coord for coord in shape])
-            self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
-
-        # Reconstructs content list from dataprepped polygons and with simulation objects
-        # TODO: Support creation of multiple masters
-        self.generate_flat_content_list_from_dataprep(self.post_dataprep_polygon_pointlist_by_layer,
-                                                      [self.flat_content_list_separate[0][10],
-                                                       self.flat_content_list_separate[0][11],
-                                                       self.flat_content_list_separate[0][12]])
-
-    def generate_flat_content_list_from_dataprep(self, poly_list_by_layer, sim_obj_list):
-        """
-        Takes the output of dataprep and converts it into a flat content list
-        
-        Parameters
-        ----------
-        poly_list_by_layer : Dict[Str, List]
-            A dictionary containing lists all dataprepped polygons organized by layername
-        sim_obj_list : Tuple[List, List, List]
-            A tuple of lists containing all simulation objects to be used
-        """
-        polygon_content_list = []
-        for layer, polygon_pointlists in poly_list_by_layer.items():
-            for polygon_points in polygon_pointlists:
-                polygon_content_list.append(
-                    dict(
-                        layer=(layer[0], layer[1]),
-                        points=polygon_points,
-                    )
-                )
-        self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
-                                                 polygon_content_list, [],
-                                                 sim_obj_list[0],
-                                                 sim_obj_list[1],
-                                                 sim_obj_list[2])]
+    def lsf_dataprep(self):
+        if self.dataprep_object is None:
+            self.dataprep_object = Dataprep(self.photonic_tech_info,
+                                            self.grid,
+                                            self.flat_content_list,
+                                            self.flat_content_list_separate
+                                            )
+        self.post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):

@@ -1,78 +1,72 @@
 import gdspy
-from typing import Tuple, List, Union, Dict
-from math import ceil, sqrt
+import time
 import numpy as np
 import sys
 import shapely.geometry
-import yaml
+import logging
+
+from BPG.photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound
+from math import ceil, sqrt
+from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Any, Optional
+
+
+if TYPE_CHECKING:
+    from BPG.photonic_core import PhotonicTechInfo
+    from bag.layout.routing import RoutingGrid
 
 ################################################################################
 # define parameters for testing
 ################################################################################
-# TODO: Move numbers into a tech file
-GLOBAL_GRID_SIZE = 0.001
-global_rough_grid_size = 0.01
-# TODO: set different oversize / undersize offsets for different layers
-global_min_width = 0.05
-global_min_space = 0.05
-GLOBAL_OPERATION_PRECISION = 0.0001
-GLOBAL_CLEAN_UP_GRID_SIZE = 0.0001
-# TODO: make sure we set tolerance properly. larger numbers will cut off acute angles more when oversizing
-GLOBAL_OFFSET_TOLERANCE = 4.35250
-GLOBAL_DO_CLEANUP = True
+
 
 MAX_SIZE = sys.maxsize
 
 
-class Dataprep():
+class Dataprep:
     def __init__(self,
-                 dataprep_routine_filepath,
-                 dataprep_parameters_filepath,
-                 flat_content_list_by_layer,
+                 photonic_tech_info: PhotonicTechInfo,
+                 grid: RoutingGrid,
+                 flat_content_list,
+                 flat_content_list_separate,
                  ):
-        self._dataprep_routine_filepath = dataprep_routine_filepath
-        self._dataprep_parameters_filepath = dataprep_parameters_filepath
-        
-        self.flat_content_list_by_layer = flat_content_list_by_layer
-        
-        with open(self._dataprep_routine_filepath, 'r') as f:
-            self.dataprep_routine = yaml.load(f)
-        
-        with open(self._dataprep_parameters_filepath, 'r') as f:
-            self.dataprep_parameters = yaml.load(f)
-            
-    def get_info(self,
-                 rule,  # type: str
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 ):
-        # type: (...) -> float
-        """
-        
-        Parameters
-        ----------
-        rule : str
-            The name of the DRC rule to check, such as MinWidth, MinSpace, etc.
-        layer : Union[str, Tuple[str, str]]
-            The layer name or lpp of the layer.
+        self.photonic_tech_info: PhotonicTechInfo = photonic_tech_info
+        self.grid = grid
+        self.flat_content_list = flat_content_list
+        self.flat_content_list_separate = flat_content_list_separate
 
-        Returns
-        -------
-            The DRC rule value.
-        """
-        if isinstance(layer, tuple):
-            layer = layer[0]
-            
-        if rule not in self.dataprep_parameters:
-            raise ValueError('Rule {rule} not specified in dataprep parameters'.format(rule=rule))
-        
-        layer_values = self.dataprep_parameters[rule]
-        if layer not in layer_values:
-            raise ValueError('Layer {layer} not present in dataprep parameters for rule {rule}'.format(
-                layer=layer, rule=rule
-            ))
-        
-        return layer_values[layer]
-        
+        # Initialize dataprep related structures
+        # BAG style content list separated per layer
+        self.flat_content_list_by_layer: Dict[Tuple(str, str), Tuple] = {}
+        # Dictionary of layer-keyed gdspy polygonset shapes
+        self.flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
+        # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
+        self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), Any] = {}  # TODO: Fix Any
+        # BAG style content list after dataprep
+        self.post_dataprep_flat_content_list: List[Tuple] = []
+        self.global_grid_size = self.photonic_tech_info.global_grid_size
+        self.global_rough_grid_size = self.photonic_tech_info.global_rough_grid_size
+
+        # TODO: Figure out proper operation precision. Should it be related to grid size?
+        self.global_operation_precision = self.global_grid_size / 10
+        self.global_clean_up_grid_size = self.global_grid_size / 10
+        # TODO: make sure we set tolerance properly. larger numbers will cut off acute angles more when oversizing
+        self.offset_tolerance = 4.35250
+        self.do_cleanup = True
+
+        # In skill, all shapes are created already-manhattanized.
+        # Either we must do this (and can then set GLOBAL_DO_MANH_AT_BEGINNING to false, or must manhattanize here to
+        #  replicate skill dataprep output)
+        self.GLOBAL_DO_MANH_AT_BEGINNING = True
+        # SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad (and rouo?) for both skill and gdspy
+        # implementations
+        self.GLOBAL_DO_MANH_DURING_OP = True
+
+        # True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING
+        # and GLOBAL_DO_MANH_DURING_OP are set,
+        # GLOBAL_DO_FINAL_MANH can be False, and we should still have Manhattanized shapes on Manhattan grid
+        # if function implentations are correct
+        self.GLOBAL_DO_FINAL_MANH = False
+
     ################################################################################
     # clean up functions for coordinate lists and gdspy objects
     ################################################################################
@@ -218,8 +212,8 @@ class Dataprep():
     
         return coords_list_out
 
-    @staticmethod
-    def dataprep_cleanup_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+    def dataprep_cleanup_gdspy(self,
+                               polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
                                do_cleanup=True  # type: bool
                                ):
         # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
@@ -248,19 +242,19 @@ class Dataprep():
                 clean_polygon = gdspy.offset(
                     polygons=polygon,
                     distance=0,
-                    tolerance=GLOBAL_OFFSET_TOLERANCE,
+                    tolerance=self.offset_tolerance,
                     max_points=MAX_SIZE,
                     join_first=True,
-                    precision=GLOBAL_CLEAN_UP_GRID_SIZE
+                    precision=self.global_clean_up_grid_size,
                 )
     
                 clean_coords = []
                 if isinstance(clean_polygon, gdspy.Polygon):
-                    clean_coords = GLOBAL_GRID_SIZE * np.round(clean_polygon.points / GLOBAL_GRID_SIZE, 0)
+                    clean_coords = self.global_grid_size * np.round(clean_polygon.points / self.global_grid_size, 0)
                     clean_polygon = gdspy.Polygon(points=clean_coords)
                 elif isinstance(clean_polygon, gdspy.PolygonSet):
                     for poly in clean_polygon.polygons:
-                        clean_coords.append(GLOBAL_GRID_SIZE * np.round(poly / GLOBAL_GRID_SIZE, 0))
+                        clean_coords.append(self.global_grid_size * np.round(poly / self.global_grid_size, 0))
                     clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
     
             else:
@@ -276,7 +270,6 @@ class Dataprep():
     ################################################################################
     @staticmethod
     def coord_to_shapely(
-            self,
             pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
     ):
         # type: (...) -> Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
@@ -309,13 +302,13 @@ class Dataprep():
     
         return polygon_out
 
+    # TODO: This is slow
     def dataprep_coord_to_gdspy(
             self,
-            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-            manh_grid_size,  # type: float
-            do_manh,  # type: bool
-    ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+            pos_neg_list_list: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]],
+            manh_grid_size: float,
+            do_manh: bool,
+    ) -> Union[gdspy.Polygon, gdspy.PolygonSet]:
         """
         Converts list of polygon coordinate lists into GDSPY polygon objects
         The expected input list will be a list of all polygons on a given layer
@@ -339,699 +332,1162 @@ class Dataprep():
         neg_coord_list_list = pos_neg_list_list[1]
     
         # Offset by 0 to clean up shape
-        polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=GLOBAL_DO_CLEANUP)
+        polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=self.do_cleanup)
     
         if len(pos_coord_list_list) > 1:
             for pos_coord_list in pos_coord_list_list[1:]:
-                polygon_pos = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=GLOBAL_DO_CLEANUP)
+                polygon_pos = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=self.do_cleanup)
     
                 polygon_out = self.dataprep_cleanup_gdspy(
                     gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
-                                       precision=GLOBAL_OPERATION_PRECISION,
+                                       precision=self.global_operation_precision,
                                        max_points=MAX_SIZE),
-                    do_cleanup=GLOBAL_DO_CLEANUP
+                    do_cleanup=self.do_cleanup
                 )
         if len(neg_coord_list_list):
             for neg_coord_list in neg_coord_list_list:
                 polygon_neg = self.dataprep_cleanup_gdspy(
                     gdspy.Polygon(neg_coord_list),
-                    do_cleanup=GLOBAL_DO_CLEANUP
+                    do_cleanup=self.do_cleanup
                 )
     
                 # Offset by 0 to clean up shape
                 polygon_out = self.dataprep_cleanup_gdspy(
                     gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
-                                       precision=GLOBAL_OPERATION_PRECISION,
+                                       precision=self.global_operation_precision,
                                        max_points=MAX_SIZE),
-                    do_cleanup=GLOBAL_DO_CLEANUP
+                    do_cleanup=self.do_cleanup
                 )
     
-        polygon_out = gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
+        polygon_out = self.gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
     
         # TODO: is the cleanup necessary
         # Offset by 0 to clean up shape
-        polygon_out = dataprep_cleanup_gdspy(
+        polygon_out = self.dataprep_cleanup_gdspy(
             polygon_out,
-            do_cleanup=GLOBAL_DO_CLEANUP
+            do_cleanup=self.do_cleanup
         )
     
         return polygon_out
 
+    def shapely_to_gdspy_polygon(self,
+                                 polygon_shapely,  # type: shapely.geometry.Polygon
+                                 ):
+        # type: (...) -> gdspy.Polygon
+        """
+        Converts the shapely representation of a polygon to a gdspy representation
 
-def shapely_to_gdspy_polygon(polygon_shapely,  # type: shapely.geometry.Polygon
-                             ):
-    # type: (...) -> gdspy.Polygon
-    """
-    Converts the shapely representation of a polygon to a gdspy representation
+        Parameters
+        ----------
+        polygon_shapely : shapely.geometry.Polygon
+            The shapely representation of the polygon
 
-    Parameters
-    ----------
-    polygon_shapely : shapely.geometry.Polygon
-        The shapely representation of the polygon
-
-    Returns
-    -------
-    polygon_gdspy : gdspy.Polygon
-        The gdspy representation of the polygon
-    """
-    if not isinstance(polygon_shapely, shapely.geometry.Polygon):
-        raise ValueError("input must be a Shapely Polygon")
-    else:
-        ext_coord_list = list(zip(*polygon_shapely.exterior.coords.xy))
-        polygon_gdspy = gdspy.Polygon(ext_coord_list)
-        if len(polygon_shapely.interiors):
-            for interior in polygon_shapely.interiors:
-                int_coord_list = list(zip(*interior.coords.xy))
-                polygon_gdspy_int = gdspy.Polygon(int_coord_list)
-
-                polygon_gdspy = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_int, 'not',
-                                                                          max_points=MAX_SIZE,
-                                                                          precision=GLOBAL_OPERATION_PRECISION),
-                                                       do_cleanup=GLOBAL_DO_CLEANUP)
+        Returns
+        -------
+        polygon_gdspy : gdspy.Polygon
+            The gdspy representation of the polygon
+        """
+        if not isinstance(polygon_shapely, shapely.geometry.Polygon):
+            raise ValueError("input must be a Shapely Polygon")
         else:
-            pass
-        return polygon_gdspy
+            ext_coord_list = list(zip(*polygon_shapely.exterior.coords.xy))
+            polygon_gdspy = gdspy.Polygon(ext_coord_list)
+            if len(polygon_shapely.interiors):
+                for interior in polygon_shapely.interiors:
+                    int_coord_list = list(zip(*interior.coords.xy))
+                    polygon_gdspy_int = gdspy.Polygon(int_coord_list)
 
+                    polygon_gdspy = self.dataprep_cleanup_gdspy(
+                        gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_int,
+                                           'not',
+                                           max_points=MAX_SIZE,
+                                           precision=self.global_operation_precision),
+                        do_cleanup=self.do_cleanup
+                    )
+            else:
+                pass
+            return polygon_gdspy
 
-def shapely_to_gdspy(geom_shapely,  # type: Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
-                     ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
-    """
-    Convert the shapely representation of a polygon/multipolygon into the gdspy representation of the polygon/polygonset
+    def shapely_to_gdspy(self,
+                         geom_shapely,  # type: Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
+                         ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+        """
+        Convert the shapely representation of a polygon/multipolygon into the gdspy representation of the
+        polygon/polygonset
 
-    Parameters
-    ----------
-    geom_shapely : Union[Polygon, MultiPolygon]
-        The shapely representation of the polygon
+        Parameters
+        ----------
+        geom_shapely : Union[Polygon, MultiPolygon]
+            The shapely representation of the polygon
 
-    Returns
-    -------
-    polygon_gdspy : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The gdspy representation of the polygon
-    """
-    if isinstance(geom_shapely, shapely.geometry.Polygon):
-        return shapely_to_gdspy_polygon(geom_shapely)
-    elif isinstance(geom_shapely, shapely.geometry.MultiPolygon):
-        polygon_gdspy = shapely_to_gdspy_polygon(geom_shapely[0])
-        for polygon_shapely in geom_shapely[1:]:
-            polygon_gdspy_append = shapely_to_gdspy_polygon(polygon_shapely)
+        Returns
+        -------
+        polygon_gdspy : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The gdspy representation of the polygon
+        """
+        if isinstance(geom_shapely, shapely.geometry.Polygon):
+            return self.shapely_to_gdspy_polygon(geom_shapely)
+        elif isinstance(geom_shapely, shapely.geometry.MultiPolygon):
+            polygon_gdspy = self.shapely_to_gdspy_polygon(geom_shapely[0])
+            for polygon_shapely in geom_shapely[1:]:
+                polygon_gdspy_append = self.shapely_to_gdspy_polygon(polygon_shapely)
 
-            polygon_gdspy = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_append, 'or',
-                                                                      max_points=MAX_SIZE,
-                                                                      precision=GLOBAL_OPERATION_PRECISION),
-                                                   do_cleanup=GLOBAL_DO_CLEANUP)
+                polygon_gdspy = self.dataprep_cleanup_gdspy(
+                    gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_append,
+                                       'or',
+                                       max_points=MAX_SIZE,
+                                       precision=self.global_operation_precision),
+                    do_cleanup=self.do_cleanup)
 
-        return polygon_gdspy
-    else:
-        raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
+            return polygon_gdspy
+        else:
+            raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
 
+    def polyop_gdspy_to_point_list(self,
+                                   polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                                   fracture=True,  # type: bool
+                                   do_manh=True,  # type: bool
+                                   manh_grid_size=None,  # type: Optional[float]
+                                   ):
+        # type: (...) -> List[List[Tuple[float, float]]]
+        """
+        Converts the gdspy representation of the polygon into a list of fractured polygon point lists
 
-def polyop_gdspy_to_point_list(polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                               fracture=True,  # type: bool
-                               do_manh=True,  # type: bool
-                               manh_grid_size=GLOBAL_GRID_SIZE,  # type: float
-                               debug=False,  # type: bool
-                               # TODO: manh grid size is magic number
-                               ):
-    # type: (...) -> List[List[Tuple[float, float]]]
-    """
-    Converts the gdspy representation of the polygon into a list of fractured polygon point lists
+        Parameters
+        ----------
+        polygon_gdspy_in : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The gdspy polygons to be converted to lists of coordinates
+        fracture : bool
+            True to fracture shapes
+        do_manh : bool
+            True to perform Manhattanization
+        manh_grid_size : float
+            The Manhattanization grid size
 
-    Parameters
-    ----------
-    polygon_gdspy_in : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The gdspy polygons to be converted to lists of coordinates
-    fracture : bool
-        True to fracture shapes
-    do_manh : bool
-        True to perform Manhattanization
-    manh_grid_size : float
-        The Manhattanization grid size
-    debug : bool
-        True to print debug information
+        Returns
+        -------
+        output_list_of_coord_lists : List[List[Tuple[float, float]]]
+            A list containing the polygon point lists that compose the input gdspy polygon
+        """
 
-    Returns
-    -------
-    output_list_of_coord_lists : List[List[Tuple[float, float]]]
-        A list containing the polygon point lists that compose the input gdspy polygon
-    """
-    # TODO: Consider doing fracture to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
-    if debug:
-        print("Performing final Manhattanization")
+        if manh_grid_size is None:
+            manh_grid_size = self.global_grid_size
+        # TODO: Consider doing fracture to precision 0.0004, rounding explicitly to 0.001, then cleaning up duplicates
 
-    if do_manh:
-        polygon_gdspy_in = gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
+        if do_manh:
+            start = time.time()
+            polygon_gdspy_in = self.gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
+            end = time.time()
+            logging.debug(f'polyop_gdspy_to_point_list: gdspy_manh took: {end-start}s')
 
-    if debug:
-        print("Performing final fracturing")
+        if fracture:
+            start = time.time()
+            # TODO: Magic numbers
+            polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=self.global_grid_size)
+            end = time.time()
+            logging.debug(f'polyop_gdspy_to_point_list: fracturing took: {end-start}s')
+        else:
+            polygon_gdspy = polygon_gdspy_in
 
-    if fracture:
-        polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=0.001)  # TODO: Magic numbers
-    else:
-        polygon_gdspy = polygon_gdspy_in
+        output_list_of_coord_lists = []
+        if isinstance(polygon_gdspy, gdspy.Polygon):
+            output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]
+            # TODO: Magic number. round based on layout_unit and resolution
 
-    output_list_of_coord_lists = []
-    if isinstance(polygon_gdspy, gdspy.Polygon):
-        output_list_of_coord_lists = [np.round(polygon_gdspy.points, 3)]  # TODO: Magic number?
-
-        non_manh_edge = not_manh(polygon_gdspy.points, print_failing_points=debug)
-        if non_manh_edge:
-            print('Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
-                  'number of non-manh edges is', non_manh_edge)
-
-    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
-        for poly in polygon_gdspy.polygons:
-            output_list_of_coord_lists.append(np.round(poly, 3))  # TODO: Magic number?
-
-            non_manh_edge = not_manh(poly, print_failing_points=debug)
+            non_manh_edge = self.not_manh(polygon_gdspy.points)
             if non_manh_edge:
                 print('Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
                       'number of non-manh edges is', non_manh_edge)
-    else:
-        raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
 
-    return output_list_of_coord_lists
+        elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+            for poly in polygon_gdspy.polygons:
+                output_list_of_coord_lists.append(np.round(poly, 3))
+                # TODO: Magic number. round based on layout_unit and resolution
 
+                non_manh_edge = self.not_manh(poly)
+                if non_manh_edge:
+                    print('Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
+                          'number of non-manh edges is', non_manh_edge)
+        else:
+            raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
 
-################################################################################
-# Manhattanization related functions
-################################################################################
-def not_manh(coord_list,  # type: List[Tuple[float, float]])
-             eps_grid=1e-6,  # type: float
-             print_failing_points=False,  # type: bool
-             ):
-    # type (...) -> int
-    """
-    Checks whether the passed coordinate list is Manhattanized
+        return output_list_of_coord_lists
 
-    Parameters
-    ----------
-    coord_list : List[Tuple[float, float]]
-        The coordinate list to check
-    eps_grid : float
-        The grid tolerance below which points are considered the same
-    print_failing_points : bool
-        True to print the coordinates of the points that do not have Manhattanized edges
+    ################################################################################
+    # Manhattanization related functions
+    ################################################################################
+    @staticmethod
+    def not_manh(coord_list,  # type: List[Tuple[float, float]])
+                 eps_grid=1e-6,  # type: float
+                 ):
+        # type (...) -> int
+        """
+        Checks whether the passed coordinate list is Manhattanized
 
-    Returns
-    -------
-    non_manh_edge : int
-        The count of number of edges that are non-Manhattan in this shape
-    """
-    non_manh_edge = 0
-    if isinstance(coord_list, np.ndarray):
-        coord_list_new = coord_list.tolist()
-    else:
-        coord_list_new = coord_list
+        Parameters
+        ----------
+        coord_list : List[Tuple[float, float]]
+            The coordinate list to check
+        eps_grid : float
+            The grid tolerance below which points are considered the same
 
-    coord_list_new.append(coord_list_new[0])
+        Returns
+        -------
+        non_manh_edge : int
+            The count of number of edges that are non-Manhattan in this shape
+        """
+        non_manh_edge = 0
+        if isinstance(coord_list, np.ndarray):
+            coord_list_new = coord_list.tolist()
+        else:
+            coord_list_new = coord_list
 
-    for i in range(len(coord_list_new) - 1):
-        coord_curr = coord_list_new[i]
-        coord_next = coord_list_new[i + 1]
+        coord_list_new.append(coord_list_new[0])
 
-        if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and (abs(coord_curr[1] - coord_next[1]) > eps_grid):
-            non_manh_edge = non_manh_edge + 1
-            if print_failing_points:
-                print(coord_curr, coord_next)
+        for i in range(len(coord_list_new) - 1):
+            coord_curr = coord_list_new[i]
+            coord_next = coord_list_new[i + 1]
 
-    return non_manh_edge
+            if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and (abs(coord_curr[1] - coord_next[1]) > eps_grid):
+                non_manh_edge = non_manh_edge + 1
+                logging.debug(f'not_manh:  non-manhattan point from {coord_curr} to {coord_next}')
 
+        return non_manh_edge
 
-def manh_skill(poly_coords,  # type: List[Tuple[float, float]]
-               manh_grid_size,  # type: float
-               manh_type,  # type: str
-               ):
-    # type: (...) -> List[Tuple[float, float]]
-    """
-    Convert a polygon into a polygon with orthogonal edges (ie, performs Manhattanization)
-
-    Parameters
-    ----------
-    poly_coords : List[Tuple[float, float]]
-        list of coordinates that enclose a polygon
-    manh_grid_size : float
-        grid size for Manhattanization, edge length after Manhattanization should be larger than it
-    manh_type : str
-        'inc' : the Manhattanized polygon is larger compared to the one on the manh grid
-        'dec' : the Manhattanized polygon is smaller compared to the one on the manh grid
-        'non' : additional feature, only map the coords to the manh grid but do no Manhattanization
-
-    Returns
-    ----------
-    poly_coords_cleanup : List[Tuple[float, float]]
-        The Manhattanized list of coordinates describing the polygon
-    """
-    def apprx_equal(float1,  # type: float
-                    float2,  # type: float
-                    eps_grid=1e-9  # type: float
-                    ):
-        return abs(float1 - float2) < eps_grid
-
-    def apprx_equal_coord(coord1,  # type: Tuple[float, float]
-                          coord2,  # type: Tuple[float, float]
-                          eps_grid=1e-9  # type: float
-                          ):
-        return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
-
-    # map the coordinates to the manh grid
-    poly_coords_manhgrid = []
-    for coord in poly_coords:
-        xcoord_manhgrid = manh_grid_size * round(coord[0] / manh_grid_size)
-        ycoord_manhgrid = manh_grid_size * round(coord[1] / manh_grid_size)
-        poly_coords_manhgrid.append((xcoord_manhgrid, ycoord_manhgrid))
-
-    # adding the first point to the last if polygon is not closed
-    if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
-        poly_coords_manhgrid.append(poly_coords_manhgrid[0])
-
-    # do Manhattanization if manh_type is 'inc'
-    if manh_type == 'non':
-        return poly_coords  # coords_cleanup(poly_coords_manhgrid)
-    elif (manh_type == 'inc') or (manh_type == 'dec'):
-        # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
-        # (a kind of "center-of-mass")
-        xcoord_sum = 0
-        ycoord_sum = 0
-        for coord_manhgrid in poly_coords_manhgrid:
-            xcoord_sum = xcoord_sum + coord_manhgrid[0]
-            ycoord_sum = ycoord_sum + coord_manhgrid[1]
-        xcoord_in = xcoord_sum / len(poly_coords_manhgrid)
-        ycoord_in = ycoord_sum / len(poly_coords_manhgrid)
-        # print("point INSIDE the shape (x,y) =  (%f, %f)" %(xcoord_in, ycoord_in))
-
-        # Scanning all the points of the orinal list and adding points in-between.
-        poly_coords_orth = [poly_coords_manhgrid[0]]
-        # print('len(poly_coords_manhgrid)', len(poly_coords_manhgrid))
-        for i in range(0, len(poly_coords_manhgrid) - 1):
-            # BE CAREFUL HERE WITH THE INDEX
-            coord_curr = poly_coords_manhgrid[i]
-            if i == len(poly_coords_manhgrid) - 1:
-                coord_next = coord_curr
-            else:
-                coord_next = poly_coords_manhgrid[i + 1]
-
-            delta_x = coord_next[0] - coord_curr[0]
-            delta_y = coord_next[1] - coord_curr[1]
-            eps_float = 1e-9
-            # current coord and the next coord create an orthogonal edge
-            if (abs(delta_x) < eps_float) or (abs(delta_y) < eps_float):
-                # print("This point has orthogonal neighbour", coord_curr, coord_next)
-                poly_coords_orth.append(coord_next)
-            else:
-                if abs(delta_x) > abs(delta_y):
-                    num_point_add = int(abs(round(delta_y / manh_grid_size)))
-                    xstep = round(delta_y / abs(delta_y)) * manh_grid_size * (delta_x / delta_y)
-                    ystep = round(delta_y / abs(delta_y)) * manh_grid_size
-                else:
-                    num_point_add = int(abs(round(delta_x / manh_grid_size)))
-                    ystep = round(delta_x / abs(delta_x)) * manh_grid_size * delta_y / delta_x
-                    xstep = round(delta_x / abs(delta_x)) * manh_grid_size
-                # if positive, the center if the shape is on the left
-                vec_product1 = xstep * (ycoord_in - coord_curr[1]) - ystep * (xcoord_in - coord_curr[0])
-                # if positive the vector ( StepX, 0.0) is on the left too
-                vec_product2 = xstep * 0.0 - ystep * xstep
-                for j in range(0, num_point_add):
-                    x0 = coord_curr[0] + j * xstep
-                    y0 = coord_curr[1] + j * ystep
-                    # If both are positive, incrememnting in X first will make the polygon smaller:
-                    # incrememnting X first if manh_type is 'inc'
-                    if ((vec_product1 * vec_product2) < 0) == (manh_type == 'inc'):
-                        poly_coords_orth.append((x0 + xstep, y0))
-                        poly_coords_orth.append((x0 + xstep, y0 + ystep))
-                    # else incrememnting Y first
-                    else:
-                        poly_coords_orth.append((x0, y0 + ystep))
-                        poly_coords_orth.append((x0 + xstep, y0 + ystep))
-
-        # clean up the coords
-        non_manh_edge_pre_cleanup = not_manh(poly_coords_orth)
-        if non_manh_edge_pre_cleanup:
-            raise ValueError('Manhattanization failed before the clean-up, number of non-manh edges is',
-                             non_manh_edge_pre_cleanup)
-
-        poly_coords_cleanup = coords_cleanup(poly_coords_orth)
-        non_manh_edge_post_cleanup = not_manh(poly_coords_cleanup)
-        if non_manh_edge_post_cleanup:
-            raise ValueError('Manhattanization failed after the clean-up, number of non-manh edges is',
-                             non_manh_edge_post_cleanup)
-
-        return poly_coords_cleanup
-    else:
-        raise ValueError('manh_type = {} should be either "non", "inc" or "dec"'.format(manh_type))
-
-
-def gdspy_manh(polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-               manh_grid_size,  # type: float
-               do_manh,  # type: bool
-               ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
-    """
-    Performs Manhattanization on a gdspy representation of a polygon, and returns a gdspy representation of the
-    Manhattanized polygon
-
-    Parameters
-    ----------
-    polygon_gdspy : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The gdspy representation of the polygons to be Manhattanized
-    manh_grid_size : float
-        grid size for Manhattanization, edge length after Manhattanization should be larger than it
-    do_manh : bool
-        True to perform Manhattanization
-
-    Returns
-    -------
-    polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
-        The Manhattanized polygon, in gdspy representation
-    """
-    if do_manh:
-        manh_type = 'inc'
-    else:
-        manh_type = 'non'
-
-    if polygon_gdspy is None:
-        polygon_out = None
-    elif isinstance(polygon_gdspy, gdspy.Polygon):
-        coord_list = manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
-        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
-                                             do_cleanup=GLOBAL_DO_CLEANUP)
-    elif isinstance(polygon_gdspy, gdspy.PolygonSet):
-        coord_list = manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
-        polygon_out = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
-                                             do_cleanup=GLOBAL_DO_CLEANUP)
-        for poly in polygon_gdspy.polygons:
-            coord_list = manh_skill(poly, manh_grid_size, manh_type)
-            polygon_append = dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
-                                                    do_cleanup=GLOBAL_DO_CLEANUP)
-            polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
-                                                 do_cleanup=GLOBAL_DO_CLEANUP)
-    else:
-        raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
-
-    return polygon_out
-
-
-################################################################################
-# Simplify function
-################################################################################
-def simplify_coord_to_gdspy(
-        pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-        tolerance=5e-4,  # type: float
-):
-    # type: (...) -> Union[gdspy.PolygonSet, gdspy.Polygon]
-    """
-    Simplifies a polygon coordinate-list representation of a complex polygon (multiple shapes, with holes, etc) and
-    converts the simplified polygon into gdspy representation. Simplification involves reducing the number of points
-    in the shape based on a tolerance of how far the points are from being collinear.
-
-    Parameters
-    ----------
-    pos_neg_list_list : Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-        Tuple containing the positive and negative list of polygon point-lists
-    tolerance : float
-        The tolerance within which a set of points are deemed collinear
-
-    Returns
-    -------
-    poly_gdspy_simplified : Union[gdspy.PolygonSet, gdspy.Polygon]
-        The simplified polygon in gdspy representation
-    """
-    poly_shapely = coord_to_shapely(pos_neg_list_list)
-    poly_shapely_simplified = poly_shapely.simplify(tolerance)
-    poly_gdspy_simplified = shapely_to_gdspy(poly_shapely_simplified)
-
-    return poly_gdspy_simplified
-
-
-################################################################################
-# Dataprep related operations
-################################################################################
-def dataprep_oversize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                            offset,  # type: float
-                            ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
-    """
-    Grow a polygon by an offset. Perform cleanup to ensure proper polygon shape.
-
-    Parameters
-    ----------
-    polygon : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The polygon to size, in gdspy representation
-    offset : float
-        The amount to grow the polygon
-
-    Returns
-    -------
-    polygon_oversized : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The oversized polygon
-    """
-    if polygon is None:
-        return None
-    else:
-        if offset < 0:
-            print('Warning: offset = %f < 0 indicates you are doing undersize')
-        polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True,
-                                         join='miter',
-                                         tolerance=GLOBAL_OFFSET_TOLERANCE,
-                                         precision=GLOBAL_OPERATION_PRECISION)
-        polygon_oversized = dataprep_cleanup_gdspy(polygon_oversized, do_cleanup=GLOBAL_DO_CLEANUP)
-
-        return polygon_oversized
-
-
-def dataprep_undersize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                             offset,  # type: float
-                             ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
-    """
-    Shrink a polygon by an offset. Perform cleanup to ensure proper polygon shape.
-
-    Parameters
-    ----------
-    polygon : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The polygon to size, in gdspy representation
-    offset : float
-        The amount to shrink the polygon
-
-    Returns
-    -------
-    polygon_undersized : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The undersized polygon
-    """
-
-    if polygon is None:
-        return None
-    else:
-        if offset < 0:
-            print('Warning: offset = %f < 0 indicates you are doing oversize')
-        polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True,
-                                          join='miter',
-                                          tolerance=GLOBAL_OFFSET_TOLERANCE,
-                                          precision=GLOBAL_OPERATION_PRECISION)
-        polygon_undersized = dataprep_cleanup_gdspy(polygon_undersized, do_cleanup=GLOBAL_DO_CLEANUP)
-
-        return polygon_undersized
-
-
-def dataprep_roughsize_gdspy(polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                             size_amount,  # type: float
-                             do_manh,  # type: bool
-                             ):
-    # type (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
-    """
-    Add a new polygon that is rough sized by 'size_amount' from the provided polygon.
-    Rough sizing entails:
-     - oversize by 2x the global rough grid size
-     - undersize by 2x the global rough grid size
-     - oversize by the global rough grid size
-     - Manhattanize to the global rough grid
-     - undersize by the fine global fine grid size
-     - oversize by the fine global fine grid size
-     - oversize by 'size_amount' less the 2x global grid size already used
-
-    Parameters
-    ----------
-    polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
-        polygon to be used as the base shape for the rough add, in gdspy representation
-    size_amount : float
-        amount to oversize (undersize is not supported, will be set to 0 if negative) the rough added shape
-    do_manh : bool
-        True to perform Manhattanization of after the oouuo shape
-
-    Returns
-    -------
-    polygon_roughsized : Union[gdspy.Polygon, gdspy.PolygonSet]
-        the rough added polygon shapes, in gdspy representation
-    """
-    rough_grid_size = global_rough_grid_size
-
-    # oversize twice, then undersize twice and oversize again
-    polygon_oo = dataprep_oversize_gdspy(polygon, 2 * rough_grid_size)
-    polygon_oouu = dataprep_undersize_gdspy(polygon_oo, 2 * rough_grid_size)
-    polygon_oouuo = dataprep_oversize_gdspy(polygon_oouu, rough_grid_size)
-
-    # Manhattanize to the rough grid
-    polygon_oouuo_rough = gdspy_manh(polygon_oouuo, rough_grid_size, do_manh)
-
-    # undersize then oversize
-    polygon_roughsized = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_oouuo_rough, GLOBAL_GRID_SIZE),
-                                                 GLOBAL_GRID_SIZE)
-
-    polygon_roughsized = dataprep_oversize_gdspy(polygon_roughsized, max(size_amount - 2 * GLOBAL_GRID_SIZE, 0))
-
-    return polygon_roughsized
-
-
-def poly_operation(polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                   polygon2,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                   operation,  # type: str
-                   size_amount,  # type: Union[float, Tuple[float, float]]
-                   do_manh=False,  # type: bool
+    def manh_skill(self,
+                   poly_coords,  # type: List[Tuple[float, float]]
+                   manh_grid_size,  # type: float
+                   manh_type,  # type: str
                    ):
-    # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
-    """
+        # type: (...) -> List[Tuple[float, float]]
+        """
+        Convert a polygon into a polygon with orthogonal edges (ie, performs Manhattanization)
 
-    Parameters
-    ----------
-    polygon1 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The shapes currently on the output layer
-    polygon2 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The shapes on the input layer that will be added/subtracted to/from the output layer
-    operation : str
-        The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
-    size_amount : Union[float, Tuple[Float, Float]]
-        The amount to over/undersize the shapes to be added/subtracted.
-        For ouo and rouo, the 0.5*minWidth related over and under size amount
-    do_manh : bool
-        True to perform Manhattanization during the 'rad' operation
+        Parameters
+        ----------
+        poly_coords : List[Tuple[float, float]]
+            list of coordinates that enclose a polygon
+        manh_grid_size : float
+            grid size for Manhattanization, edge length after Manhattanization should be larger than it
+        manh_type : str
+            'inc' : the Manhattanized polygon is larger compared to the one on the manh grid
+            'dec' : the Manhattanized polygon is smaller compared to the one on the manh grid
+            'non' : additional feature, only map the coords to the manh grid but do no Manhattanization
 
-    Returns
-    -------
-    polygons_out : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-        The new polygons present on the output layer
-    """
-    # TODO: clean up the input polygons first ?
+        Returns
+        ----------
+        poly_coords_cleanup : List[Tuple[float, float]]
+            The Manhattanized list of coordinates describing the polygon
+        """
+        def apprx_equal(float1,  # type: float
+                        float2,  # type: float
+                        eps_grid=1e-9  # type: float
+                        ):
+            return abs(float1 - float2) < eps_grid
 
-    # TODO: properly get the grid size from a tech file
-    grid_size = GLOBAL_GRID_SIZE
+        def apprx_equal_coord(coord1,  # type: Tuple[float, float]
+                              coord2,  # type: Tuple[float, float]
+                              eps_grid=1e-9  # type: float
+                              ):
+            return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
 
-    # If there are no shapes to operate on, return the shapes currently on the output layer
-    if polygon2 is None:
-        return polygon1
-    else:
-        if operation == 'rad':
-            # TODO: manh ?
-            polygon_rough = dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
+        # map the coordinates to the manh grid
+        poly_coords_manhgrid = []
+        for coord in poly_coords:
+            xcoord_manhgrid = manh_grid_size * round(coord[0] / manh_grid_size)
+            ycoord_manhgrid = manh_grid_size * round(coord[1] / manh_grid_size)
+            poly_coords_manhgrid.append((xcoord_manhgrid, ycoord_manhgrid))
 
-            buffer_size = max(size_amount - 2 * global_rough_grid_size, 0)
-            polygon_rough_sized = dataprep_oversize_gdspy(polygon_rough, buffer_size)
+        # adding the first point to the last if polygon is not closed
+        if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
+            poly_coords_manhgrid.append(poly_coords_manhgrid[0])
 
-            if polygon1 is None:
-                polygon_out = polygon_rough_sized
-            else:
-                polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
-                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
+        # do Manhattanization if manh_type is 'inc'
+        if manh_type == 'non':
+            return poly_coords  # coords_cleanup(poly_coords_manhgrid)
+        elif (manh_type == 'inc') or (manh_type == 'dec'):
+            # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
+            # (a kind of "center-of-mass")
+            xcoord_sum = 0
+            ycoord_sum = 0
+            for coord_manhgrid in poly_coords_manhgrid:
+                xcoord_sum = xcoord_sum + coord_manhgrid[0]
+                ycoord_sum = ycoord_sum + coord_manhgrid[1]
+            xcoord_in = xcoord_sum / len(poly_coords_manhgrid)
+            ycoord_in = ycoord_sum / len(poly_coords_manhgrid)
+            # print("point INSIDE the shape (x,y) =  (%f, %f)" %(xcoord_in, ycoord_in))
 
-        elif operation == 'add':
-            if polygon1 is None:
-                polygon_out = dataprep_oversize_gdspy(polygon2, size_amount)
-            else:
-                polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'or')
-                polygon_out = dataprep_cleanup_gdspy(polygon_out, do_cleanup=GLOBAL_DO_CLEANUP)
+            # Scanning all the points of the orinal list and adding points in-between.
+            poly_coords_orth = [poly_coords_manhgrid[0]]
+            # print('len(poly_coords_manhgrid)', len(poly_coords_manhgrid))
+            for i in range(0, len(poly_coords_manhgrid) - 1):
+                # BE CAREFUL HERE WITH THE INDEX
+                coord_curr = poly_coords_manhgrid[i]
+                if i == len(poly_coords_manhgrid) - 1:
+                    coord_next = coord_curr
+                else:
+                    coord_next = poly_coords_manhgrid[i + 1]
 
-        elif operation == 'sub':
-            if polygon1 is None:
-                polygon_out = None
-            else:
-                # TODO: Over or undersize the subtracted poly
-                polygon_out = gdspy.fast_boolean(polygon1, dataprep_oversize_gdspy(polygon2, size_amount), 'not')
-                polygon_out = dataprep_cleanup_gdspy(polygon_out, GLOBAL_DO_CLEANUP)
+                delta_x = coord_next[0] - coord_curr[0]
+                delta_y = coord_next[1] - coord_curr[1]
+                eps_float = 1e-9
+                # current coord and the next coord create an orthogonal edge
+                if (abs(delta_x) < eps_float) or (abs(delta_y) < eps_float):
+                    # print("This point has orthogonal neighbour", coord_curr, coord_next)
+                    poly_coords_orth.append(coord_next)
+                else:
+                    if abs(delta_x) > abs(delta_y):
+                        num_point_add = int(abs(round(delta_y / manh_grid_size)))
+                        xstep = round(delta_y / abs(delta_y)) * manh_grid_size * (delta_x / delta_y)
+                        ystep = round(delta_y / abs(delta_y)) * manh_grid_size
+                    else:
+                        num_point_add = int(abs(round(delta_x / manh_grid_size)))
+                        ystep = round(delta_x / abs(delta_x)) * manh_grid_size * delta_y / delta_x
+                        xstep = round(delta_x / abs(delta_x)) * manh_grid_size
+                    # if positive, the center if the shape is on the left
+                    vec_product1 = xstep * (ycoord_in - coord_curr[1]) - ystep * (xcoord_in - coord_curr[0])
+                    # if positive the vector ( StepX, 0.0) is on the left too
+                    vec_product2 = xstep * 0.0 - ystep * xstep
+                    for j in range(0, num_point_add):
+                        x0 = coord_curr[0] + j * xstep
+                        y0 = coord_curr[1] + j * ystep
+                        # If both are positive, incrememnting in X first will make the polygon smaller:
+                        # incrememnting X first if manh_type is 'inc'
+                        if ((vec_product1 * vec_product2) < 0) == (manh_type == 'inc'):
+                            poly_coords_orth.append((x0 + xstep, y0))
+                            poly_coords_orth.append((x0 + xstep, y0 + ystep))
+                        # else incrememnting Y first
+                        else:
+                            poly_coords_orth.append((x0, y0 + ystep))
+                            poly_coords_orth.append((x0 + xstep, y0 + ystep))
 
-        elif operation == 'ext':
-            # TODO:
-            # if (not (member(LppOut, NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-            if True:
-                polygon_toextend = polygon1
-                polygon_ref = polygon2
-                extended_amount = size_amount
+            # clean up the coords
+            non_manh_edge_pre_cleanup = self.not_manh(poly_coords_orth)
+            if non_manh_edge_pre_cleanup:
+                raise ValueError('Manhattanization failed before the clean-up, number of non-manh edges is',
+                                 non_manh_edge_pre_cleanup)
 
-                grid_size = GLOBAL_GRID_SIZE
-                extended_amount = grid_size * ceil(extended_amount / grid_size)
-                polygon_ref_sized = dataprep_oversize_gdspy(polygon_ref, extended_amount)
-                polygon_extended = dataprep_oversize_gdspy(polygon_toextend, extended_amount)
-                polygon_extra = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extended, polygon_ref, 'not'),
-                                                       do_cleanup=GLOBAL_DO_CLEANUP)
-                polygon_toadd = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extra, polygon_ref_sized, 'and'),
-                                                       do_cleanup=GLOBAL_DO_CLEANUP)
+            poly_coords_cleanup = self.coords_cleanup(poly_coords_orth)
+            non_manh_edge_post_cleanup = self.not_manh(poly_coords_cleanup)
+            if non_manh_edge_post_cleanup:
+                raise ValueError('Manhattanization failed after the clean-up, number of non-manh edges is',
+                                 non_manh_edge_post_cleanup)
 
-                polygon_out = dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_toextend, polygon_toadd, 'or'),
-                                                     do_cleanup=GLOBAL_DO_CLEANUP)
+            return poly_coords_cleanup
+        else:
+            raise ValueError('manh_type = {} should be either "non", "inc" or "dec"'.format(manh_type))
 
-                # TODO: replace 1.1 with non-magic number
-                buffer_size = max(grid_size * ceil(0.5 * extended_amount / grid_size + 1.1), 0.0)
-                polygon_out = dataprep_oversize_gdspy(dataprep_undersize_gdspy(polygon_out, buffer_size), buffer_size)
-            else:
-                pass
+    def gdspy_manh(self,
+                   polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                   manh_grid_size,  # type: float
+                   do_manh,  # type: bool
+                   ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+        """
+        Performs Manhattanization on a gdspy representation of a polygon, and returns a gdspy representation of the
+        Manhattanized polygon
 
-        elif operation == 'ouo':
-            # TODO
-            # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
-            if True:
-                min_width = global_min_width
-                min_space = global_min_space
+        Parameters
+        ----------
+        polygon_gdspy : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The gdspy representation of the polygons to be Manhattanized
+        manh_grid_size : float
+            grid size for Manhattanization, edge length after Manhattanization should be larger than it
+        do_manh : bool
+            True to perform Manhattanization
 
-                underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
-                overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-                print('ouuo size:', underofover_size, overofunder_size)
-                polygon_o = dataprep_oversize_gdspy(polygon2, underofover_size)
-                polygon_ou = dataprep_undersize_gdspy(polygon_o, underofover_size)
-                polygon_ouu = dataprep_undersize_gdspy(polygon_ou, overofunder_size)
-                polygon_out = dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
+        Returns
+        -------
+        polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
+            The Manhattanized polygon, in gdspy representation
+        """
+        if do_manh:
+            manh_type = 'inc'
+        else:
+            manh_type = 'non'
 
-            else:
-                pass
-
-        elif operation == 'rouo':
-            if polygon2 is None:
-                polygon_out = None
-            else:
-                rough_grid_size = global_rough_grid_size
-                grid_size = GLOBAL_GRID_SIZE
-                min_width = global_min_width
-                min_space = global_min_space
-                underofover_size = grid_size * ceil(0.5 * min_space / grid_size)
-                overofunder_size = grid_size * ceil(0.5 * min_width / grid_size)
-
-                min_space_width = min(min_space, min_width)
-                simplify_tolerance = 0.999 * min_space_width * rough_grid_size / sqrt(
-                    min_space_width ** 2 + rough_grid_size ** 2)
-                # simplify_tolerance = 1.4 * rough_grid_size
-
-                # TODO: see if do_manh should always be True here
-                polygon_manh = gdspy_manh(polygon2, rough_grid_size, do_manh=True)
-
-                polygon_o = dataprep_oversize_gdspy(polygon_manh, underofover_size)
-                polygon_ou = dataprep_undersize_gdspy(polygon_o, underofover_size)
-                polygon_ouu = dataprep_undersize_gdspy(polygon_ou, overofunder_size)
-                polygon_ouuo = dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
-
-                coord_list = polyop_gdspy_to_point_list(polygon_ouuo,
-                                                        fracture=False,
-                                                        do_manh=False,
-                                                        manh_grid_size=GLOBAL_GRID_SIZE,
-                                                        debug=False
-                                                        )
-                polygon_simplified = simplify_coord_to_gdspy([coord_list, []],
-                                                             # TODO: Figure out the magic number
-                                                             tolerance=simplify_tolerance,
-                                                             )
-                # polygon_simplified = polygon_ouuo
-
-                polygon_out = polygon_simplified
-
-        elif operation == 'del':
-            # TODO
+        if polygon_gdspy is None:
             polygon_out = None
-            pass
+        elif isinstance(polygon_gdspy, gdspy.Polygon):
+            coord_list = self.manh_skill(polygon_gdspy.points, manh_grid_size, manh_type)
+            polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                                      do_cleanup=self.do_cleanup)
+        elif isinstance(polygon_gdspy, gdspy.PolygonSet):
+            coord_list = self.manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
+            polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                                      do_cleanup=self.do_cleanup)
+            for poly in polygon_gdspy.polygons:
+                coord_list = self.manh_skill(poly, manh_grid_size, manh_type)
+                polygon_append = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
+                                                             do_cleanup=self.do_cleanup)
+                polygon_out = self.dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
+                                                          do_cleanup=self.do_cleanup)
+        else:
+            raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
 
         return polygon_out
+
+    ################################################################################
+    # Simplify function
+    ################################################################################
+    def simplify_coord_to_gdspy(
+            self,
+            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+            tolerance=5e-4,  # type: float
+    ):
+        # type: (...) -> Union[gdspy.PolygonSet, gdspy.Polygon]
+        """
+        Simplifies a polygon coordinate-list representation of a complex polygon (multiple shapes, with holes, etc) and
+        converts the simplified polygon into gdspy representation. Simplification involves reducing the number of points
+        in the shape based on a tolerance of how far the points are from being collinear.
+
+        Parameters
+        ----------
+        pos_neg_list_list : Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
+            Tuple containing the positive and negative list of polygon point-lists
+        tolerance : float
+            The tolerance within which a set of points are deemed collinear
+
+        Returns
+        -------
+        poly_gdspy_simplified : Union[gdspy.PolygonSet, gdspy.Polygon]
+            The simplified polygon in gdspy representation
+        """
+        poly_shapely = self.coord_to_shapely(pos_neg_list_list)
+        poly_shapely_simplified = poly_shapely.simplify(tolerance)
+        poly_gdspy_simplified = self.shapely_to_gdspy(poly_shapely_simplified)
+
+        return poly_gdspy_simplified
+
+    ################################################################################
+    # Dataprep related operations
+    ################################################################################
+    def dataprep_oversize_gdspy(self,
+                                polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                                offset,  # type: float
+                                ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        """
+        Grow a polygon by an offset. Perform cleanup to ensure proper polygon shape.
+
+        Parameters
+        ----------
+        polygon : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The polygon to size, in gdspy representation
+        offset : float
+            The amount to grow the polygon
+
+        Returns
+        -------
+        polygon_oversized : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The oversized polygon
+        """
+        if polygon is None:
+            return None
+        else:
+            if offset < 0:
+                print('Warning: offset = %f < 0 indicates you are doing undersize')
+            polygon_oversized = gdspy.offset(polygon, offset, max_points=MAX_SIZE, join_first=True,
+                                             join='miter',
+                                             tolerance=self.offset_tolerance,
+                                             precision=self.global_operation_precision)
+            polygon_oversized = self.dataprep_cleanup_gdspy(polygon_oversized, do_cleanup=self.do_cleanup)
+
+            return polygon_oversized
+
+    def dataprep_undersize_gdspy(self,
+                                 polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                                 offset,  # type: float
+                                 ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        """
+        Shrink a polygon by an offset. Perform cleanup to ensure proper polygon shape.
+
+        Parameters
+        ----------
+        polygon : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The polygon to size, in gdspy representation
+        offset : float
+            The amount to shrink the polygon
+
+        Returns
+        -------
+        polygon_undersized : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The undersized polygon
+        """
+
+        if polygon is None:
+            return None
+        else:
+            if offset < 0:
+                print('Warning: offset = %f < 0 indicates you are doing oversize')
+            polygon_undersized = gdspy.offset(polygon, -offset, max_points=MAX_SIZE, join_first=True,
+                                              join='miter',
+                                              tolerance=self.offset_tolerance,
+                                              precision=self.global_operation_precision)
+            polygon_undersized = self.dataprep_cleanup_gdspy(polygon_undersized, do_cleanup=self.do_cleanup)
+
+            return polygon_undersized
+
+    def dataprep_roughsize_gdspy(self,
+                                 polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
+                                 size_amount,  # type: float
+                                 do_manh,  # type: bool
+                                 ):
+        # type (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+        """
+        Add a new polygon that is rough sized by 'size_amount' from the provided polygon.
+        Rough sizing entails:
+         - oversize by 2x the global rough grid size
+         - undersize by 2x the global rough grid size
+         - oversize by the global rough grid size
+         - Manhattanize to the global rough grid
+         - undersize by the fine global fine grid size
+         - oversize by the fine global fine grid size
+         - oversize by 'size_amount' less the 2x global grid size already used
+
+        Parameters
+        ----------
+        polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
+            polygon to be used as the base shape for the rough add, in gdspy representation
+        size_amount : float
+            amount to oversize (undersize is not supported, will be set to 0 if negative) the rough added shape
+        do_manh : bool
+            True to perform Manhattanization of after the oouuo shape
+
+        Returns
+        -------
+        polygon_roughsized : Union[gdspy.Polygon, gdspy.PolygonSet]
+            the rough added polygon shapes, in gdspy representation
+        """
+
+        # oversize twice, then undersize twice and oversize again
+        polygon_oo = self.dataprep_oversize_gdspy(polygon, 2 * self.global_rough_grid_size)
+        polygon_oouu = self.dataprep_undersize_gdspy(polygon_oo, 2 * self.global_rough_grid_size)
+        polygon_oouuo = self.dataprep_oversize_gdspy(polygon_oouu, self.global_rough_grid_size)
+
+        # TODO: Is this necessary?
+        # Manhattanize to the rough grid
+        polygon_oouuo_rough = self.gdspy_manh(polygon_oouuo, self.global_rough_grid_size, do_manh)
+
+        # TODO: Is this necessary
+        # undersize then oversize
+        polygon_roughsized = self.dataprep_oversize_gdspy(
+            self.dataprep_undersize_gdspy(
+                polygon_oouuo_rough,
+                self.global_grid_size        # TODO: What size here
+            ),
+            self.global_grid_size            # TODO: What size here
+        )
+
+        polygon_roughsized = self.dataprep_oversize_gdspy(
+            polygon_roughsized,
+            max(
+                size_amount - 2 * self.global_rough_grid_size,
+                0
+            )
+        )
+
+        return polygon_roughsized
+
+    def poly_operation(self,
+                       lpp_out: Union[str, Tuple[str, str]],
+                       polygon1,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                       polygon2,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                       operation,  # type: str
+                       size_amount,  # type: Union[float, Tuple[float, float]]
+                       do_manh=False,  # type: bool,
+                       ):
+        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+        """
+
+        Parameters
+        ----------
+        lpp_out : Union[str, Tuple[str, str]]
+            The layer on which the shapes are being
+        polygon1 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The shapes currently on the output layer
+        polygon2 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The shapes on the input layer that will be added/subtracted to/from the output layer
+        operation : str
+            The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
+        size_amount : Union[float, Tuple[Float, Float]]
+            The amount to over/undersize the shapes to be added/subtracted.
+            For ouo and rouo, the 0.5*minWidth related over and under size amount
+        do_manh : bool
+            True to perform Manhattanization during the 'rad' operation
+
+        Returns
+        -------
+        polygons_out : Union[gdspy.Polygon, gdspy.PolygonSet, None]
+            The new polygons present on the output layer
+        """
+        # TODO: clean up the input polygons first ?
+
+        # If there are no shapes to operate on, return the shapes currently on the output layer
+        if polygon2 is None:
+            return polygon1
+        else:
+            if operation == 'rad':
+                # TODO: manh ?
+                polygon_rough = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
+
+                buffer_size = max(size_amount - 2 * self.global_rough_grid_size, 0)
+                polygon_rough_sized = self.dataprep_oversize_gdspy(polygon_rough, buffer_size)
+
+                if polygon1 is None:
+                    polygon_out = polygon_rough_sized
+                else:
+                    polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
+                    polygon_out = self.dataprep_cleanup_gdspy(polygon_out, do_cleanup=self.do_cleanup)
+
+            elif operation == 'add':
+                if polygon1 is None:
+                    polygon_out = self.dataprep_oversize_gdspy(polygon2, size_amount)
+                else:
+                    polygon_out = gdspy.fast_boolean(polygon1,
+                                                     self.dataprep_oversize_gdspy(polygon2, size_amount),
+                                                     'or')
+                    polygon_out = self.dataprep_cleanup_gdspy(polygon_out, do_cleanup=self.do_cleanup)
+
+            elif operation == 'sub':
+                if polygon1 is None:
+                    polygon_out = None
+                else:
+                    polygon_out = gdspy.fast_boolean(polygon1,
+                                                     self.dataprep_oversize_gdspy(polygon2, size_amount),
+                                                     'not')
+                    polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
+
+            elif operation == 'ext':
+                # TODO:
+                # if (not (member(LppOut, NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
+                if True:
+                    polygon_toextend = polygon1
+                    polygon_ref = polygon2
+                    extended_amount = size_amount
+
+                    # Round the amount to extend up based on global grid size
+                    extended_amount = self.global_grid_size * ceil(extended_amount / self.global_grid_size)
+
+                    polygon_ref_sized = self.dataprep_oversize_gdspy(polygon_ref, extended_amount)
+                    polygon_extended = self.dataprep_oversize_gdspy(polygon_toextend, extended_amount)
+                    polygon_extra = self.dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extended,
+                                                                                   polygon_ref,
+                                                                                   'not'),
+                                                                do_cleanup=self.do_cleanup)
+                    polygon_toadd = self.dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_extra,
+                                                                                   polygon_ref_sized,
+                                                                                   'and'),
+                                                                do_cleanup=self.do_cleanup)
+
+                    polygon_out = self.dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_toextend,
+                                                                                 polygon_toadd,
+                                                                                 'or'),
+                                                              do_cleanup=self.do_cleanup)
+
+                    # TODO: replace 1.1 with non-magic number
+                    buffer_size = max(
+                        self.global_grid_size * ceil(0.5 * extended_amount / self.global_grid_size + 1.1),
+                        0.0
+                    )
+                    polygon_out = self.dataprep_oversize_gdspy(self.dataprep_undersize_gdspy(polygon_out, buffer_size),
+                                                               buffer_size)
+                else:
+                    pass
+
+            elif operation == 'ouo':
+                # TODO
+                # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
+                if True:
+                    underofover_size = \
+                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_space(lpp_out) / self.global_grid_size)
+                    overofunder_size = \
+                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_space(lpp_out) / self.global_grid_size)
+                    polygon_o = self.dataprep_oversize_gdspy(polygon2, underofover_size)
+                    polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
+                    polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
+                    polygon_out = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
+
+                else:
+                    pass
+
+            elif operation == 'rouo':
+                # TODO: Check this function?
+                if polygon2 is None:
+                    polygon_out = None
+                else:
+                    min_space = self.photonic_tech_info.min_space[lpp_out]
+                    min_width = self.photonic_tech_info.min_width[lpp_out]
+                    underofover_size = \
+                        self.global_grid_size * ceil(0.5 * min_space / self.global_grid_size)
+                    overofunder_size = \
+                        self.global_grid_size * ceil(0.5 * min_width / self.global_grid_size)
+
+                    min_space_width = min(min_space, min_width)
+                    simplify_tolerance = 0.999 * min_space_width * self.global_rough_grid_size / sqrt(
+                        min_space_width ** 2 + self.global_rough_grid_size ** 2)
+                    # simplify_tolerance = 1.4 * rough_grid_size
+
+                    # TODO: see if do_manh should always be True here
+                    polygon_manh = self.gdspy_manh(polygon2, self.global_rough_grid_size, do_manh=True)
+
+                    polygon_o = self.dataprep_oversize_gdspy(polygon_manh, underofover_size)
+                    polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
+                    polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
+                    polygon_ouuo = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
+
+                    # Todo: global grid or rough global grid?
+                    coord_list = self.polyop_gdspy_to_point_list(polygon_ouuo,
+                                                                 fracture=False,
+                                                                 do_manh=False,
+                                                                 manh_grid_size=self.global_rough_grid_size,
+                                                                 debug=False
+                                                                 )
+                    polygon_simplified = self.simplify_coord_to_gdspy([coord_list, []],
+                                                                      # TODO: Figure out the magic number
+                                                                      tolerance=simplify_tolerance,
+                                                                      )
+                    # polygon_simplified = polygon_ouuo
+
+                    polygon_out = polygon_simplified
+
+            elif operation == 'del':
+                # TODO
+                polygon_out = None
+                pass
+
+            return polygon_out
+
+    ################################################################################
+    # content list manimulations
+    ################################################################################
+    def get_polygon_point_lists_on_layer(self,
+                                         layer,  # type: Tuple[str, str]
+                                         debug=False,  # type: bool
+                                         ):
+        """
+        Returns a list of all shapes
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            the layer purpose pair to get all shapes in shapely format
+        debug : bool
+            true to print debug info
+
+        Returns
+        -------
+
+        """
+        content = [self.get_content_on_layer(layer)]
+        return self.to_polygon_pointlist_from_content_list(content_list=content, debug=debug)
+
+    def get_content_on_layer(self,
+                             layer,  # type: Tuple[str, str]
+                             ):
+        # type: (...) -> Tuple
+        """Returns only the content that exists on a given layer
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            the layer whose content is desired
+
+        Returns
+        -------
+        content : Tuple
+            the shape content on the provided layer
+        """
+        if layer not in self.flat_content_list_by_layer.keys():
+            return ()
+        else:
+            return self.flat_content_list_by_layer[layer]
+
+    def to_polygon_pointlist_from_content_list(self,
+                                               content_list: List,
+                                               debug: bool = False,
+                                               ) -> Tuple[List, List]:
+        """
+        Convert the provided content list into two lists of polygon pointlists.
+        The first returned list represents the positive boundaries of polygons.
+        The second returned list represents the 'negative' boundaries of holes in polygons.
+        All shapes in the passed content list are converted, regardless of layer.
+        It is expected that the content list passed to this function only has a single LPP's content
+
+        Parameters
+        ----------
+        content_list : List
+            The content list to be converted to a polygon pointlist
+        debug : bool
+            True to print debug information
+
+        Returns
+        -------
+        positive_polygon_pointlist, negative_polygon_pointlist : Tuple[List, List]
+            The positive shape and negative shape (holes) polygon boundaries
+        """
+
+        positive_polygon_pointlist = []
+        negative_polygon_pointlist = []
+
+        start = time.time()
+        for content in content_list:
+            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
+             path_list, blockage_list, boundary_list, polygon_list, round_list,
+             sim_list, source_list, monitor_list) = content
+
+            # add instances
+            for inst_info in inst_tot_list:
+                pass
+
+            # add rectangles
+            for rect in rect_list:
+                nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
+                if nx > 1 or ny > 1:
+                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
+                        rect['bbox'], nx, ny,
+                        spx=rect['arr_spx'], spy=rect['arr_spy']
+                    )
+                else:
+                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
+                        rect['bbox']
+                    )
+
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+            # add vias
+            for via in via_list:
+                pass
+
+            # add pins
+            for pin in pin_list:
+                pass
+
+            for path in path_list:
+                # Treat like polygons
+                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+            for blockage in blockage_list:
+                pass
+
+            for boundary in boundary_list:
+                pass
+
+            for polygon in polygon_list:
+                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(polygon['points'])
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+            for round_obj in round_list:
+                polygon_pointlist_pos_neg = PhotonicRound.polygon_pointlist_export(
+                    rout=round_obj['rout'],
+                    rin=round_obj['rin'],
+                    theta0=round_obj['theta0'],
+                    theta1=round_obj['theta1'],
+                    center=round_obj['center'],
+                    nx=round_obj.get('nx', 1),
+                    ny=round_obj.get('ny', 1),
+                    spx=round_obj.get('spx', 0.0),
+                    spy=round_obj.get('spy', 0.0),
+                    resolution=self.grid.resolution,
+                )
+
+                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+        end = time.time()
+        if debug:
+            print('layout instantiation took %.4g seconds' % (end - start))
+
+        return positive_polygon_pointlist, negative_polygon_pointlist
+
+    def by_layer_polygon_list_to_flat_for_gds_export(self):
+        """Converts a LPP-keyed dictionary of polygon pointlists to a flat content list format for GDS export"""
+        polygon_content_list = []
+        for layer, polygon_pointlists in self.post_dataprep_polygon_pointlist_by_layer.items():
+            for polygon_points in polygon_pointlists:
+                polygon_content_list.append(
+                    dict(
+                        layer=(layer[0], layer[1]),
+                        points=polygon_points,
+                    )
+                )
+        # TODO: get the right name?
+        self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
+                                                 polygon_content_list, [], [], [], [])]
+
+    def get_manhattanization_size_on_layer(self,
+                                           layer: Union[str, Tuple[str, str]]
+                                           ):
+        """
+        Finds the layer-specific Manhattanization size.
+        To do this, checks for the min_edge_length parameter in the PhotonicTechInfo.
+        If a value is not present, returns self.global_grid_size
+
+        Parameters
+        ----------
+        layer
+
+        Returns
+        -------
+
+        """
+        return self.photonic_tech_info.min_edge_length(layer, return_grid_res_on_error=True)
+
+    def dataprep(self,
+                 push_portshapes_through_dataprep: bool = False,
+                 ) -> List:
+        """
+        Takes the flat content list and performs the specified transformations on the shapes for the purpose
+        of cleaning DRC and prepping tech specific functions.
+
+        Notes
+        -----
+        1) Take the shapes in the flattened content list and convert them to gdspy format
+        2) Perform each dataprep operation on the provided layers in order. dataprep_groups is a list
+        where each element contains 2 other lists:
+            2a) lpp_in defines the layers that the operation will be performed on
+            2b) lpp_ops defines the operation to be performed
+            2c) Maps the operation in the spec file to its gdspy implementation and performs it
+        3) Performs a final over_under_under_over operation
+        4) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
+
+        Parameters
+        ----------
+        push_portshapes_through_dataprep : bool
+            True to perform dataprep and convert the port indicator shapes
+        """
+
+        # 1) Convert layer shapes to gdspy polygon format
+        for layer, gds_shapes in self.flat_content_list_by_layer.items():
+            start = time.time()
+            # TODO: fix Manhattan size
+            if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label'):
+                # TODO: This is slow
+                self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
+                    self.get_polygon_point_lists_on_layer(layer),
+                    manh_grid_size=self.get_manhattanization_size_on_layer(layer),
+                    do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
+                )
+                end = time.time()
+                logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
+            else:
+                logging.info(f'Did not converting {layer} content to gdspy')
+
+        # 3) Perform each dataprep operation in the list on the provided layers in order
+        start0 = time.time()
+        for dataprep_group in self.photonic_tech_info.dataprep_parameters['dataprep_groups']:
+            # 3a) Iteratively perform operations on all layers in lpp_in
+            for lpp_in in dataprep_group['lpp_in']:
+                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
+                # 3b) Iteratively perform each operation on the current lpp_in
+                for lpp_op in dataprep_group['lpp_ops']:
+                    start = time.time()
+                    out_layer = (lpp_op[0], lpp_op[1])
+                    operation = lpp_op[2]
+                    amount = lpp_op[3]
+
+                    logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
+                                 f'to layer: {out_layer}  with size {amount}')
+
+                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
+                    new_out_layer_polygons = self.poly_operation(
+                        lpp_out=out_layer,
+                        polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
+                        polygon2=shapes_in,
+                        operation=operation,
+                        size_amount=amount,
+                        do_manh=self.GLOBAL_DO_MANH_DURING_OP,
+                    )
+
+                    # Update the layer's content
+                    if new_out_layer_polygons is not None:
+                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+
+                    end = time.time()
+                    logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
+        end0 = time.time()
+        logging.info(f'All dataprep layer operations took {end0 - start0}s')
+
+        # 4) Perform a final over_under_under_over operation
+        start0 = time.time()
+        # TODO: Verify this works
+        ouuo_list = self.photonic_tech_info.dataprep_parameters.get('over_under_under_over', [])
+
+        for lpp in ouuo_list:
+            logging.info(f'Performing OUUO on {lpp}s')
+            start = time.time()
+            new_out_layer_polygons = self.poly_operation(
+                lpp_out=lpp,
+                polygon1=None,
+                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
+                operation='ouo',
+                size_amount=0,
+                do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
+            )
+
+            if new_out_layer_polygons is not None:
+                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+            end = time.time()
+            logging.info(f'OUUO on {lpp} took: {end-start}s')
+
+        end0 = time.time()
+        logging.info(f'All OUUO operations took a total of : {end0 - start0}s')
+
+        # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
+        start0 = time.time()
+        # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
+        for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
+            start = time.time()
+            output_shapes = self.polyop_gdspy_to_point_list(gdspy_polygons,
+                                                            fracture=True,
+                                                            do_manh=self.GLOBAL_DO_FINAL_MANH,
+                                                            manh_grid_size=self.grid.resolution,
+                                                            )
+            new_shapes = []
+            for shape in output_shapes:
+                shape = tuple(map(tuple, shape))
+                new_shapes.append([coord for coord in shape])
+            self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
+
+            end = time.time()
+            logging.info(f'Converting {layer} from gdspy to point list took: {end - start}s')
+
+        self.by_layer_polygon_list_to_flat_for_gds_export()
+
+        end0 = time.time()
+        logging.info(f'Converting all layers from gdspy to point list took a total of: {end0 - start0}s')
+
+        return self.post_dataprep_flat_content_list
+
+    def generate_flat_content_list_from_dataprep(self,
+                                                 poly_list_by_layer,
+                                                 sim_obj_list
+                                                 ):
+        """
+        Takes the output of dataprep and converts it into a flat content list
+
+        Parameters
+        ----------
+        poly_list_by_layer : Dict[Str, List]
+            A dictionary containing lists all dataprepped polygons organized by layername
+        sim_obj_list : Tuple[List, List, List]
+            A tuple of lists containing all simulation objects to be used
+        """
+        polygon_content_list = []
+        for layer, polygon_pointlists in poly_list_by_layer.items():
+            for polygon_points in polygon_pointlists:
+                polygon_content_list.append(
+                    dict(
+                        layer=(layer[0], layer[1]),
+                        points=polygon_points,
+                    )
+                )
+        self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
+                                                 polygon_content_list, [],
+                                                 sim_obj_list[0],
+                                                 sim_obj_list[1],
+                                                 sim_obj_list[2])]
+
+    def lsf_dataprep(self,
+                     push_portshapes_through_dataprep: bool = False,
+                     ) -> List:
+        """
+        Takes the flat content list and prepares the shapes to be exported to lumerical.
+
+        Notes
+        -----
+        1) Take the shapes in the flattened content list and convert them to gdspy format
+        2) Parse the dataprep spec file to extract the desired procedure defined through dataprep_groups
+        3) Perform each dataprep operation on the provided layers in order. dataprep_groups is a list
+        where each element contains 2 other lists:
+            3a) lpp_in defines the layers that the operation will be performed on
+            3b) lpp_ops defines the operation to be performed
+            3c) Maps the operation in the spec file to its gdspy implementation and performs it
+        4) Performs a final over_under_under_over operation
+        5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
+
+        Parameters
+        ----------
+        push_portshapes_through_dataprep : bool
+            True to perform dataprep and convert the port indicator shapes
+        """
+
+        # 1) Convert layer shapes to gdspy polygon format
+        for layer, gds_shapes in self.flat_content_list_by_layer.items():
+            # If shapes on the layer need to be dataprepped, convert them to gdspy polygons and add to list
+            if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim'):
+                self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
+                    self.get_polygon_point_lists_on_layer(layer),
+                    manh_grid_size=self.get_manhattanization_size_on_layer(layer),
+                    do_manh=False,  # TODO: Pavan had this set to false
+                )
+
+        # 3) Perform each dataprep operation in the list on the provided layers in order
+        for dataprep_group in self.photonic_tech_info.lsf_export_parameters['dataprep_groups']:
+            # 3a) Iteratively perform operations on all layers in lpp_in
+            for lpp_in in dataprep_group['lpp_in']:
+                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
+                # 3b) Iteratively perform each operation on the current lpp_in
+                for lpp_op in dataprep_group['lpp_ops']:
+                    out_layer = (lpp_op[0], lpp_op[1])
+                    operation = lpp_op[2]
+                    amount = lpp_op[3]
+                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
+                    new_out_layer_polygons = self.poly_operation(
+                        lpp_out=out_layer,
+                        polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
+                        polygon2=shapes_in,
+                        operation=operation,
+                        size_amount=amount,
+                        do_manh=False,
+                    )
+
+                    # Update the layer's content
+                    if new_out_layer_polygons is not None:
+                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+
+        # 4) Perform a final over_under_under_over operation
+        # TODO: Verify this
+        ouuo_list = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
+
+        for lpp in ouuo_list:
+            new_out_layer_polygons = self.poly_operation(
+                lpp_out=lpp,
+                polygon1=None,
+                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
+                operation='ouo',
+                size_amount=0,
+                do_manh=False,
+            )
+
+            if new_out_layer_polygons is not None:
+                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+
+        # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
+        # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
+        for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
+            output_shapes = self.polyop_gdspy_to_point_list(gdspy_polygons,
+                                                            fracture=True,
+                                                            do_manh=False,
+                                                            manh_grid_size=self.grid.resolution,
+                                                            )
+            new_shapes = []
+            for shape in output_shapes:
+                shape = tuple(map(tuple, shape))
+                new_shapes.append([coord for coord in shape])
+            self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
+
+        # Reconstructs content list from dataprepped polygons and with simulation objects
+        # TODO: Support creation of multiple masters
+        self.generate_flat_content_list_from_dataprep(self.post_dataprep_polygon_pointlist_by_layer,
+                                                      [self.flat_content_list_separate[0][10],
+                                                       self.flat_content_list_separate[0][11],
+                                                       self.flat_content_list_separate[0][12]])
+
+        return self.post_dataprep_flat_content_list
