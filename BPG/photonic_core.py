@@ -20,9 +20,6 @@ try:
 except ImportError:
     cybagoa = None
 
-# Load logger TODO: PhotonicBagProject does not output to the correct log file
-logger = logging.getLogger(__name__)
-
 
 # From bag/core
 class PhotonicBagProject(BagProject):
