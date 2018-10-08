@@ -1,9 +1,12 @@
 import BPG
 import importlib
 import abc
+import logging
 
-from typing import List
+from typing import Dict, Any, List
 from .lumerical_sim import *
+
+logger = logging.getLogger(__name__)
 
 
 class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
@@ -12,19 +15,19 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         This class enables the creation of Lumerical testbenches
         """
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
-        self.layout_package = params['layout_package']
-        self.layout_class = params['layout_class']
-        self.layout_params = params['layout_params']
-        self.params = params['tb_params']
+        self.layout_package: str = params['layout_package']
+        self.layout_class: str = params['layout_class']
+        self.layout_params: Dict[str, Any] = params['layout_params']
+        self.params: Dict[str, Any] = params['tb_params']
 
         # Contains the master and instance of the design to be tested
         self.dut_master = None
         self.dut_inst = None
 
         # Store the simulation objects to be created
-        self._sim_db = []  # type: List[LumericalSimObj]
-        self._source_db = []  # type: List[LumericalSimObj]
-        self._monitor_db = []  # type: List[LumericalSimObj]
+        self._sim_db: List[LumericalSimObj] = []
+        self._source_db: List[LumericalSimObj] = []
+        self._monitor_db: List[LumericalSimObj] = []
 
     @classmethod
     def get_params_info(cls):
@@ -131,4 +134,3 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         template_class = getattr(layout_module, self.layout_class)
         self.dut_master = self.new_template(params=self.layout_params, temp_cls=template_class)
         self.dut_inst = self.add_instance(self.dut_master)
-
