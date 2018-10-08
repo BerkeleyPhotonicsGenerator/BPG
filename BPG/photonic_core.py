@@ -3,6 +3,7 @@ import bag
 import bag.io
 import abc
 import yaml
+import logging
 
 from pathlib import Path
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
@@ -123,8 +124,7 @@ class PhotonicBagLayout(BagLayout):
 
     def finalize(self):
         # type: () -> None
-        """Prevents any further changes to this layout.
-        """
+        """ Prevents any further changes to this layout. """
         self._finalized = True
 
         # get rectangles
@@ -194,7 +194,8 @@ class PhotonicBagLayout(BagLayout):
                     rename_fun,  # type: Callable[[str], str]
                     ):
         # type: (...) -> Union[List[Any], Tuple[str, 'cybagoa.PyOALayout']]
-        """returns a list describing geometries in this layout.
+        """
+        Returns a list describing geometries in this layout.
 
         Parameters
         ----------

@@ -2,7 +2,11 @@
 
 """This module defines various layout objects one can add and manipulate in a template.
 """
-from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
+import gdspy
+import numpy as np
+import sys
+import math
+import logging
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
     ViaInfo, Via, PinInfo, Instance, InstanceInfo, Figure
@@ -11,11 +15,11 @@ from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
 from .photonic_core import CoordBase
-import gdspy
-import numpy as np
-import sys
-import math
 from copy import deepcopy
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
+
+# Load logger
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from BPG.photonic_template import PhotonicTemplateBase
