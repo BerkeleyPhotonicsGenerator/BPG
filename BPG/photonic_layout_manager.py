@@ -2,6 +2,7 @@ import BPG
 import yaml
 import importlib
 import os
+import logging
 
 from pathlib import Path
 from bag.layout import RoutingGrid
@@ -9,13 +10,14 @@ from bag.simulation.core import DesignManager
 from .photonic_template import PhotonicTemplateDB
 from .lumerical_generator import LumericalSweepGenerator
 from .lumerical_materials import LumericalMaterialGenerator
+from .logger import setup_logger
 
 
 class PhotonicLayoutManager(DesignManager):
     """
     Class that manages the creation of Photonic Layouts and Lumerical LSF files
     """
-    def __init__(self, bprj, spec_file):
+    def __init__(self, bprj, spec_file, verbose=False):
         DesignManager.__init__(self, bprj, spec_file)
 
         """
@@ -43,26 +45,36 @@ class PhotonicLayoutManager(DesignManager):
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
 
+        # Get root path for the project
+        bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+
+        # Enable logging for BPG
+        if 'logfile' in self.specs:
+            self.log_path = bag_work_dir / self.specs['logfile']
+        else:
+            self.log_path = self.project_dir / 'output.log'
+        setup_logger(logfile=str(self.log_path), verbose=verbose)
+
         # Setup the abstract tech layermap
         if 'layermap' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
             self.layermap_path = bag_work_dir / self.specs['layermap']
         else:
             self.layermap_path = self.prj.layermap_path
+        logging.info(f'loading layermap from {self.layermap_path}')
 
         # Setup the dataprep procedure
         if 'dataprep' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
             self.dataprep_path = bag_work_dir / self.specs['dataprep']
         else:
             self.dataprep_path = self.prj.dataprep_path
+        logging.info(f'loading dataprep procedure from {self.dataprep_path}')
 
         # Setup the lumerical export map
         if 'lsf_export_map' in self.specs:
-            bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
             self.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
         else:
             self.lsf_export_path = self.prj.lsf_export_path
+        logging.info(f'loading lumerical export configuration from {self.lsf_export_path}')
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -70,6 +82,7 @@ class PhotonicLayoutManager(DesignManager):
 
         # Make the PhotonicTemplateDB
         self.make_tdb()
+        logging.info('loaded paths successfully')
 
     def make_tdb(self) -> None:
         """
@@ -102,13 +115,13 @@ class PhotonicLayoutManager(DesignManager):
         cell_name_list : List[str]
             Optional list of strings corresponding to the names given to each generated layout
         """
+        logging.info('---Generating .gds---')
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
             layout_params_list = [self.specs['layout_params']]
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
 
-        print('\n---Generating .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -128,7 +141,7 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_lsf(self, debug=False, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
-        print('\n---Generating the design .lsf file---')
+        logging.info('---Generating the design .lsf file---')
         if create_materials is True:
             self.create_materials_file()
 
@@ -140,7 +153,7 @@ class PhotonicLayoutManager(DesignManager):
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
-        print('\n---Generating the tb .lsf file---')
+        logging.info('---Generating the tb .lsf file---')
         # Grab the parameters to be passed to the TB
         tb_params = self.specs['tb_params']
         if tb_params is None:
@@ -225,6 +238,7 @@ class PhotonicLayoutManager(DesignManager):
         debug : bool
             True to print debug information
         """
+        logging.info('---Generating flat .gds file---')
         # TODO: Implement the gen_full/gen_design/gen_physical
         # If no list is provided, extract layout params from the provided spec file
         if layout_params_list is None:
@@ -232,7 +246,6 @@ class PhotonicLayoutManager(DesignManager):
         if cell_name_list is None:
             cell_name_list = [self.specs['impl_cell']]
 
-        print('\n---Generating flat .gds file---')
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
 
@@ -262,7 +275,7 @@ class PhotonicLayoutManager(DesignManager):
         Returns
         -------
         """
-        print('\n---Performing dataprep---')
+        logging.info('---Running dataprep---')
         self.generate_flat_gds(generate_gds=False)
         self.tdb.dataprep(dataprep_file=self.dataprep_path,
                           debug=debug,

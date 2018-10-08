@@ -1,6 +1,7 @@
 import os
 import bag
 import bag.io
+import logging
 
 from pathlib import Path
 from bag.core import BagProject, create_tech_info
@@ -59,28 +60,23 @@ class PhotonicBagProject(BagProject):
         self.layermap_path = self.bpg_config.get('layermap', root_path + '/BPG/examples/tech/gds_map.yaml')
         if not Path(self.layermap_path).is_file():
             raise ValueError(f'layermap file {self.layermap_path} does not exist!')
-        print(f'Loading layermap from {self.layermap_path}')
 
         self.dataprep_path = self.bpg_config.get('dataprep', root_path + '/BPG/examples/tech/dataprep.yaml')
         if not Path(self.dataprep_path).is_file():
             raise ValueError(f'dataprep file {self.dataprep_path} does not exist!')
-        print(f'Loading dataprep procedure from {self.dataprep_path}')
 
         self.lsf_export_path = self.bpg_config.get('lsf_dataprep',
                                                    root_path + '/BPG/examples/tech/lumerical_map.yaml')
         if not Path(self.lsf_export_path).is_file():
             raise ValueError(f'layermap file {self.lsf_export_path} does not exist!')
-        print(f'Loading lumerical export config from {self.lsf_export_path}')
 
         # TODO: Create a dummy dataprep params file so that we can do a file exists check
         self.dataprep_params_path = self.bpg_config.get('dataprep_params', '')
-        print(f'Loading dataprep parameters from {self.dataprep_params_path}')
 
         # Grab technology information
         # TODO: Make the tech class loading generic again
-        print('Setting up tech info class')
         self.tech_info = PTech()
-        #self.tech_info = create_tech_info(bag_config_path=bag_config_path)
+        # self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
     @staticmethod
     def load_yaml(filepath):
@@ -112,8 +108,7 @@ class PhotonicBagLayout(BagLayout):
 
     def finalize(self):
         # type: () -> None
-        """Prevents any further changes to this layout.
-        """
+        """ Prevents any further changes to this layout. """
         self._finalized = True
 
         # get rectangles
@@ -183,7 +178,8 @@ class PhotonicBagLayout(BagLayout):
                     rename_fun,  # type: Callable[[str], str]
                     ):
         # type: (...) -> Union[List[Any], Tuple[str, 'cybagoa.PyOALayout']]
-        """returns a list describing geometries in this layout.
+        """
+        Returns a list describing geometries in this layout.
 
         Parameters
         ----------
