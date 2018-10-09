@@ -3,8 +3,10 @@
 
 # Directory Locations
 project_name: Generated_Poly
-#project_dir: ~/Photonics_Data/Generated_Poly  # If you would like to dump outputs to a specific location, enter it here
-#layermap: ./tech/gds_map.yaml  # If you would like to override the layermap from bag_config.yaml, enter it here
+# If you would like to dump outputs to a specific location, enter it here
+# project_dir: ~/Photonics_Data/Generated_Poly
+# If you would like to override the layermap from bag_config.yaml, enter it here
+# layermap: ${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/gds_map.yaml
 
 # Output Settings
 lsf_filename: Polygon.lsf

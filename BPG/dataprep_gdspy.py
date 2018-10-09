@@ -25,17 +25,15 @@ class Dataprep:
     def __init__(self,
                  photonic_tech_info: "PhotonicTechInfo",
                  grid: "RoutingGrid",
-                 flat_content_list,
+                 flat_content_list_by_layer,
                  flat_content_list_separate,
                  ):
         self.photonic_tech_info: PhotonicTechInfo = photonic_tech_info
         self.grid = grid
-        self.flat_content_list = flat_content_list
+        self.flat_content_list_by_layer: Dict[Tuple(str, str), Tuple] = flat_content_list_by_layer
         self.flat_content_list_separate = flat_content_list_separate
 
         # Initialize dataprep related structures
-        # BAG style content list separated per layer
-        self.flat_content_list_by_layer: Dict[Tuple(str, str), Tuple] = {}
         # Dictionary of layer-keyed gdspy polygonset shapes
         self.flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
         # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
@@ -928,6 +926,7 @@ class Dataprep:
             return polygon1
         else:
             if operation == 'rad':
+                # TODO: THIS IS SLOW
                 # TODO: manh ?
                 polygon_rough = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
 
@@ -1012,6 +1011,7 @@ class Dataprep:
                     pass
 
             elif operation == 'rouo':
+                # TODO: THIS IS SLOW
                 # TODO: Check this function?
                 if polygon2 is None:
                     polygon_out = None
@@ -1236,6 +1236,9 @@ class Dataprep:
             layer = layer[0]
 
         per_layer_manh = self.photonic_tech_info.dataprep_routine_data['manh_size_per_layer']
+        if per_layer_manh is None:
+            per_layer_manh = {}
+
         if layer not in per_layer_manh:
             logging.info(f'Layer {layer} is not in the manh_size_per_layer dictionary in dataprep_routine file.\n'
                          f'Defaulting to global_grid_size')
@@ -1330,7 +1333,7 @@ class Dataprep:
             ouuo_list = []
 
         for lpp in ouuo_list:
-            logging.info(f'Performing OUUO on {lpp}s')
+            logging.info(f'Performing OUUO on {lpp}')
             start = time.time()
             new_out_layer_polygons = self.poly_operation(
                 lpp_out=lpp,

@@ -1,0 +1,514 @@
+# Sample tech_params.yaml copied from bag2_templates_ec SOI sample
+# Transistor parameters are all dummy parameters and copied directly from SOI example
+# Layer/via names changed to reflect dummy BPG process
+
+# PDK library name.
+tech_lib: BPG_soi_dummy
+# layout unit, in meters.
+layout_unit: 1.0e-6
+# layout resolution, in layout units.
+resolution: 0.001
+# True if this is a multi-patterning technology
+use_flip_parity: False
+
+
+
+# mapping from metal layer ID to metal layer name.  Assume purpose is 'drawing'.
+layer_name:
+  1: M1
+  2: M2
+  3: M3
+  4: M4
+  5: M5
+  6: M6
+
+# mapping from metal layer name to metal layer type.  The layer type
+# is used to figure out which EM rules to use.
+layer_type:
+  M1: x
+  M2: x
+  M3: x
+  M4: y
+  M5: y
+  M6: z
+
+# mapping from via bottom layer ID to via name.  Via name is used
+# to figure out enclosure rules.
+via_name:
+  0: vo
+  1: vx
+  2: vx
+  3: vx
+  4: vy
+  5: vy
+
+# mapping from tuple of via layers to via ID.
+via_id:
+  !!python/tuple [!!python/tuple ['POLY', 'drawing'], 'M1']: VM1_POLY
+  !!python/tuple [!!python/tuple ['SI', 'drawing'], 'M1']: VM1_SI
+  !!python/tuple ['M1', 'M2']: VM2_M1
+  !!python/tuple ['M2', 'M3']: VM3_M2
+  !!python/tuple ['M3', 'M4']: VM4_M3
+  !!python/tuple ['M4', 'M5']: VM5_M4
+  !!python/tuple ['M5', 'M6']: VM6_M5
+
+# table of eletromigration temperature scale factor
+idc_em_scale:
+  # scale factor for resistor
+  # scale[idx] is used if temperature is less than or equal to temp[idx]
+  res:
+    temp: [100, .inf]
+    scale: [1.0, 0.5]
+  # scale factor for this metal layer type
+  x:
+    temp: [100, .inf]
+    scale: [1.0, 0.5]
+  y:
+    temp: [100, .inf]
+    scale: [1.0, 0.5]
+  z:
+    temp: [100, .inf]
+    scale: [1.0, 0.5]
+  # default scale vector
+  default:
+    temp: [100, .inf]
+    scale: [1.0, 0.5]
+
+# via enclosure/spacing rules
+via:
+  # via name
+  vo:
+    # via dimension type.  Support 'square' or 'hrect'.  vertical
+    # rectangle is derived from 'hrect'.
+    square:
+      # via width/height
+      dim: [60, 60]
+      # via horizontal/vertical spacing
+      sp: [60, 60]
+      # list of valid via horizontal/vertical spacings when it's a 2x2 array
+      sp2: [!!python/tuple [60, 60]]
+      # list of valid via horizontal/vertical spacings when it's a mxn array,
+      # where min(m, n) >= 2, max(m, n) >= 3
+      sp3: [!!python/tuple [60, 60]]
+      # via bottom enclosure rules.  If empty, then assume it's the same
+      # as top enclosure.
+      bot_enc:
+        w_list: [.inf]
+        enc_list:
+          - [[20, 20]]
+      # via top enclosure rules.
+      top_enc:
+        # via enclosure rule as function of wire width.
+        w_list: [.inf]
+        # via enclosure rules corresponding to each width in w_list.  enc_list[idx]
+        # is used if wire width is less than or equal to w_list[idx].
+        enc_list:
+          # list of valid horizontal/vertical enclosures.
+          - [[20, 20]]
+
+  vx:
+    # via dimension type.  Support 'square' or 'hrect'.  vertical
+    # rectangle is derived from 'hrect'.
+    square:
+      # via width/height
+      dim: [80, 80]
+      # via horizontal/vertical spacing
+      sp: [80, 80]
+      # list of valid via horizontal/vertical spacings when it's a 2x2 array
+      sp2: [!!python/tuple [80, 80]]
+      # list of valid via horizontal/vertical spacings when it's a mxn array,
+      # where min(m, n) >= 2, max(m, n) >= 3
+      sp3: [!!python/tuple [80, 80]]
+      # via bottom enclosure rules.  If empty, then assume it's the same
+      # as top enclosure.
+      bot_enc:
+      # via top enclosure rules.
+      top_enc:
+        # via enclosure rule as function of wire width.
+        w_list: [100, .inf]
+        # via enclosure rules corresponding to each width in w_list.  enc_list[idx]
+        # is used if wire width is less than or equal to w_list[idx].
+        enc_list:
+          # list of valid horizontal/vertical enclosures.
+          - [[10, 10], [20, 0], [0, 20]]
+          - [[10, 10], [10, 5], [5, 10]]
+  vy:
+    # via dimension type.  Support 'square' or 'hrect'.  vertical
+    # rectangle is derived from 'hrect'.
+    square:
+      # via width/height
+      dim: [100, 100]
+      # via horizontal/vertical spacing
+      sp: [100, 100]
+      # list of valid via horizontal/vertical spacings when it's a 2x2 array
+      sp2: [!!python/tuple [120, 120]]
+      # list of valid via horizontal/vertical spacings when it's a mxn array,
+      # where min(m, n) >= 2, max(m, n) >= 3
+      sp3: [!!python/tuple [120, 120]]
+      # via bottom enclosure rules.  If empty, then assume it's the same
+      # as top enclosure.
+      bot_enc:
+      # via top enclosure rules.
+      top_enc:
+        # via enclosure rule as function of wire width.
+        w_list: [300, .inf]
+        # via enclosure rules corresponding to each width in w_list.  enc_list[idx]
+        # is used if wire width is less than or equal to w_list[idx].
+        enc_list:
+          # list of valid horizontal/vertical enclosures.
+          - [[20, 20]]
+          - [[30, 30]]
+
+
+
+
+# minimum wire spacing rule.  Space is measured orthogonal to wire direction.
+sp_min:
+  # metal layer type
+  x:
+    # wire spacing as function of wire width.  sp_list[idx] is used if
+    # wire width is less than or equal to w_list[idx]
+    w_list: [.inf]
+    sp_list: [100]
+  y:
+    w_list: [.inf]
+    sp_list: [150]
+  z:
+    w_list: [.inf]
+    sp_list: [300]
+
+# minimum line-end spacing rule.  Space is measured parallel to wire direction.
+sp_le_min:
+  x:
+    w_list: [.inf]
+    sp_list: [20]
+  y:
+    w_list: [.inf]
+    sp_list: [30]
+  z:
+    w_list: [.inf]
+    sp_list: [40]
+
+# minimum length/minimum area rules.
+len_min:
+  x:
+    w_list: [.inf]
+    w_al_list: [[10000, 100]]
+    md_list: [.inf]
+    md_al_list: [[10000, 100]]
+  y:
+    w_list: [.inf]
+    w_al_list: [[22500, 150]]
+    md_list: [.inf]
+    md_al_list: [[22500, 150]]
+  z:
+    w_list: [.inf]
+    w_al_list: [[90000, 300]]
+    md_list: [.inf]
+    md_al_list: [[90000, 300]]
+
+# DNW margin rules.
+dnw_margins:
+  normal: 200
+  adjacent: 400
+  compact: 0
+
+well_layers:
+  ntap: []
+  ptap: []
+
+# mapping from transistor layer name to actual layer/purpose tuple
+mos_layer_table:
+  # poly
+  PO: !!python/tuple ['POLY', 'drawing']
+  # dummy poly
+  PO_dummy: !!python/tuple ['POLY', 'dummy']
+  # active
+  OD: !!python/tuple ['SI', 'drawing']
+  # dummy active
+  OD_dummy: !!python/tuple ['SI', 'dummy']
+
+# mapping from resistor layer name to actual layer/purpose tuple
+res_layer_table:
+  # a layer drawn exactly on top of metal resistor,
+  # generally used for LVS recognition purposes.
+  RPDMY: !!python/tuple ['RPDMY', 'drawing']
+  # the "resistive poly" layer that makes a poly more resistive.
+  RPO: !!python/tuple ['RPO', 'drawing']
+
+# mapping from metal layer ID to layer/purpose pair that defines
+# a metal resistor.
+res_metal_layer_table:
+  1:
+    - !!python/tuple ['RMDMY', 'drawing1']
+  2:
+    - !!python/tuple ['RMDMY', 'drawing2']
+  3:
+    - !!python/tuple ['RMDMY', 'drawing3']
+  4:
+    - !!python/tuple ['RMDMY', 'drawing4']
+
+# mapping from metal layer ID to layer/purpose pair that
+# defines metal exclusion region.
+metal_exclude_table:
+  1: !!python/tuple ['DMEXCL', 'dummy1']
+  2: !!python/tuple ['DMEXCL', 'dummy2']
+
+# body-connected transistor DRC rules.
+mos_analog:
+  # OD quantization pitch.
+  mos_pitch: 1
+  # number of fingers in an AnalogBase row must be multiples of this number.
+  analog_unit_fg: 2
+  # True if zero height AnalogMosExt should be drawn.
+  draw_zero_extension: False
+  # True if floating dummies are allowed.
+  floating_dummy: False
+  # True if AnalogMosConn can abut each other.
+  abut_analog_mos: True
+  # channel length used in substrate rings.
+  sub_ring_lch: 20.0e-9
+  # vertical dummy wires pitch, in routing grid tracks.
+  dum_conn_pitch : 1
+  # dummy connection layer.
+  dum_layer: 1
+  # AnalogBase vertical connection layer.
+  ana_conn_layer: 3
+  # LaygoBase vertical connection layer
+  dig_conn_layer: -1
+  # LaygoBase top layer.
+  dig_top_layer: -1
+  # width of bottom bound-box of OD-M1 via
+  md_w: 10
+  # height of gate PO bar
+  mp_h: 10
+  # Minimum number of fingers for decap connection.
+  min_fg_decap:
+    lch: [.inf]
+    val: [2]
+  # Minimum number of fingers between separate AnalogMosConn.
+  min_fg_sep:
+    lch: [.inf]
+    val: [2]
+  # space between AnalogBase implant and boundary.
+  edge_margin:
+    lch: [.inf]
+    val: [150]
+  # source/drain pitch related constants.
+  # source/drain pitch is computed as val[0] + val[1] * lch_unit
+  sd_pitch_constants:
+    lch: [.inf]
+    val: [[10, 0]]
+  # number of source/drain junction per vertical track.
+  num_sd_per_track:
+    lch: [.inf]
+    val: [1]
+  # change in OD width due to the T-shape poly gate.
+  w_delta:
+    lch: [.inf]
+    val: [0]
+  # horizontal space between PO and OD
+  po_od_spx: 10
+  # space between body PO and via 0
+  sp_bpo_v0:
+    lch: [.inf]
+    val: [100]
+  # space between gate and body M1 wire.
+  sp_gb_m1:
+    lch: [.inf]
+    val: [10]
+  # space between gate and body PO.
+  sp_gb_po:
+    lch: [.inf]
+    val: [10]
+  # space between gate/drain M1 wires.
+  sp_gd_m1:
+    lch: [.inf]
+    val: [10]
+  # space between gate wire and OD
+  sp_gd_od:
+    lch: [.inf]
+    val: [10]
+  # body OD height.
+  h_body:
+    lch: [.inf]
+    val: [100]
+  # body OD width.
+  w_body:
+    lch: [.inf]
+    val: [100]
+  # body PO coordinate.
+  body_po_loc:
+    lch: [.inf]
+    val: [[0, 100]]
+  # horizontal extension of PO over body OD
+  body_po_extx:
+    lch: [.inf]
+    val: [100]
+  # distance between substrate M1 left edge to
+  # center of left-most source-drain junction.
+  sub_m1_extx:
+    lch: [.inf]
+    val: [10]
+  # number of via to draw on body OD
+  num_via_body:
+    lch: [.inf]
+    val: [2]
+  # gate wire bottom layer ID
+  g_bot_layer: 1
+  # drain/source wire bottom layer ID
+  d_bot_layer: 1
+  # gate vertical wire width on each layer.
+  g_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # drain vertical wire width on each layer.
+  d_conn_w:
+    lch: [.inf]
+    val:
+      - [10, 10, 10]
+  # gate wire directions
+  g_conn_dir: ['x', 'y', 'y']
+  # drain wire directions
+  d_conn_dir: ['y', 'y', 'y']
+  # gate via parameters
+  g_via:
+    dim:
+      - [10, 10]
+      - [10, 10]
+      - [10, 10]
+    sp: [10, 10, 10]
+    bot_enc_le: [10, 10, 10]
+    top_enc_le: [10, 10, 10]
+  # drain/source via parameters
+  d_via:
+    dim:
+      - [10, 10]
+      - [10, 10]
+      - [10, 10]
+    sp: [10, 10, 10]
+    bot_enc_le: [10, 10, 10]
+    top_enc_le: [10, 10, 10]
+  # body via parameters
+  b_via:
+    dim: [10, 10]
+    sp: 10
+    enc1: [10, 10, 10, 10]
+    enc2: [10, 10, 10, 10]
+  # gate connection layers.
+  gate_layers: [!!python/tuple [gate, drawing]]
+  # implant layer names for each transistor type
+  imp_layers:
+    nch:
+      !!python/tuple [np, drawing]: [['d', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body1, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body2, drawing]: [['b', 0, 10], ['b', 0, 10]]
+    pch:
+      !!python/tuple [pp, drawing]: [['d', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body1, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [body2, drawing]: [['b', 0, 10], ['b', 0, 10]]
+      !!python/tuple [nw, drawing]: [['d', 0, 10], ['b', 0, 10]]
+  # threshold layer for each transistor type.
+  thres_layers:
+    nch:
+      standard:
+        !!python/tuple [th_n, drawing]: [['d', 0, 10], ['b', 0, 10]]
+    pch:
+      standard:
+        !!python/tuple [th_p, drawing]: [['d', 0, 10], ['b', 0, 10]]
+  # space needed between implant layers.
+  imp_spaces:
+    !!python/tuple [nw, drawing]: [100, 2]
+    !!python/tuple [body1, drawing]: [50, 1]
+    !!python/tuple [body2, drawing]: [50, 1]
+    !!python/tuple [np, drawing]: [50, 1]
+    !!python/tuple [pp, drawing]: [50, 1]
+    !!python/tuple [od, drawing]: [100, 0]
+    # spacing between different implant/threshold layers
+    # first element must be lexicographically less than second element.
+    !!python/tuple [!!python/tuple [body1, drawing], !!python/tuple [body2, drawing]]: 50
+    # can specify spacing between implant and OD of NMOS or PMOS by using the
+    # special purpose bag_nch or bag_pch
+    !!python/tuple [!!python/tuple [nw, drawing], !!python/tuple [od, bag_nch]]: 50
+
+# PO resistor DRC rules
+resistor:
+  # bottom horizontal routing layer ID
+  bot_layer: 2
+  # the resistor core block pitch in resolution units
+  block_pitch: !!python/tuple [1, 1]
+  # space between PO and dummy PO
+  po_sp: 50
+  # space between implant layer and OD.  Used only if OD cannot be inside resistor implant.
+  imp_od_sp: 10
+  # space between PO/dummy PO and dummy OD
+  po_od_sp: 10
+  # PO horizontal/vertical enclosure of CO
+  po_co_enc: [5, 5]
+  # exact extension of PO over RPO.  If negative, this parameter is ignored.
+  po_rpo_ext_exact: -1
+  # maximum PO density (recommended)
+  po_max_density: 0.5
+  # dummy PO minimum width/height.  If 0, then will not draw dummy PO in edge blocks.
+  dpo_dim_min: [10, 10]
+  # dummy OD minimum width/height
+  od_dim_min: [10, 50]
+  # dummy OD maximum width/height
+  od_dim_max: [100, 5000]
+  # dummy OD space
+  od_sp: 10
+  # minimum OD density
+  od_min_density: 0.2
+  # CO width
+  co_w: 10
+  # CO spacing
+  co_sp: 10
+  # M1 horizontal/vertical enclosure of CO
+  m1_co_enc: [5, 5]
+  # M1 fill maximum spacing
+  m1_sp_max: 1000
+  # M1 fill space to boundary
+  m1_sp_bnd: 100
+  # space of RPO to CO
+  rpo_co_sp: 20
+  # extension of RPO on PO
+  rpo_extx: 50
+  # margin needed on the edges
+  edge_margin: 50
+  # enclosure of implant layers for PO in horizontal/vertical direction
+  imp_enc: [50, 50]
+  # resistor implant layers list
+  imp_layers:
+    nch:
+      !!python/tuple [np, drawing]: [10, 50]
+    pch:
+      !!python/tuple [pp, drawing]: [10, 50]
+      !!python/tuple [nw, drawing]: [10, 50]
+    ptap:
+      !!python/tuple [pp, drawing]: [10, 50]
+    ntap:
+      !!python/tuple [np, drawing]: [10, 50]
+      !!python/tuple [nw, drawing]: [10, 50]
+  # resistor layers list
+  res_layers:
+    standard:
+      !!python/tuple [RES, drawing]: [10, 50]
+    high_speed:
+      !!python/tuple [RES, drawing]: [10, 50]
+      !!python/tuple [RES2, drawing]: [10, 50]
+  # resistor type information dictionary
+  info:
+    standard:
+      rsq: 500
+      min_nsq: 1
+      w_bounds: !!python/tuple [10, 20]
+      l_bounds: !!python/tuple [20, 50]
+      # True to draw RPO layer, which is a layer that makes
+      # PO resistive.
+      need_rpo: True
+      # True to draw RPDMY layer, which is a layer directly
+      # on top of the resistor.  Usually for LVS purposes.
+      need_rpdmy: True
+      # True if OD can be drawn in resistor implant layer.
+      od_in_res: True

@@ -1,0 +1,72 @@
+# the Technology class
+class: 'examples.tech.BAG_tech_files.tech.TechInfoGeneric'
+
+# layout related parameters
+layout:
+  # default EM spec calculation settings
+  em:
+    # DC current temperature
+    dc_temp: !!int 70
+    # RMS current allowable temperature increase
+    rms_dt: !!int 10
+  # AnalogRes technology parameters
+  analog_res:
+    # resistor array routing grid
+    standard:
+      - [2, 0.1, 0.1, 'x']
+      - [3, 0.1, 0.1, 'y']
+    # resistor ladder routing grid
+    low_res:
+      - [2, 0.1, 0.1, 'x']
+      - [3, 0.1, 0.1, 'y']
+  # MOM cap parameters
+  mom_cap:
+    # width/spacing dictionary
+    width_space:
+      1: [0.1, 0.1]
+      2: [0.1, 0.1]
+      3: [0.1, 0.1]
+      4: [0.15, 0.15]
+      5: [0.15, 0.15]
+    # margins dictionary
+    margins:
+      1: 0.1
+      2: 0.1
+      3: 0.1
+      4: 0.15
+      5: 0.15
+    port_sp_min:
+      1: 0
+      2: 0
+      3: 0
+      4: 0
+      5: 0
+
+# transistor technology parameters
+mos:
+  # transistor width minimum resolution
+  width_resolution: !!float 1e-9
+  # transistor length minimum resolution
+  length_resolution: !!float 1e-9
+  # default characterization data root directory
+  mos_char_root: '${BAG_TECH_CONFIG_DIR}/mos_data'
+
+# metal resistor technology parameters
+res_metal:
+  # library name
+  lib_name: !!null
+  # length parameter name
+  l_name: l
+  # width parameter name
+  w_name: w
+  # layer parameter name
+  layer_name: lev
+  # layer to cell name mapping:
+  cell_table:
+    1: M1
+    2: M2
+    3: M3
+    4: M4
+    5: M5
+  # other parameter values
+  others: {}

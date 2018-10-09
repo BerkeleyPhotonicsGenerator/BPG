@@ -10,9 +10,9 @@ def test_example_lumerical_map():
     """
 
     # 1) load the lumerical map file from the examples dir into the
-    filepath = './BPG/examples/tech/lumerical_map.yaml'
+    filepath = 'BPG/examples/tech/BPG_tech_files/lumerical_map.yaml'
     # If the path where we place the output does not exist, create it
-    outpath = Path('./gen_libs/bpg_test_suite/lsf_writer_tests')
+    outpath = Path('gen_libs/bpg_test_suite/lsf_writer_tests')
     outpath.mkdir(exist_ok=True, parents=True)
     outpath = str(outpath / 'materials.lsf')
 

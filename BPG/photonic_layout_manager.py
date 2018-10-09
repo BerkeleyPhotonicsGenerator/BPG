@@ -55,14 +55,21 @@ class PhotonicLayoutManager(DesignManager):
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
 
-        # Overwrite tech parameters if specified in the spec file
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
 
+        # Enable logging for BPG
+        if 'logfile' in self.specs:
+            self.log_path = bag_work_dir / self.specs['logfile']
+        else:
+            self.log_path = self.project_dir / 'output.log'
+        setup_logger(logfile=str(self.log_path), verbose=verbose)
+
+        # Overwrite tech parameters if specified in the spec file
         # Setup the abstract tech layermap
         if 'layermap' in self.specs:
             self.prj.photonic_tech_info.layermap_path = bag_work_dir / self.specs['layermap']
-        logging.info(f'loading layermap from {self.prj.photonic_info.layermap_path}')
+        logging.info(f'loading layermap from {self.prj.photonic_tech_info.layermap_path}')
 
         # Setup the dataprep procedure
         if 'dataprep' in self.specs:
@@ -78,13 +85,6 @@ class PhotonicLayoutManager(DesignManager):
         if 'lsf_export_map' in self.specs:
             self.prj.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
         logging.info(f'loading lumerical export configuration from {self.prj.photonic_tech_info.lsf_export_path}')
-
-        # Enable logging for BPG
-        if 'logfile' in self.specs:
-            self.log_path = bag_work_dir / self.specs['logfile']
-        else:
-            self.log_path = self.project_dir / 'output.log'
-        setup_logger(logfile=str(self.log_path), verbose=verbose)
 
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
@@ -214,7 +214,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
                                           lib_name='_tb',
-                                          debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
                                           )
@@ -286,12 +285,11 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.instantiate_flat_masters(master_list=temp_list,
                                           name_list=cell_name_list,
                                           lib_name='_flat',
-                                          debug=debug,
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
                                           )
 
-    def dataprep(self, debug=False):
+    def dataprep(self):
         """
         Parameters
         ----------
@@ -305,7 +303,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.dataprep()
         self.tdb.create_masters_in_db(lib_name='_dataprep',
                                       content_list=self.tdb.post_dataprep_flat_content_list,
-                                      debug=debug,
                                       )
 
     def dataprep_skill(self, debug=False):
@@ -316,7 +313,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.export_gds = False
         self.tdb.create_masters_in_db(lib_name=self.impl_lib,
                                       content_list=self.tdb.content_list,
-                                      debug=debug,
                                       )
         lib_path = os.path.join(self.tdb._prj.impl_db.default_lib_path, self.impl_lib)
 

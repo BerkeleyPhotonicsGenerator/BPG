@@ -59,9 +59,7 @@ class PhotonicBagProject(BagProject):
             raise ValueError('bpg configuration vars not set in bag_config.yaml')
 
         # Grab technology information
-        # TODO: Make the tech class loading generic again
         print('Setting up tech info class')
-        # self.tech_info = PTech()
         self.tech_info = create_tech_info(bag_config_path=bag_config_path)
 
         self.photonic_tech_info = create_photonic_tech_info(bpg_config=self.bpg_config,
@@ -329,34 +327,45 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
         root_path = os.environ['BAG_WORK_DIR']
 
         # Layermap
-        self.layermap_path = self.photonic_tech_params.get('layermap',
-                                                           root_path + '/BPG/examples/tech/gds_map.yaml')
+        self.layermap_path = self.photonic_tech_params.get(
+            'layermap',
+            root_path + '/BPG/examples/tech/BPG_tech_files/gds_map.yaml'
+        )
         if not Path(self.layermap_path).is_file():
             raise ValueError(f'layermap file {self.layermap_path} does not exist!')
         print(f'Loading layermap from {self.layermap_path}')
 
         # LSF Export Map
         # TODO: allow this to fail?
-        self.lsf_export_path = self.photonic_tech_params.get('lsf_dataprep_filepath',
-                                                             root_path + '/BPG/examples/tech/lumerical_map.yaml')
+        self.lsf_export_path = self.photonic_tech_params.get(
+            'lsf_dataprep_filepath',
+            root_path + '/BPG/examples/tech/BPG_tech_files/lumerical_map.yaml'
+        )
         if not Path(self.lsf_export_path).is_file():
             raise ValueError(f'layermap file {self.lsf_export_path} does not exist!')
         print(f'Loading lumerical export config from {self.lsf_export_path}')
 
         # Dataprep routine
         # TODO: allow this to fail?
-        self.dataprep_routine_filepath = self.photonic_tech_params.get('dataprep_routine_filepath',
-                                                                       root_path + '/BPG/examples/tech/dataprep.yaml')
+        self.dataprep_routine_filepath = self.photonic_tech_params.get(
+            'dataprep_routine_filepath',
+            root_path + '/BPG/examples/tech/BPG_tech_files/dataprep.yaml'
+        )
         if not Path(self.dataprep_routine_filepath).is_file():
             raise ValueError(f'dataprep file {self.dataprep_routine_filepath} does not exist!')
         print(f'Loading dataprep procedure from {self.dataprep_routine_filepath}')
 
         # TODO: Create a dummy dataprep params file so that we can do a file exists check
-        self.dataprep_parameters_filepath = self.photonic_tech_params.get('dataprep_parameters_filepath', None)
+        self.dataprep_parameters_filepath = self.photonic_tech_params.get(
+            'dataprep_parameters_filepath',
+            None
+        )
         print(f'Loading dataprep parameters from {self.dataprep_parameters_filepath}')
 
-        self.dataprep_skill_path = self.photonic_tech_params.get('dataprep_skill_path',
-                                                                 root_path + 'BPG/BPG/dataprep_skill.il')
+        self.dataprep_skill_path = self.photonic_tech_params.get(
+            'dataprep_skill_path',
+            root_path + 'BPG/BPG/dataprep_skill.il'
+        )
 
         with open(self.layermap_path, 'r') as f:
             layer_info = yaml.load(f)
@@ -735,23 +744,6 @@ class DummyPhotonicTechInfo(PhotonicTechInfo):
                        layer,  # type: Union[str, Tuple[str, str]]
                        ):
         return 0
-
-
-class PTech:
-    def __init__(self):
-        self.resolution = 0.001
-        self.layout_unit = 0.000001
-        self.via_tech_name = ''
-        self.pin_purpose = None
-
-    def get_layer_id(self, layer):
-        pass
-
-    def finalize_template(self, a):
-        pass
-
-    def use_flip_parity(self):
-        pass
 
 
 class CoordBase:

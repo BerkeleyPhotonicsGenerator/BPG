@@ -6,8 +6,8 @@
 project_name: bpg_test_suite
 
 # file containing technology information
-# layermap: ./tech/gds_map.yaml
-# dataprep: './BPG/examples/tech/dataprep.yaml'
+# layermap: BPG/examples/tech/BPG_tech_files/gds_map.yaml
+# dataprep: 'BPG/examples/tech/BPG_tech_files/dataprep_routine.yaml'
 
 # Output Settings
 lsf_filename: dataprep_debug

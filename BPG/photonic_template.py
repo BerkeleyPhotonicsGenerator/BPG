@@ -9,6 +9,7 @@ import abc
 import numpy as np
 import yaml
 import time
+import logging
 
 from bag.core import BagProject, RoutingGrid
 import bag.io
@@ -98,7 +99,7 @@ class PhotonicTemplateDB(TemplateDB):
         # type: (bool) -> None
         self._export_gds = val
 
-    def create_masters_in_db(self, lib_name, content_list, debug=False, export_gds=None):
+    def create_masters_in_db(self, lib_name, content_list, export_gds=None):
         # type: (str, Sequence[Any], bool) -> None
         """Create the masters in the design database.
 
@@ -108,8 +109,6 @@ class PhotonicTemplateDB(TemplateDB):
             library to create the designs in.
         content_list : Sequence[Any]
             a list of the master contents.  Must be created in this order.
-        debug : bool
-            True to print debug messages
         export_gds : bool
             True to export the gds.
             False to not export a gds even if a gds layermap is provided.
@@ -120,7 +119,7 @@ class PhotonicTemplateDB(TemplateDB):
             export_gds = self._export_gds
 
         if self._gds_lay_file and export_gds:
-            self._create_gds(lib_name, content_list, debug=debug)
+            self._create_gds(lib_name, content_list)
         elif self._use_cybagoa:
             # remove write locks from old layouts
             cell_view_list = [(item[0], 'layout') for item in content_list]
@@ -131,8 +130,8 @@ class PhotonicTemplateDB(TemplateDB):
                 self._prj.create_library(self._lib_name)
                 self._prj.release_write_locks(self._lib_name, cell_view_list)
 
-            if debug:
-                print('Instantiating layout')
+            logging.info(f'Instantiating layout')
+
             # create OALayouts
             start = time.time()
             if 'CDSLIBPATH' in os.environ:
@@ -159,20 +158,18 @@ class PhotonicTemplateDB(TemplateDB):
                 for cell_name, oa_layout in content_list:
                     lib.create_layout(cell_name, 'layout', oa_layout)
             end = time.time()
-            if debug:
-                print('layout instantiation took %.4g seconds' % (end - start))
+            logging.info(f'Layout instnatiation took {end-start:.4g}s')
         else:
             # create library if it does not exist
             self._prj.create_library(self._lib_name)
 
-            if debug:
-                print('Instantiating layout')
+            logging.info(f'Instantiating layout')
+
             via_tech_name = self._grid.tech_info.via_tech_name
             start = time.time()
             self._prj.instantiate_layout(self._lib_name, 'layout', via_tech_name, content_list)
             end = time.time()
-            if debug:
-                print('layout instantiation took %.4g seconds' % (end - start))
+            logging.info(f'Layout instnatiation took {end-start:.4g}s')
 
     def instantiate_masters(self,
                             master_list,  # type: Sequence[DesignMaster]
@@ -253,10 +250,13 @@ class PhotonicTemplateDB(TemplateDB):
         if debug:
             print('master content retrieval took %.4g seconds' % (end - start))
 
-        self.create_masters_in_db(lib_name, self.content_list, debug=debug)
+        self.create_masters_in_db(lib_name, self.content_list)
 
-    def _create_gds(self, lib_name, content_list, debug=False):
-        # type: (str, Sequence[Any], bool) -> None
+    def _create_gds(self,
+                    lib_name: str,
+                    content_list: Sequence[Any],
+                    debug: bool = False,
+                    ) -> None:
         """Create a GDS file containing the given layouts
 
         Parameters
@@ -265,11 +265,8 @@ class PhotonicTemplateDB(TemplateDB):
             library to create the designs in.
         content_list : Sequence[Any]
             a list of the master contents.  Must be created in this order.
-        debug : bool
-            True to print debug messages
         """
-        if debug:
-            print("In PhotonicTemplateDB._create_gds")
+        logging.info(f'In PhotonicTemplateDB._create_gds')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
@@ -283,8 +280,7 @@ class PhotonicTemplateDB(TemplateDB):
         out_fname = self.gds_filepath + '%s.gds' % lib_name
         gds_lib = gdspy.GdsLibrary(name=lib_name)
         cell_dict = gds_lib.cell_dict
-        if debug:
-            print('Instantiating layout')
+        logging.info(f'Instantiating gds layout')
 
         start = time.time()
         for content in content_list:
@@ -409,8 +405,7 @@ class PhotonicTemplateDB(TemplateDB):
         gds_lib.write_gds(out_fname, unit=lay_unit, precision=res * lay_unit)
 
         end = time.time()
-        if debug:
-            print('layout instantiation took %.4g seconds' % (end - start))
+        logging.info(f'Layout gds instantiation took {end - start:.4g}s')
 
     def _add_gds_via(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
@@ -616,13 +611,10 @@ class PhotonicTemplateDB(TemplateDB):
             end = time.time()
             print('LSF Generation took %.4g seconds' % (end - start))
 
-
-
     def instantiate_flat_masters(self,
                                  master_list,  # type: Sequence[DesignMaster]
                                  name_list=None,  # type: Optional[Sequence[Optional[str]]]
                                  lib_name='',  # type: str
-                                 debug=False,  # type: bool
                                  rename_dict=None,  # type: Optional[Dict[str, str]],
                                  draw_flat_gds=True,  # type: bool
                                  sort_by_layer=True,  # type: bool
@@ -638,11 +630,11 @@ class PhotonicTemplateDB(TemplateDB):
             list of master cell names.  If not given, default names will be used.
         lib_name : str
             Library to create the masters in.  If empty or None, use default library.
-        debug : bool
-            True to print debugging messages
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
         """
+        logging.info(f'In instantiate_flat_masters')
+
         if name_list is None:
             name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
         else:
@@ -677,8 +669,7 @@ class PhotonicTemplateDB(TemplateDB):
                     rename[name] = name2
                     reverse_rename[name2] = name
 
-        if debug:
-            print('Retrieving master contents')
+        logging.debug('Retreiving master contents')
 
         content_list = []
         start = time.time()
@@ -689,7 +680,6 @@ class PhotonicTemplateDB(TemplateDB):
                     [],
                     *self._flatten_instantiate_master_helper(
                         master=master,
-                        debug=debug
                     )
                 )
             )
@@ -717,15 +707,14 @@ class PhotonicTemplateDB(TemplateDB):
         if sort_by_layer is True:
             self.sort_flat_content_by_layers()
 
-        if debug:
-            print('master content retrieval took %.4g seconds' % (end - start))
+        logging.info(f'Master content retrieval took {end - start:.4g}s')
+
         # TODO: put here or in different function?
         if draw_flat_gds:
-            self.create_masters_in_db(lib_name, self.flat_content_list, debug=debug)
+            self.create_masters_in_db(lib_name, self.flat_content_list)
 
     def _flatten_instantiate_master_helper(self,
                                            master,  # type:
-                                           debug=False,
                                            ):
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
         elements to create a flat design
@@ -733,13 +722,13 @@ class PhotonicTemplateDB(TemplateDB):
         Parameters
         ----------
         master :
-        debug
 
         Returns
         -------
 
         """
-        print("_flatten_instantiate_master_helper")
+        logging.debug(f'in _flatten_instantiate_master_helper')
+
         start = time.time()
 
         master_content = master.get_content(self.lib_name, self.format_cell_name)
@@ -784,14 +773,12 @@ class PhotonicTemplateDB(TemplateDB):
 
             child_content = self._flatten_instantiate_master_helper(
                 master=child_master,
-                debug=debug
             )
 
             transformed_child_content = self._transform_child_content(
                 content=child_content,
                 loc=child_instance_info['loc'],
                 orient=child_instance_info['orient'],
-                debug=debug,
             )
 
             # We got the children's info. Now append it to polygons within the current master
@@ -800,8 +787,7 @@ class PhotonicTemplateDB(TemplateDB):
 
         end = time.time()
 
-        if debug:
-            print("Done with _flatten_instance_master_helper.  Took " + str(end - start) + "s")
+        logging.debug(f'_flatten_instantiate_master_helper took {end-start:.4g}s')
 
         return new_content_list
 
@@ -810,7 +796,6 @@ class PhotonicTemplateDB(TemplateDB):
                                  loc=(0, 0),  # type: coord_type
                                  orient='R0',  # type: str
                                  unit_mode=False,  # type: bool
-                                 debug=True,  # type: bool
                                  ):
         """
         Translates and rotates the passed content list
@@ -825,16 +810,13 @@ class PhotonicTemplateDB(TemplateDB):
             The rotation string
         unit_mode : bool
             True if translation vector is in layout resolution units
-        debug : bool
-            True to print debug messages
 
         Returns
         -------
         new_content_list : tuple
             The translated and rotated content list
         """
-        if debug:
-            print('In _transform_child_content')
+        logging.debug(f'In _transform_child_content')
 
         (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,
          sim_list, source_list, monitor_list) = content
@@ -1085,11 +1067,11 @@ class PhotonicTemplateDB(TemplateDB):
     def dataprep(self):
         # Initialize dataprep structure
         # Call dataprep method
-
+        logging.info(f'In PhotonicTemplateDB.dataprep')
         if self.dataprep_object is None:
             self.dataprep_object = Dataprep(self.photonic_tech_info,
                                             self.grid,
-                                            self.flat_content_list,
+                                            self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
         self.post_dataprep_flat_content_list = self.dataprep_object.dataprep(push_portshapes_through_dataprep=False)
@@ -1098,7 +1080,7 @@ class PhotonicTemplateDB(TemplateDB):
         if self.dataprep_object is None:
             self.dataprep_object = Dataprep(self.photonic_tech_info,
                                             self.grid,
-                                            self.flat_content_list,
+                                            self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
         self.post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
@@ -1106,7 +1088,7 @@ class PhotonicTemplateDB(TemplateDB):
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
-                 temp_db,  # type: TemplateDB
+                 temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
                  params,  # type: Dict[str, Any]
                  used_names,  # type: Set[str]
@@ -1119,6 +1101,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
+
+        self.photonic_tech_info: "PhotonicTechInfo" = temp_db.photonic_tech_info
 
     @abc.abstractmethod
     def draw_layout(self):

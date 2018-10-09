@@ -1,14 +1,16 @@
 import BPG
 
-from typing import Dict, Set, Any
+from typing import Dict, Set, Any, TYPE_CHECKING
 from bag.layout.core import BBox
-from bag.layout.template import TemplateDB
+
+if TYPE_CHECKING:
+    from BPG.photonic_template import PhotonicTemplateDB
 
 
 class Waveguide(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: TemplateDB
+                 temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
                  params,  # type: Dict[str, Any]
                  used_names,  # type: Set[str]
@@ -46,7 +48,7 @@ class Waveguide(BPG.PhotonicTemplateBase):
             center=(0, 0),
             orient='R0',
             width=width,
-            layer=('RX', 'port'),
+            layer=('SI', 'port'),
             resolution=self.grid.resolution,
             unit_mode=False
         )
@@ -56,7 +58,7 @@ class Waveguide(BPG.PhotonicTemplateBase):
             center=(length, 0),
             orient='R180',
             width=width,
-            layer=('RX', 'port'),
+            layer=('SI', 'port'),
             resolution=self.grid.resolution,
             unit_mode=False
         )
@@ -65,7 +67,7 @@ class Waveguide(BPG.PhotonicTemplateBase):
 class WaveguideVert(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: TemplateDB
+                 temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
                  params,  # type: Dict[str, Any]
                  used_names,  # type: Set[str]
@@ -103,7 +105,7 @@ class WaveguideVert(BPG.PhotonicTemplateBase):
             center=(0, 0),
             orient='R90',
             width=width,
-            layer=('RX', 'port'),
+            layer=('SI', 'port'),
             resolution=self.grid.resolution,
             unit_mode=False
         )
@@ -113,7 +115,7 @@ class WaveguideVert(BPG.PhotonicTemplateBase):
             center=(0, length),
             orient='R270',
             width=width,
-            layer=('RX', 'port'),
+            layer=('SI', 'port'),
             resolution=self.grid.resolution,
             unit_mode=False
         )
@@ -122,7 +124,7 @@ class WaveguideVert(BPG.PhotonicTemplateBase):
 class WaveguideConnectTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: TemplateDB
+                 temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
                  params,  # type: Dict[str, Any]
                  used_names,  # type: Set[str]
@@ -452,7 +454,7 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
 class PortTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: TemplateDB
+                 temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
                  params,  # type: Dict[str, Any]
                  used_names,  # type: Set[str]
@@ -482,7 +484,7 @@ class PortTest(BPG.PhotonicTemplateBase):
             center=(0, 0),
             orient='R0',
             width=width,
-            layer=('RX', 'port'),
+            layer=('SI', 'port'),
             resolution=self.grid.resolution,
             unit_mode=False
         )
