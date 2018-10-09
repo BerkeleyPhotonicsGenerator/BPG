@@ -1,0 +1,122 @@
+# Dummy DRC rules
+
+# Sample DRC rules that can be provided for the various layers in a process
+# In the sample PhotonicTechInfoExample class, these values are assumed to be in layout resolution (not resolution grid)
+
+# Fictional stack with thickness and height is:
+
+#	Layer	Thick   Height
+#	M6	    0.3		1.72
+#	V5	    0.15	1.57
+#	M5	    0.2		1.37
+#	V4	    0.15	1.22
+#	M4	    0.2		1.02
+#	V3	    0.1		0.92
+#	M3	    0.1		0.82
+#	V2	    0.1		0.72
+#	M2	    0.1		0.62
+#	V1	    0.1		0.52
+#	M1	    0.1		0.42
+# V0	    0.1		0.32
+# |	Poly    0.1		0.22
+#	Si	    0.22
+#
+#	N/P	    0.11
+
+# Minimum width of shapes on a layer
+MinWidth:
+  SI: 0.100
+  POLY: 0.100
+  N: 0.100
+  P: 0.100
+  M1: 0.100
+  M2: 0.100
+  M3: 0.100
+  M4: 0.150
+  M5: 0.150
+  M6: 0.3
+  N: 0.1
+  P: 0.1
+
+# Minimum space between shapes on a layer
+MinSpace:
+  SI: 0.100
+  POLY: 0.100
+  N: 0.100
+  P: 0.100
+  M1: 0.100
+  M2: 0.100
+  M3: 0.100
+  M4: 0.150
+  M5: 0.150
+  M6: 0.3
+  N: 0.15
+  P: 0.15
+
+# Height of the bottom of the given layer above SI layer.
+# Top of SI defined as 0
+Height:
+  SI: -0.22
+  POLY: 0
+  N: -0.11
+  P: -0.11
+  M1: 0.42
+  M2: 0.62
+  M3: 0.82
+  M4: 1.02
+  M5: 1.37
+  M6: 1.72
+
+# Thickness of layer
+Thickness:
+  SI: 0.22
+  POLY: 0.1
+  N: 0.05
+  P: 0.05
+  M1: 0.1
+  M2: 0.1
+  M3: 0.1
+  M4: 0.2
+  M5: 0.2
+  M6: 0.3
+  N: 0.11
+  P: 0.11
+
+# Minimum allowed exterior polygon edge length
+MinEdgeLength:
+  SI: 0.05
+  POLY: 0.05
+  N: 0.1
+  P: 0.1
+  M1: 0.1
+  M2: 0.1
+  M3: 0.1
+  M4: 0.15
+  M5: 0.15
+  M6: 0.3
+
+# Minimum allowed area for a single polygon shape (typically rectangular in DRC rules)
+MinArea:
+  SI: 0.01
+  POLY: 0.01
+  N: 0.01
+  P: 0.01
+  M1: 0.01
+  M2: 0.01
+  M3: 0.01
+  M4: 0.023
+  M5: 0.023
+  M6: 0.09
+
+# Maximum width of shapes on a layer
+MaxWidth:
+  SI: 100
+  POLY: 100
+  N: 100
+  P: 100
+  M1: 3
+  M2: 3
+  M3: 3
+  M4: 5
+  M5: 5
+  M6: 100

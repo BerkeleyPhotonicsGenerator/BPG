@@ -1,0 +1,26 @@
+# GDS layermap
+layermap: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/gds_map.yaml"
+
+# The Photonic Technology class
+photonic_tech_class: 'examples.tech.BPG_tech_files.photonic_tech.PhotonicTechInfoExample'
+
+# File containing dataprep procedure information
+dataprep_routine_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_routine.yaml"
+
+# File containing dataprep / DRC parameter information
+dataprep_parameters_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_parameters.yaml"
+
+# File containing the skill procedures to implement dataprep.
+# The DataPrepWrapper( "{lib_name}" "{cell_name}" {debug} ) method must be implemented to call dataprep via BPGs
+# build in method
+dataprep_skill_path: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_skill.il"
+
+# Lumerical dataprep file and mapping
+lsf_dataprep_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/lumerical_map.yaml"
+
+# Default routing grid to use for this process.
+default_routing_grid:
+  layers: [1, 2, 3, 4, 5, 6]
+  spaces: [0.1, 0.1, 0.1, 0.15, 0.15, 0.3]
+  widths: [0.1, 0.1, 0.1, 0.15, 0.15, 0.3]
+  bot_dir: 'y'

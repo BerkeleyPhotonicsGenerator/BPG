@@ -24,6 +24,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
+
         circ = BPG.photonic_objects.PhotonicRound(
             layer='SI',
             resolution=self.grid.resolution/100,
@@ -63,6 +64,29 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             points=[(30, 0), (40, 10), (50, 0), (40, -10)]
         )
 
+        # This rectangle should disappear as it is minimum width
+        self.add_rect(
+            layer='SI',
+            x_span=self.photonic_tech_info.max_width('SI'),
+            y_span=self.photonic_tech_info.min_width('SI'),
+            center=(40, -10)
+        )
+        # This rectangle should NOT disappear as it is minimum width + eps
+        self.add_rect(
+            layer='SI',
+            x_span=self.photonic_tech_info.max_width('SI'),
+            y_span=self.photonic_tech_info.min_width('SI') + self.grid.resolution,
+            center=(40, -20)
+        )
+
+        has_failed = False
+        try:
+            self.photonic_tech_info.min_width('LayerDoesNotExist')
+        except ValueError:
+            has_failed = True
+
+        assert has_failed is True
+
 
 def test_dataprep():
     """
@@ -79,7 +103,7 @@ def test_dataprep():
         bprj = local_dict['bprj']
 
     spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
-    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm = BPG.PhotonicLayoutManager(bprj, spec_file, verbose=True)
     plm.generate_flat_gds()
     plm.dataprep()
 

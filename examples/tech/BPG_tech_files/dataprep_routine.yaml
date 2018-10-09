@@ -1,0 +1,31 @@
+# Example dataprep specification
+
+GlobalDataprepSizeAmount: 1
+GlobalGridSize: 0.001
+GlobalRoughGridSize: 0.1
+
+dataprep_groups:
+  - lpp_in:
+      - !!python/tuple ['SI', 'phot']
+    lpp_ops:
+      - !!python/tuple ['SI', 'drawing', 'add', 0.0]
+      - !!python/tuple ['SI', 'exclude', 'rad', 2.0]
+
+  - lpp_in:
+      - !!python/tuple ['POLY', 'phot']
+    lpp_ops:
+      - !!python/tuple ['POLY', 'exclude', 'rad', 1.0]
+      - !!python/tuple ['POLY', 'drawing', 'add', 0.0]
+
+over_under_under_over:
+  - !!python/tuple ['SI', 'drawing']
+
+manh_size_per_layer:
+#  SI: 0.010
+#  POLY: 0.010
+#  M1: 0.05
+#  M2: 0.05
+#  M3: 0.05
+#  M4: 0.08
+#  M5: 0.08
+#  M6: 0.1

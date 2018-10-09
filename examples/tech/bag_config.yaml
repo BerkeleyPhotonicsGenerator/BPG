@@ -121,6 +121,5 @@ new_lib_path: "BagModules"
 
 # Configuration for Berkeley Photonics Generator
 bpg_config:
-#  layermap: INSERT PATH TO LAYERMAP FILE HERE
-#  dataprep: INSERT PATH TO DATAPREP PROCEDURE HERE
+#  photonic_tech_config_path:  INSERT PATH TO TECH CONFIG FILE HERE
 

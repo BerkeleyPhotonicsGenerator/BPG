@@ -1,0 +1,84 @@
+via_info:
+  VM1_POLY:
+    bot_layer: !!python/tuple [POLY, drawing]
+    top_layer: !!python/tuple [M1, drawing]
+    cut_width: 60
+    cut_height: 60
+  VM1_SI:
+    bot_layer: !!python/tuple [SI, drawing]
+    top_layer: !!python/tuple [M1, drawing]
+    cut_width: 60
+    cut_height: 60
+  VM2_M1:
+    bot_layer: !!python/tuple [M1, drawing]
+    top_layer: !!python/tuple [M2, drawing]
+    cut_width: 80
+    cut_height: 80
+  VM3_M2:
+    bot_layer: !!python/tuple [M2, drawing]
+    top_layer: !!python/tuple [M3, drawing]
+    cut_width: 80
+    cut_height: 80
+  VM4_M3:
+    bot_layer: !!python/tuple [M3, drawing]
+    top_layer: !!python/tuple [M4, drawing]
+    cut_width: 80
+    cut_height: 80
+  VM5_M4:
+    bot_layer: !!python/tuple [M4, drawing]
+    top_layer: !!python/tuple [M5, drawing]
+    cut_width: 100
+    cut_height: 100
+  VM6_M5:
+    bot_layer: !!python/tuple [M5, drawing]
+    top_layer: !!python/tuple [M6, drawing]
+    cut_width: 100
+    cut_height: 100
+
+
+layer_map:
+  !!python/tuple [SI, drawing]: [0, 0]
+  !!python/tuple [SI, phot]: [0, 10]
+  !!python/tuple [SI, port]: [0, 100]
+  !!python/tuple [SI, exclude]: [0, 20]
+  !!python/tuple [SI, sim]: [0, 46]
+  !!python/tuple [POLY, drawing]: [4, 0]
+  !!python/tuple [POLY, phot]: [4, 10]
+  !!python/tuple [POLY, port]: [4, 100]
+  !!python/tuple [POLY, exclude]: [4, 20]
+  !!python/tuple [POLY, sim]: [4, 46]
+  !!python/tuple [V0, drawing]: [20, 0]
+  !!python/tuple [V0, phot]: [20, 10]
+  !!python/tuple [M1, drawing]: [11, 0]
+  !!python/tuple [M1, phot]: [11, 10]
+  !!python/tuple [V1, drawing]: [21, 0]
+  !!python/tuple [V1, phot]: [21, 10]
+  !!python/tuple [M2, drawing]: [12, 0]
+  !!python/tuple [M2, phot]: [12, 10]
+  !!python/tuple [V2, drawing]: [22, 0]
+  !!python/tuple [V2, phot]: [22, 10]
+  !!python/tuple [M3, drawing]: [13, 0]
+  !!python/tuple [M3, phot]: [13, 10]
+  !!python/tuple [V3, drawing]: [23, 0]
+  !!python/tuple [V3, phot]: [23, 10]
+  !!python/tuple [M4, drawing]: [14, 0]
+  !!python/tuple [M4, phot]: [14, 10]
+  !!python/tuple [V4, drawing]: [24, 0]
+  !!python/tuple [V4, phot]: [24, 10]
+  !!python/tuple [M5, drawing]: [15, 0]
+  !!python/tuple [M5, phot]: [15, 10]
+  !!python/tuple [V5, drawing]: [25, 0]
+  !!python/tuple [V5, phot]: [25, 10]
+  !!python/tuple [M6, drawing]: [16, 0]
+  !!python/tuple [M6, phot]: [16, 10]
+  !!python/tuple [N, phot]: [50, 10]
+  !!python/tuple [P, phot]: [60, 10]
+  !!python/tuple [CLAD, phot]: [8, 10]
+  !!python/tuple [BOX, phot]: [9, 10]
+
+# TODO: Complete implementation of gds_invalid_layers
+gds_invalid_layers:
+  !!python/tuple [SI, port]: [0, 100]
+  !!python/tuple [POLY, port]: [4, 100]
+  !!python/tuple [CLAD, phot]: [8, 10]
+  !!python/tuple [BOX, phot]: [9, 10]

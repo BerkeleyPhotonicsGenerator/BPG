@@ -7,7 +7,7 @@ project_name: Generated_Waveguide
 
 # This is an optional parameter that can be used to override the layermap used. By default, BPG looks for the
 # BPG/layermap variable set in the bag_config.yaml
-# layermap: BPG/examples/tech/gds_map.yaml
+# layermap: BPG/examples/tech/BPG_tech_files/gds_map.yaml
 
 # Output Settings
 lsf_filename: SingleModeWaveguide
