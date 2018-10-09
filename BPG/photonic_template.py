@@ -78,6 +78,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.flat_gdspy_polygonsets_by_layer = {}
         self.post_dataprep_polygon_pointlist_by_layer = {}
         self.post_dataprep_flat_content_list = []
+        self.lsf_post_dataprep_flat_content_list = []
 
         self.gds_filepath = gds_filepath
         self.lsf_filepath = lsf_filepath
@@ -488,7 +489,7 @@ class PhotonicTemplateDB(TemplateDB):
 
         # 3) Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
         self.lsf_dataprep()
-        content_list = self.post_dataprep_flat_content_list
+        content_list = self.lsf_post_dataprep_flat_content_list
         self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
 
         # 4) For each element in the flat content list, convert it into lsf code and append to running file
@@ -1083,7 +1084,7 @@ class PhotonicTemplateDB(TemplateDB):
                                             self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
-        self.post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
+        self.lsf_post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
