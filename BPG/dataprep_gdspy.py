@@ -36,10 +36,14 @@ class Dataprep:
         # Initialize dataprep related structures
         # Dictionary of layer-keyed gdspy polygonset shapes
         self.flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
+        self.lsf_flat_gdspy_polygonsets_by_layer : Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
         # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
         self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), Any] = {}  # TODO: Fix Any
+        self.lsf_post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), Any] = {}
         # BAG style content list after dataprep
         self.post_dataprep_flat_content_list: List[Tuple] = []
+        self.lsf_post_dataprep_flat_content_list: List[Tuple] = []
+
         self.global_grid_size = self.photonic_tech_info.global_grid_size
         self.global_rough_grid_size = self.photonic_tech_info.global_rough_grid_size
 
@@ -1378,10 +1382,10 @@ class Dataprep:
 
         return self.post_dataprep_flat_content_list
 
-    def generate_flat_content_list_from_dataprep(self,
-                                                 poly_list_by_layer,
-                                                 sim_obj_list
-                                                 ):
+    def generate_lsf_flat_content_list_from_dataprep(self,
+                                                     poly_list_by_layer,
+                                                     sim_obj_list
+                                                     ):
         """
         Takes the output of dataprep and converts it into a flat content list
 
@@ -1401,11 +1405,11 @@ class Dataprep:
                         points=polygon_points,
                     )
                 )
-        self.post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
-                                                 polygon_content_list, [],
-                                                 sim_obj_list[0],
-                                                 sim_obj_list[1],
-                                                 sim_obj_list[2])]
+        self.lsf_post_dataprep_flat_content_list = [('dummy_name', [], [], [], [], [], [], [],
+                                                     polygon_content_list, [],
+                                                     sim_obj_list[0],
+                                                     sim_obj_list[1],
+                                                     sim_obj_list[2])]
 
     def lsf_dataprep(self,
                      push_portshapes_through_dataprep: bool = False,
@@ -1435,7 +1439,7 @@ class Dataprep:
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             # If shapes on the layer need to be dataprepped, convert them to gdspy polygons and add to list
             if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim'):
-                self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
+                self.lsf_flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=self.get_manhattanization_size_on_layer(layer),
                     do_manh=False,  # TODO: Pavan had this set to false
@@ -1449,7 +1453,7 @@ class Dataprep:
         for dataprep_group in dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
             for lpp_in in dataprep_group['lpp_in']:
-                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
+                shapes_in = self.lsf_flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
                 # 3b) Iteratively perform each operation on the current lpp_in
                 for lpp_op in dataprep_group['lpp_ops']:
                     out_layer = (lpp_op[0], lpp_op[1])
@@ -1467,7 +1471,7 @@ class Dataprep:
 
                     # Update the layer's content
                     if new_out_layer_polygons is not None:
-                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+                        self.lsf_flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
 
         # 4) Perform a final over_under_under_over operation
         ouuo_list = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
@@ -1478,18 +1482,18 @@ class Dataprep:
             new_out_layer_polygons = self.poly_operation(
                 lpp_out=lpp,
                 polygon1=None,
-                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
+                polygon2=self.lsf_flat_gdspy_polygonsets_by_layer.get(lpp, None),
                 operation='ouo',
                 size_amount=0,
                 do_manh=False,
             )
 
             if new_out_layer_polygons is not None:
-                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+                self.lsf_flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
 
         # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
-        for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
+        for layer, gdspy_polygons in self.lsf_flat_gdspy_polygonsets_by_layer.items():
             output_shapes = self.polyop_gdspy_to_point_list(gdspy_polygons,
                                                             fracture=True,
                                                             do_manh=False,
@@ -1499,13 +1503,13 @@ class Dataprep:
             for shape in output_shapes:
                 shape = tuple(map(tuple, shape))
                 new_shapes.append([coord for coord in shape])
-            self.post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
+            self.lsf_post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
 
         # Reconstructs content list from dataprepped polygons and with simulation objects
         # TODO: Support creation of multiple masters
-        self.generate_flat_content_list_from_dataprep(self.post_dataprep_polygon_pointlist_by_layer,
-                                                      [self.flat_content_list_separate[0][10],
-                                                       self.flat_content_list_separate[0][11],
-                                                       self.flat_content_list_separate[0][12]])
+        self.generate_lsf_flat_content_list_from_dataprep(self.lsf_post_dataprep_polygon_pointlist_by_layer,
+                                                          [self.flat_content_list_separate[0][10],
+                                                           self.flat_content_list_separate[0][11],
+                                                           self.flat_content_list_separate[0][12]])
 
-        return self.post_dataprep_flat_content_list
+        return self.lsf_post_dataprep_flat_content_list
