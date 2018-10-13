@@ -119,7 +119,7 @@ class Dataprep:
             return error_rlt < eps_grid
 
     def cleanup_loop(self,
-                     coords_list_in,  # type: Union[List[Tuple[float, float]], np.array]
+                     coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
                      eps_grid=1e-4,  # type: float
                      ):
         # type: (...) -> Dict[str]
@@ -176,8 +176,64 @@ class Dataprep:
 
         return {'coord_set_out': coord_set_out, 'fully_cleaned': fully_cleaned}
 
+    def cleanup_delete(self,
+                       coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
+                       eps_grid=1e-4,  # type: float
+                       ):
+        # type: (...) -> np.ndarray
+        """
+
+        Parameters
+        ----------
+        coords_list_in : Union[List[Tuple[float, float]], np.ndarray]
+            The list of x-y coordinates composing a polygon shape
+        eps_grid :
+            grid resolution below which points are considered to be the same
+
+        Returns
+        -------
+        delete_array : np.ndarray
+            Numpy array of bools telling whether to delete the coordinate or not
+        """
+
+        if isinstance(coords_list_in, np.ndarray):
+            coords_list_in = coords_list_in
+        else:
+            coords_list_in = np.array(coords_list_in)
+
+        coord_set_lsh = np.roll(coords_list_in, -1, axis=0)
+        coord_set_rsh = np.roll(coords_list_in, 1, axis=0)
+
+        vec_l = coord_set_lsh - coords_list_in
+        vec_r = coords_list_in - coord_set_rsh
+
+        dx_l = vec_l[:, 0]
+        dy_l = vec_l[:, 1]
+        dx_r = vec_r[:, 0]
+        dy_r = vec_r[:, 1]
+
+        dx_l_abs = np.abs(dx_l)
+        dy_l_abs = np.abs(dy_l)
+        dx_r_abs = np.abs(dx_r)
+        dy_r_abs = np.abs(dy_r)
+
+        same_with_left = np.logical_and(dx_l_abs < eps_grid, dy_l_abs < eps_grid)
+        same_with_right = np.logical_and(dx_r_abs < eps_grid, dy_r_abs < eps_grid)
+        diff_from_lr = np.logical_not(np.logical_or(same_with_left, same_with_right))
+
+        # error_abs = np.abs(dx_l * dy_r - dx_r * dy_l)
+        # in_line = error_abs  < eps_grid * (dx_l_abs + dy_l_abs + dx_r_abs + dy_r_abs)
+        in_line = np.logical_or(np.logical_and(dx_l_abs < eps_grid, dx_r_abs < eps_grid),
+                                np.logical_and(dy_l_abs < eps_grid, dy_r_abs < eps_grid))
+
+        # situation 1: the point is the same with its left neighbor
+        # situation 2: the point is not the same with its neighbors, but it is in a line with them
+        delete_array = np.logical_or(same_with_left, np.logical_and(in_line, diff_from_lr))
+
+        return delete_array
+
     def coords_cleanup(self,
-                       coords_list_in,  # type: List[Tuple[float, float]]
+                       coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
                        eps_grid=1e-4,  # type: float
                        debug=False,  # type: bool
                        ):
@@ -187,7 +243,7 @@ class Dataprep:
     
         Parameters
         ----------
-        coords_list_in : List[Tuple[float, float]]
+        coords_list_in : Union[List[Tuple[float, float]], np.ndarray]
             list of coordinates that enclose a polygon
         eps_grid : float
             a size smaller than the resolution grid size,
@@ -197,25 +253,26 @@ class Dataprep:
     
         Returns
         ----------
-        coords_list_out : List[Tuple[float, float]]
-            The cleaned coordinate list
+        coords_set_out : np.ndarray
+            The cleaned coordinate set
         """
         logging.debug(f'coords_list_in: {coords_list_in}')
 
         if isinstance(coords_list_in, np.ndarray):
-            coords_list_in = coords_list_in
+            coord_set_out = coords_list_in
         else:
-            coords_list_in = np.array(coords_list_in)
+            coord_set_out = np.array(coords_list_in)
 
-        fully_cleaned = False
-        coord_set_out = coords_list_in
+        delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
+        not_cleaned = np.sum(delete_array) > 0
 
         # in some cases, some coordinates become on the line if the following coord is deleted,
         # need to loop until no coord is deleted during one loop
-        while not fully_cleaned:
-            cleaned_result = self.cleanup_loop(coord_set_out, eps_grid=eps_grid)
-            coord_set_out = cleaned_result['coord_set_out']
-            fully_cleaned = cleaned_result['fully_cleaned']
+        while not_cleaned:
+            select_array = np.logical_not(delete_array)
+            coord_set_out = coord_set_out[select_array]
+            delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
+            not_cleaned = np.sum(delete_array) > 0
 
         return coord_set_out
 
@@ -264,6 +321,7 @@ class Dataprep:
                     for poly in clean_polygon.polygons:
                         clean_coords.append(self.global_grid_size * np.round(poly / self.global_grid_size, 0))
                     clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
+
     
             else:
                 raise ValueError('input polygon must be a gdspy.Polygon, gdspy.PolygonSet or NonType')
@@ -569,6 +627,7 @@ class Dataprep:
                        nstep,
                        inc_x_first,
                        manh_grid_size,
+                       eps_grid = 1e-4,
                        ):
         """
         Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge
@@ -586,14 +645,18 @@ class Dataprep:
         -------
 
         """
-
-        if nstep == 0:
-            if inc_x_first:
-                edge_coord_set = np.round(
-                    np.array([p1.tolist(), [p1[0] + dx, p1[1]]]) / manh_grid_size) * manh_grid_size
-            else:
-                edge_coord_set = np.round(
-                    np.array([p1.tolist(), [p1[0], p1[1] + dy]]) / manh_grid_size) * manh_grid_size
+        # this point and the next point can form a manhattanized edge, no need to create new points
+        if (abs(dx) < eps_grid) or (abs(dy) < eps_grid):
+            edge_coord_set = np.array([p1.tolist()])
+            # print("debug", p1, dx, dy, nstep, inc_x_first, manh_grid_size,)
+        # if nstep == 0:
+        #     if inc_x_first:
+        #         edge_coord_set = np.round(
+        #             np.array([p1.tolist(), [p1[0] + dx, p1[1]]]) / manh_grid_size) * manh_grid_size
+        #     else:
+        #         edge_coord_set = np.round(
+        #             np.array([p1.tolist(), [p1[0], p1[1] + dy]]) / manh_grid_size) * manh_grid_size
+        # otherwise we need to insert new points, dx or dy might not be on manh grid, need to
         else:
             x_set = np.empty((2 * nstep,), dtype=p1.dtype)
             y_set = np.empty((2 * nstep,), dtype=p1.dtype)
@@ -669,11 +732,12 @@ class Dataprep:
 
         poly_coords_manhgrid = manh_grid_size * np.round(poly_coords_ori / manh_grid_size)
 
-        poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
+        poly_coords_manhgrid = self.coords_cleanup(poly_coords_manhgrid)
+        # poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
 
-        # adding the first point to the last if polygon is not closed
-        if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
-            poly_coords_manhgrid = np.append(poly_coords_manhgrid, [poly_coords_manhgrid[0]], axis=0)
+        # # adding the first point to the last if polygon is not closed
+        # if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
+        #     poly_coords_manhgrid = np.append(poly_coords_manhgrid, [poly_coords_manhgrid[0]], axis=0)
 
         # do Manhattanization if manh_type is 'inc'
         if manh_type == 'non':
@@ -692,7 +756,7 @@ class Dataprep:
             deltax_set = edge_vec_set[:, 0]
             deltay_set = edge_vec_set[:, 1]
 
-            nstep_set = np.floor(np.minimum(np.abs(deltax_set), np.abs(deltay_set)) / manh_grid_size).astype(int)
+            nstep_set = np.round(np.minimum(np.abs(deltax_set), np.abs(deltay_set)) / manh_grid_size).astype(int)
             nstep_fordivide_set = nstep_set + (nstep_set == 0)
             dx_set = deltax_set / nstep_fordivide_set
             dy_set = deltay_set / nstep_fordivide_set
@@ -741,8 +805,8 @@ class Dataprep:
                                  f'number of non-manh edges is {nonmanh_edge_pre}')
 
             poly_coords_cleanup = self.coords_cleanup(poly_coords_orth_manhgrid)
-            if poly_coords_cleanup.size != 0:
-                poly_coords_cleanup = np.append(poly_coords_cleanup, [poly_coords_cleanup[0]], axis=0)
+            # if poly_coords_cleanup.size != 0:
+            #     poly_coords_cleanup = np.append(poly_coords_cleanup, [poly_coords_cleanup[0]], axis=0)
             nonmanh_edge_post = self.not_manh(poly_coords_cleanup)
             if nonmanh_edge_post:
                 for i in range(0, len(poly_coords_cleanup)):
