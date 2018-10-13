@@ -1070,9 +1070,13 @@ class Dataprep:
                 # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
                 if True:
                     underofover_size = \
-                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_space(lpp_out) / self.global_grid_size)
+                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_space(lpp_out) /
+                                                     self.global_grid_size)
                     overofunder_size = \
-                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_space(lpp_out) / self.global_grid_size)
+                        self.global_grid_size * ceil(0.5 * self.photonic_tech_info.min_width(lpp_out) /
+                                                     self.global_grid_size)
+                    logging.info(f'OUO on layer {lpp_out} performed with underofover_size = {underofover_size} and'
+                                 f'overofunder_size = {overofunder_size}')
                     polygon_o = self.dataprep_oversize_gdspy(polygon2, underofover_size)
                     polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
                     polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
