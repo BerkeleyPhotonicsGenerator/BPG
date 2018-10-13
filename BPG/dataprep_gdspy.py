@@ -716,7 +716,7 @@ class Dataprep:
 
                 edge_coords_set = self.manh_edge_tran(coord_curr, dx_set[i], dy_set[i], nstep_set[i],
                                                       inc_x_first_set[i],
-                                                      manh_grid_size, coord_next, eps_length=1e-9)
+                                                      manh_grid_size)
 
                 poly_coords_orth.append(edge_coords_set)
 
