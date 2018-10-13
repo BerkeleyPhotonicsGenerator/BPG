@@ -119,7 +119,7 @@ class Dataprep:
             return error_rlt < eps_grid
 
     def cleanup_loop(self,
-                     coords_list_in,  # type: List[Tuple[float, float]]
+                     coords_list_in,  # type: Union[List[Tuple[float, float]], np.array]
                      eps_grid=1e-4,  # type: float
                      ):
         # type: (...) -> Dict[str]
@@ -137,42 +137,44 @@ class Dataprep:
         output_dict : Dict[str]
             Dictionary of 'coords_list_out' and 'fully_cleaned'
         """
-        # once a coordinate is deleted from the coords list, set fully_cleaned to False
-        fully_cleaned = True
-    
-        # append the first two coords in the origin list to a new list
-        coords_list_out = [coords_list_in[0], coords_list_in[1]]
-    
-        # if the last coord in the new list has the same x or y coordinate with
-        # both the second last coord and the coord to append, delete this coord
-        coord_1stlast = coords_list_out[-1]
-        coord_2ndlast = coords_list_out[-2]
-    
-        for i in range(2, len(coords_list_in)):
-            coord_to_append = coords_list_in[i]
-            if self.coords_apprx_in_line(coord_2ndlast, coord_1stlast, coord_to_append, eps_grid=eps_grid):
-                fully_cleaned = False
-                coords_list_out = coords_list_out[:-1]
-                coords_list_out.append(coord_to_append)
-                coord_1stlast = coord_to_append
-            else:
-                coords_list_out.append(coord_to_append)
-                coord_2ndlast = coord_1stlast
-                coord_1stlast = coord_to_append
-    
-        # now all the coordinates except the first and the last (the same one) should be on a corner of the polygon,
-        # unless the following appended coord has been deleted
-        # check if the first & last coord is redundant
-        if self.coords_apprx_in_line(coords_list_out[-2], coords_list_out[0], coords_list_out[1], eps_grid=eps_grid):
-            fully_cleaned = False
-            coords_list_out = coords_list_out[1:-1]
-            coords_list_out.append(coords_list_out[0])
-    
-        # LAST STEP: just in case that the first and the last coord are slightly different
-        coords_list_out = coords_list_out[0:-1]
-        coords_list_out.append(coords_list_out[0])
-    
-        return {'coords_list_out': coords_list_out, 'fully_cleaned': fully_cleaned}
+
+        if isinstance(coords_list_in, np.ndarray):
+            coords_list_in = coords_list_in
+        else:
+            coords_list_in = np.array(coords_list_in)
+
+        coord_set_lsh = np.roll(coords_list_in, -1, axis=0)
+        coord_set_rsh = np.roll(coords_list_in, 1, axis=0)
+
+        vec_l = coord_set_lsh - coords_list_in
+        vec_r = coords_list_in - coord_set_rsh
+
+        dx_l = vec_l[:, 0]
+        dy_l = vec_l[:, 1]
+        dx_r = vec_r[:, 0]
+        dy_r = vec_r[:, 1]
+
+        dx_l_abs = np.abs(dx_l)
+        dy_l_abs = np.abs(dy_l)
+        dx_r_abs = np.abs(dx_r)
+        dy_r_abs = np.abs(dy_r)
+
+        same_with_left = np.logical_and(dx_l_abs < eps_grid, dy_l_abs < eps_grid)
+        same_with_right = np.logical_and(dx_r_abs < eps_grid, dy_r_abs < eps_grid)
+        diff_from_lr = np.logical_not(np.logical_or(same_with_left, same_with_right))
+
+        # error_abs = np.abs(dx_l * dy_r - dx_r * dy_l)
+        # in_line = error_abs  < eps_grid * (dx_l_abs + dy_l_abs + dx_r_abs + dy_r_abs)
+        in_line = np.logical_or(np.logical_and(dx_l_abs < eps_grid, dx_r_abs < eps_grid),
+                                np.logical_and(dy_l_abs < eps_grid, dy_r_abs < eps_grid))
+
+        delete = np.logical_or(same_with_left, np.logical_and(in_line, diff_from_lr))
+        select = np.logical_not(delete)
+
+        fully_cleaned = np.sum(delete) == 0
+        coord_set_out = coords_list_in[select]
+
+        return {'coord_set_out': coord_set_out, 'fully_cleaned': fully_cleaned}
 
     def coords_cleanup(self,
                        coords_list_in,  # type: List[Tuple[float, float]]
@@ -198,20 +200,24 @@ class Dataprep:
         coords_list_out : List[Tuple[float, float]]
             The cleaned coordinate list
         """
-        if debug:
-            print('coord_list_ori', coords_list_in)
-    
+        logging.debug(f'coords_list_in: {coords_list_in}')
+
+        if isinstance(coords_list_in, np.ndarray):
+            coords_list_in = coords_list_in
+        else:
+            coords_list_in = np.array(coords_list_in)
+
         fully_cleaned = False
-        coords_list_out = coords_list_in
-    
+        coord_set_out = coords_list_in
+
         # in some cases, some coordinates become on the line if the following coord is deleted,
         # need to loop until no coord is deleted during one loop
         while not fully_cleaned:
-            cleaned_result = self.cleanup_loop(coords_list_out, eps_grid=eps_grid)
-            coords_list_out = cleaned_result['coords_list_out']
+            cleaned_result = self.cleanup_loop(coord_set_out, eps_grid=eps_grid)
+            coord_set_out = cleaned_result['coord_set_out']
             fully_cleaned = cleaned_result['fully_cleaned']
-    
-        return coords_list_out
+
+        return coord_set_out
 
     def dataprep_cleanup_gdspy(self,
                                polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
@@ -236,6 +242,7 @@ class Dataprep:
         clean_polygon : Union[gdspy.Polygon, gdspy.PolygonSet]
             The cleaned up polygon
         """
+
         if do_cleanup:
             if polygon is None:
                 clean_polygon = None
@@ -331,37 +338,21 @@ class Dataprep:
         """
         pos_coord_list_list = pos_neg_list_list[0]
         neg_coord_list_list = pos_neg_list_list[1]
-    
-        # Offset by 0 to clean up shape
-        polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list_list[0]), do_cleanup=self.do_cleanup)
-    
-        if len(pos_coord_list_list) > 1:
-            for pos_coord_list in pos_coord_list_list[1:]:
-                polygon_pos = self.dataprep_cleanup_gdspy(gdspy.Polygon(pos_coord_list), do_cleanup=self.do_cleanup)
-    
-                polygon_out = self.dataprep_cleanup_gdspy(
-                    gdspy.fast_boolean(polygon_out, polygon_pos, 'or',
-                                       precision=self.global_operation_precision,
-                                       max_points=MAX_SIZE),
-                    do_cleanup=self.do_cleanup
-                )
+
+        polygon_out = self.dataprep_cleanup_gdspy(gdspy.PolygonSet(pos_coord_list_list),
+                                                  do_cleanup=self.do_cleanup)
         if len(neg_coord_list_list):
-            for neg_coord_list in neg_coord_list_list:
-                polygon_neg = self.dataprep_cleanup_gdspy(
-                    gdspy.Polygon(neg_coord_list),
-                    do_cleanup=self.do_cleanup
-                )
-    
-                # Offset by 0 to clean up shape
-                polygon_out = self.dataprep_cleanup_gdspy(
-                    gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
-                                       precision=self.global_operation_precision,
-                                       max_points=MAX_SIZE),
-                    do_cleanup=self.do_cleanup
-                )
-    
+            polygon_neg = self.dataprep_cleanup_gdspy(gdspy.PolygonSet(neg_coord_list_list),
+                                                      do_cleanup=self.do_cleanup)
+            polygon_out = self.dataprep_cleanup_gdspy(
+                gdspy.fast_boolean(polygon_out, polygon_neg, 'not',
+                                   precision=self.global_operation_precision,
+                                   max_points=MAX_SIZE),
+                do_cleanup=self.do_cleanup
+            )
+
         polygon_out = self.gdspy_manh(polygon_out, manh_grid_size=manh_grid_size, do_manh=do_manh)
-    
+
         # TODO: is the cleanup necessary
         # Offset by 0 to clean up shape
         polygon_out = self.dataprep_cleanup_gdspy(
@@ -519,7 +510,25 @@ class Dataprep:
     # Manhattanization related functions
     ################################################################################
     @staticmethod
-    def not_manh(coord_list,  # type: List[Tuple[float, float]])
+    def merge_adjacent_duplicate(coord_set,
+                                 eps_grid=1e-6):
+        if isinstance(coord_set, np.ndarray):
+            coords_list_in = coord_set
+        else:
+            coords_list_in = np.array(coord_set)
+
+        coord_set_shift = np.roll(coords_list_in, 1, axis=0)
+        # 2D array: array of [abs(deltax) > eps, abs(deltay) > eps]
+        coord_cmp_eq = np.abs(coord_set_shift - coords_list_in) < eps_grid
+        # 1D array: array of [this point is not a duplicate]
+        select = np.sum(coord_cmp_eq, axis=1) <= 1
+
+        coord_set_merged = coord_set[select]
+
+        return coord_set_merged
+
+    @staticmethod
+    def not_manh(coord_list,  # type: np.ndarray[Tuple[float, float]]
                  eps_grid=1e-6,  # type: float
                  ):
         # type (...) -> int
@@ -538,30 +547,85 @@ class Dataprep:
         non_manh_edge : int
             The count of number of edges that are non-Manhattan in this shape
         """
-        non_manh_edge = 0
         if isinstance(coord_list, np.ndarray):
-            coord_list_new = coord_list.tolist()
+            coord_set_in = coord_list
         else:
-            coord_list_new = coord_list
+            coord_set_in = np.array(coord_list)
 
-        coord_list_new.append(coord_list_new[0])
+        coord_set_shift = np.roll(coord_set_in, 1, axis=0)
+        # 2D array: array of [deltax > eps, deltay > eps]
+        coord_cmp = np.abs(coord_set_shift - coord_set_in) > eps_grid
+        # 1D array: array of [this edge is not manhattanized]
+        edge_not_manh = np.sum(coord_cmp, axis=1) > 1
 
-        for i in range(len(coord_list_new) - 1):
-            coord_curr = coord_list_new[i]
-            coord_next = coord_list_new[i + 1]
-
-            if (abs(coord_curr[0] - coord_next[0]) > eps_grid) and (abs(coord_curr[1] - coord_next[1]) > eps_grid):
-                non_manh_edge = non_manh_edge + 1
-                logging.debug(f'not_manh:  non-manhattan point from {coord_curr} to {coord_next}')
+        non_manh_edge = np.sum(edge_not_manh, axis=0)
 
         return non_manh_edge
 
+    @staticmethod
+    def manh_edge_tran(p1,
+                       dx,
+                       dy,
+                       nstep,
+                       inc_x_first,
+                       manh_grid_size,
+                       ):
+        """
+        Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge
+
+        Parameters
+        ----------
+        p1
+        dx
+        dy
+        nstep
+        inc_x_first
+        manh_grid_size
+
+        Returns
+        -------
+
+        """
+
+        if nstep == 0:
+            if inc_x_first:
+                edge_coord_set = np.round(
+                    np.array([p1.tolist(), [p1[0] + dx, p1[1]]]) / manh_grid_size) * manh_grid_size
+            else:
+                edge_coord_set = np.round(
+                    np.array([p1.tolist(), [p1[0], p1[1] + dy]]) / manh_grid_size) * manh_grid_size
+        else:
+            x_set = np.empty((2 * nstep,), dtype=p1.dtype)
+            y_set = np.empty((2 * nstep,), dtype=p1.dtype)
+            if inc_x_first:
+                x_set_pre = np.round(
+                    np.linspace(p1[0], p1[0] + nstep * dx, nstep + 1) / manh_grid_size) * manh_grid_size
+                y_set_pre = np.round(
+                    np.linspace(p1[1], p1[1] + (nstep - 1) * dy, nstep) / manh_grid_size) * manh_grid_size
+                x_set[0::2] = x_set_pre[:-1]
+                x_set[1::2] = x_set_pre[1:]
+                y_set[0::2] = y_set_pre
+                y_set[1::2] = y_set_pre
+            else:
+                x_set_pre = np.round(
+                    np.linspace(p1[0], p1[0] + (nstep - 1) * dx, nstep) / manh_grid_size) * manh_grid_size
+                y_set_pre = np.round(
+                    np.linspace(p1[1], p1[1] + nstep * dy, nstep + 1) / manh_grid_size) * manh_grid_size
+                x_set[0::2] = x_set_pre
+                x_set[1::2] = x_set_pre
+                y_set[0::2] = y_set_pre[:-1]
+                y_set[1::2] = y_set_pre[1:]
+
+            edge_coord_set = np.stack((x_set, y_set), axis=-1)
+
+        return edge_coord_set
+
     def manh_skill(self,
-                   poly_coords,  # type: List[Tuple[float, float]]
+                   poly_coords,  # type: np.ndarray[Tuple[float, float]]
                    manh_grid_size,  # type: float
                    manh_type,  # type: str
                    ):
-        # type: (...) -> List[Tuple[float, float]]
+        # type: (...) -> np.ndarray[Tuple[float, float]]
         """
         Convert a polygon into a polygon with orthogonal edges (ie, performs Manhattanization)
 
@@ -581,6 +645,7 @@ class Dataprep:
         poly_coords_cleanup : List[Tuple[float, float]]
             The Manhattanized list of coordinates describing the polygon
         """
+
         def apprx_equal(float1,  # type: float
                         float2,  # type: float
                         eps_grid=1e-9  # type: float
@@ -594,15 +659,21 @@ class Dataprep:
             return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
 
         # map the coordinates to the manh grid
-        poly_coords_manhgrid = []
-        for coord in poly_coords:
-            xcoord_manhgrid = manh_grid_size * round(coord[0] / manh_grid_size)
-            ycoord_manhgrid = manh_grid_size * round(coord[1] / manh_grid_size)
-            poly_coords_manhgrid.append((xcoord_manhgrid, ycoord_manhgrid))
+        if isinstance(poly_coords, np.ndarray):
+            poly_coords_ori = poly_coords
+        else:
+            poly_coords_ori = np.array(poly_coords)
+
+        if poly_coords_ori.size == 0:
+            return poly_coords_ori
+
+        poly_coords_manhgrid = manh_grid_size * np.round(poly_coords_ori / manh_grid_size)
+
+        poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
 
         # adding the first point to the last if polygon is not closed
         if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
-            poly_coords_manhgrid.append(poly_coords_manhgrid[0])
+            poly_coords_manhgrid = np.append(poly_coords_manhgrid, [poly_coords_manhgrid[0]], axis=0)
 
         # do Manhattanization if manh_type is 'inc'
         if manh_type == 'non':
@@ -610,70 +681,80 @@ class Dataprep:
         elif (manh_type == 'inc') or (manh_type == 'dec'):
             # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
             # (a kind of "center-of-mass")
-            xcoord_sum = 0
-            ycoord_sum = 0
-            for coord_manhgrid in poly_coords_manhgrid:
-                xcoord_sum = xcoord_sum + coord_manhgrid[0]
-                ycoord_sum = ycoord_sum + coord_manhgrid[1]
-            xcoord_in = xcoord_sum / len(poly_coords_manhgrid)
-            ycoord_in = ycoord_sum / len(poly_coords_manhgrid)
-            # print("point INSIDE the shape (x,y) =  (%f, %f)" %(xcoord_in, ycoord_in))
 
-            # Scanning all the points of the orinal list and adding points in-between.
-            poly_coords_orth = [poly_coords_manhgrid[0]]
+            n_coords = poly_coords_manhgrid.size / poly_coords_manhgrid[0].size
+            coord_in = np.sum(poly_coords_manhgrid, axis=0) / n_coords
+
+            poly_coords_manhgrid_leftshift = np.roll(poly_coords_manhgrid, -1, axis=0)
+            edge_vec_set = poly_coords_manhgrid_leftshift - poly_coords_manhgrid
+            p2c_vec_set = coord_in - poly_coords_manhgrid
+
+            deltax_set = edge_vec_set[:, 0]
+            deltay_set = edge_vec_set[:, 1]
+
+            nstep_set = np.floor(np.minimum(np.abs(deltax_set), np.abs(deltay_set)) / manh_grid_size).astype(int)
+            nstep_fordivide_set = nstep_set + (nstep_set == 0)
+            dx_set = deltax_set / nstep_fordivide_set
+            dy_set = deltay_set / nstep_fordivide_set
+            p2c_x_set = p2c_vec_set[:, 0]
+            p2c_y_set = p2c_vec_set[:, 1]
+            product1_set = deltax_set * p2c_y_set - deltay_set * p2c_x_set
+            product2_set = deltax_set * 0.0 - deltax_set * deltay_set
+            inc_x_first_set = (product1_set * product2_set < 0) == (manh_type == 'inc')
+
+            # Scanning all the points of the orinal set and adding points in-between.
+            poly_coords_orth = []
+            t1 = time.time()
             # print('len(poly_coords_manhgrid)', len(poly_coords_manhgrid))
-            for i in range(0, len(poly_coords_manhgrid) - 1):
+            for i in range(0, len(poly_coords_manhgrid)):
                 # BE CAREFUL HERE WITH THE INDEX
                 coord_curr = poly_coords_manhgrid[i]
                 if i == len(poly_coords_manhgrid) - 1:
-                    coord_next = coord_curr
+                    coord_next = poly_coords_manhgrid[0]
                 else:
                     coord_next = poly_coords_manhgrid[i + 1]
 
-                delta_x = coord_next[0] - coord_curr[0]
-                delta_y = coord_next[1] - coord_curr[1]
-                eps_float = 1e-9
-                # current coord and the next coord create an orthogonal edge
-                if (abs(delta_x) < eps_float) or (abs(delta_y) < eps_float):
-                    # print("This point has orthogonal neighbour", coord_curr, coord_next)
-                    poly_coords_orth.append(coord_next)
-                else:
-                    if abs(delta_x) > abs(delta_y):
-                        num_point_add = int(abs(round(delta_y / manh_grid_size)))
-                        xstep = round(delta_y / abs(delta_y)) * manh_grid_size * (delta_x / delta_y)
-                        ystep = round(delta_y / abs(delta_y)) * manh_grid_size
-                    else:
-                        num_point_add = int(abs(round(delta_x / manh_grid_size)))
-                        ystep = round(delta_x / abs(delta_x)) * manh_grid_size * delta_y / delta_x
-                        xstep = round(delta_x / abs(delta_x)) * manh_grid_size
-                    # if positive, the center if the shape is on the left
-                    vec_product1 = xstep * (ycoord_in - coord_curr[1]) - ystep * (xcoord_in - coord_curr[0])
-                    # if positive the vector ( StepX, 0.0) is on the left too
-                    vec_product2 = xstep * 0.0 - ystep * xstep
-                    for j in range(0, num_point_add):
-                        x0 = coord_curr[0] + j * xstep
-                        y0 = coord_curr[1] + j * ystep
-                        # If both are positive, incrememnting in X first will make the polygon smaller:
-                        # incrememnting X first if manh_type is 'inc'
-                        if ((vec_product1 * vec_product2) < 0) == (manh_type == 'inc'):
-                            poly_coords_orth.append((x0 + xstep, y0))
-                            poly_coords_orth.append((x0 + xstep, y0 + ystep))
-                        # else incrememnting Y first
-                        else:
-                            poly_coords_orth.append((x0, y0 + ystep))
-                            poly_coords_orth.append((x0 + xstep, y0 + ystep))
+                edge_coords_set = self.manh_edge_tran(coord_curr, dx_set[i], dy_set[i], nstep_set[i],
+                                                      inc_x_first_set[i],
+                                                      manh_grid_size, coord_next, eps_length=1e-9)
+
+                poly_coords_orth.append(edge_coords_set)
+
+            poly_coords_orth = np.concatenate(poly_coords_orth, axis=0)
+
+            poly_coords_orth_manhgrid = poly_coords_orth
+            # poly_coords_orth_manhgrid = manh_grid_size * np.round(poly_coords_orth / manh_grid_size)
 
             # clean up the coords
-            non_manh_edge_pre_cleanup = self.not_manh(poly_coords_orth)
-            if non_manh_edge_pre_cleanup:
-                raise ValueError('Manhattanization failed before the clean-up, number of non-manh edges is',
-                                 non_manh_edge_pre_cleanup)
+            nonmanh_edge_pre = self.not_manh(poly_coords_orth_manhgrid)
 
-            poly_coords_cleanup = self.coords_cleanup(poly_coords_orth)
-            non_manh_edge_post_cleanup = self.not_manh(poly_coords_cleanup)
-            if non_manh_edge_post_cleanup:
-                raise ValueError('Manhattanization failed after the clean-up, number of non-manh edges is',
-                                 non_manh_edge_post_cleanup)
+            # If this is true, we should fail, so loop and help with debug
+            if nonmanh_edge_pre:
+                # print(poly_coords_orth_manhgrid)
+                for i in range(0, len(poly_coords_orth_manhgrid) - 1):
+                    p1 = poly_coords_orth_manhgrid[i]
+                    p2 = poly_coords_orth_manhgrid[i + 1]
+                    if p1[0] != p2[0] and p1[1] != p2[1]:
+                        print('non_manh_edge:', p1, p2)
+
+                raise ValueError(f'Manhattanization failed before the clean-up, '
+                                 f'number of non-manh edges is {nonmanh_edge_pre}')
+
+            poly_coords_cleanup = self.coords_cleanup(poly_coords_orth_manhgrid)
+            if poly_coords_cleanup.size != 0:
+                poly_coords_cleanup = np.append(poly_coords_cleanup, [poly_coords_cleanup[0]], axis=0)
+            nonmanh_edge_post = self.not_manh(poly_coords_cleanup)
+            if nonmanh_edge_post:
+                for i in range(0, len(poly_coords_cleanup)):
+                    p1 = poly_coords_cleanup[i]
+                    if i == len(poly_coords_cleanup) - 1:
+                        p2 = poly_coords_cleanup[0]
+                    else:
+                        p2 = poly_coords_orth_manhgrid[i+1]
+                    if p1[0] != p2[0] and p1[1] != p2[1]:
+                        print('non_manh_edge:', p1, p2)
+                raise ValueError(f'Manhattanization failed after the clean-up, '
+                                 f'number of non-manh edges is {nonmanh_edge_post}')
 
             return poly_coords_cleanup
         else:
@@ -703,6 +784,8 @@ class Dataprep:
         polygon_out : Union[gdspy.Polygon, gdspy.PolygonSet]
             The Manhattanized polygon, in gdspy representation
         """
+        start = time.time()
+
         if do_manh:
             manh_type = 'inc'
         else:
@@ -715,17 +798,17 @@ class Dataprep:
             polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
                                                       do_cleanup=self.do_cleanup)
         elif isinstance(polygon_gdspy, gdspy.PolygonSet):
-            coord_list = self.manh_skill(polygon_gdspy.polygons[0], manh_grid_size, manh_type)
-            polygon_out = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
-                                                      do_cleanup=self.do_cleanup)
+            polygon_list = []
             for poly in polygon_gdspy.polygons:
                 coord_list = self.manh_skill(poly, manh_grid_size, manh_type)
-                polygon_append = self.dataprep_cleanup_gdspy(gdspy.Polygon(coord_list),
-                                                             do_cleanup=self.do_cleanup)
-                polygon_out = self.dataprep_cleanup_gdspy(gdspy.fast_boolean(polygon_out, polygon_append, 'or'),
-                                                          do_cleanup=self.do_cleanup)
+                polygon_list.append(coord_list)
+            polygon_out = self.dataprep_cleanup_gdspy(gdspy.PolygonSet(polygon_list),
+                                                      do_cleanup=self.do_cleanup)
         else:
             raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
+
+        end = time.time()
+        logging.debug(f'gdspy_man took {end-start}s')
 
         return polygon_out
 
@@ -863,32 +946,19 @@ class Dataprep:
             the rough added polygon shapes, in gdspy representation
         """
 
-        # oversize twice, then undersize twice and oversize again
+        # ORIGINAL SKILL: oversize twice, then undersize twice and oversize again
+        # No need for this as it doesnt actually clean up min width violations
+        # Just do Over twice then under once
         polygon_oo = self.dataprep_oversize_gdspy(polygon, 2 * self.global_rough_grid_size)
-        polygon_oouu = self.dataprep_undersize_gdspy(polygon_oo, 2 * self.global_rough_grid_size)
-        polygon_oouuo = self.dataprep_oversize_gdspy(polygon_oouu, self.global_rough_grid_size)
-
-        # TODO: Is this necessary?
+        polygon_oouuo = self.dataprep_undersize_gdspy(polygon_oo, self.global_rough_grid_size)
         # Manhattanize to the rough grid
         polygon_oouuo_rough = self.gdspy_manh(polygon_oouuo, self.global_rough_grid_size, do_manh)
-
-        # TODO: Is this necessary
-        # undersize then oversize
+        # undersize then oversize, then oversize again, combine these stages
+        # TODO: Original skill does O_UU_OO and then subtracts 2xglobal_rough.
+        # TODO: Why 2xglobal rough if we only oversized effictivley by 1x?
         polygon_roughsized = self.dataprep_oversize_gdspy(
-            self.dataprep_undersize_gdspy(
-                polygon_oouuo_rough,
-                self.global_grid_size        # TODO: What size here
-            ),
-            self.global_grid_size            # TODO: What size here
-        )
-
-        polygon_roughsized = self.dataprep_oversize_gdspy(
-            polygon_roughsized,
-            max(
-                size_amount - 2 * self.global_rough_grid_size,
-                0
-            )
-        )
+            self.dataprep_undersize_gdspy(polygon_oouuo_rough, self.global_grid_size),
+            self.global_grid_size + max(size_amount - 2 * self.global_rough_grid_size, 0))
 
         return polygon_roughsized
 
@@ -932,10 +1002,7 @@ class Dataprep:
             if operation == 'rad':
                 # TODO: THIS IS SLOW
                 # TODO: manh ?
-                polygon_rough = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
-
-                buffer_size = max(size_amount - 2 * self.global_rough_grid_size, 0)
-                polygon_rough_sized = self.dataprep_oversize_gdspy(polygon_rough, buffer_size)
+                polygon_rough_sized = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
 
                 if polygon1 is None:
                     polygon_out = polygon_rough_sized
