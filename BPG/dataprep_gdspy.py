@@ -235,7 +235,6 @@ class Dataprep:
     def coords_cleanup(self,
                        coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
                        eps_grid=1e-4,  # type: float
-                       debug=False,  # type: bool
                        ):
         # type (...) -> List[Tuple[float, float]]
         """
@@ -249,8 +248,7 @@ class Dataprep:
             a size smaller than the resolution grid size,
             if the difference of x/y coordinates of two points is smaller than it,
             these two points should actually share the same x/y coordinate
-        debug : bool
-    
+
         Returns
         ----------
         coords_set_out : np.ndarray
@@ -322,13 +320,12 @@ class Dataprep:
                         clean_coords.append(self.global_grid_size * np.round(poly / self.global_grid_size, 0))
                     clean_polygon = gdspy.PolygonSet(polygons=clean_coords)
 
-    
             else:
                 raise ValueError('input polygon must be a gdspy.Polygon, gdspy.PolygonSet or NonType')
-    
+
         else:
             clean_polygon = polygon
-    
+
         return clean_polygon
 
     ################################################################################
@@ -627,7 +624,7 @@ class Dataprep:
                        nstep,
                        inc_x_first,
                        manh_grid_size,
-                       eps_grid = 1e-4,
+                       eps_grid=1e-4,
                        ):
         """
         Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge
@@ -640,6 +637,7 @@ class Dataprep:
         nstep
         inc_x_first
         manh_grid_size
+        eps_grid
 
         Returns
         -------
@@ -822,7 +820,7 @@ class Dataprep:
 
             return poly_coords_cleanup
         else:
-            raise ValueError('manh_type = {} should be either "non", "inc" or "dec"'.format(manh_type))
+            raise ValueError(f'manh_type = {manh_type} should be either "non", "inc" or "dec"')
 
     def gdspy_manh(self,
                    polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
