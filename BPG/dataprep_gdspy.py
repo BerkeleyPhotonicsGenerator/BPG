@@ -1347,6 +1347,7 @@ class Dataprep:
             True to perform dataprep and convert the port indicator shapes
         """
 
+        start0 = time.time()
         # 1) Convert layer shapes to gdspy polygon format
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             start = time.time()
@@ -1362,6 +1363,9 @@ class Dataprep:
                 logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
             else:
                 logging.info(f'Did not converting {layer} content to gdspy')
+
+        end0 = time.time()
+        logging.info(f'All pointlist to gdspy conversions took total of {end0 - start0}s')
 
         # 3) Perform each dataprep operation in the list on the provided layers in order
         start0 = time.time()
