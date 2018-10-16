@@ -1363,17 +1363,21 @@ class Dataprep:
 
         Parameters
         ----------
-        layer
+        layer : Union[str, Tuple[str, str]]
+            The layer or LPP being Manhattanized.
 
         Returns
         -------
-
+        manh_size : float
+            The Manhattanization size for the layer.
         """
         if isinstance(layer, tuple):
             layer = layer[0]
 
         per_layer_manh = self.photonic_tech_info.dataprep_routine_data['manh_size_per_layer']
         if per_layer_manh is None:
+            logging.warning(f'\'manh_size_per_layer\' dictionary is not specified in the dataprep_routine.yaml file.'
+                            f'Defaulting to empty dictionary.')
             per_layer_manh = {}
 
         if layer not in per_layer_manh:
