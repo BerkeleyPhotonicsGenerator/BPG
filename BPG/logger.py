@@ -16,7 +16,7 @@ def setup_logger(logfile: str = 'bpg.log', verbose: bool = False) -> None:
     if verbose is False:
         out_handler.setLevel(logging.WARNING)
     else:
-        out_handler.setLevel(logging.DEBUG)
+        out_handler.setLevel(logging.INFO)
 
     # Add an output file to the root logger, overwrite the log file if it already exists
     file_handler = logging.FileHandler(logfile, 'w')
