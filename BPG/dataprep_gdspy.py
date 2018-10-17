@@ -45,8 +45,12 @@ class Dataprep:
         self.lsf_post_dataprep_flat_content_list: List[Tuple] = []
 
         # Dataprep custom configuration
-        self.dataprep_ignore_list: List[Tuple] = []
-
+        # self.dataprep_ignore_list: List[Tuple] = []
+        # self.dataprep_bypass_list: List[Tuple] = []
+        self.dataprep_ignore_list: List[Tuple] = self.photonic_tech_info.dataprep_routine_data.get(
+            'dataprep_ignore_list', [])
+        self.dataprep_bypass_list: List[Tuple] = self.photonic_tech_info.dataprep_routine_data.get(
+            'dataprep_bypass_list', [])
         self.global_grid_size = self.photonic_tech_info.global_grid_size
         self.global_rough_grid_size = self.photonic_tech_info.global_rough_grid_size
 
@@ -1308,9 +1312,7 @@ class Dataprep:
         # return 0.001
         return manh_size
 
-    def dataprep(self,
-                 push_portshapes_through_dataprep: bool = False,
-                 ) -> List:
+    def dataprep(self) -> List:
         """
         Takes the flat content list and performs the specified transformations on the shapes for the purpose
         of cleaning DRC and prepping tech specific functions.
@@ -1325,31 +1327,24 @@ class Dataprep:
             2c) Maps the operation in the spec file to its gdspy implementation and performs it
         3) Performs a final over_under_under_over operation
         4) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
-
-        Parameters
-        ----------
-        push_portshapes_through_dataprep : bool
-            True to perform dataprep and convert the port indicator shapes
         """
-
         start0 = time.time()
         # 1) Convert layer shapes to gdspy polygon format
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             start = time.time()
             # TODO: fix Manhattan size
-            if layer not in self.dataprep_ignore_list:
-                if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label'):
-                    # TODO: This is slow
-                    self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
-                        self.get_polygon_point_lists_on_layer(layer),
-                        manh_grid_size=self.get_manhattanization_size_on_layer(layer),
-                        do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
-                    )
-                    end = time.time()
-                    logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
-                else:
-                    logging.info(f'Did not converting {layer} content to gdspy')
-
+            if (layer[1] != 'port' and layer[1] != 'label') and (
+                    layer not in self.dataprep_ignore_list and layer not in self.dataprep_bypass_list):
+                # TODO: This is slow
+                self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
+                    self.get_polygon_point_lists_on_layer(layer),
+                    manh_grid_size=self.get_manhattanization_size_on_layer(layer),
+                    do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
+                )
+                end = time.time()
+                logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
+            else:
+                logging.info(f'{layer} was excluded from dataprep')
         end0 = time.time()
         logging.info(f'All pointlist to gdspy conversions took total of {end0 - start0}s')
 

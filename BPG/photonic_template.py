@@ -1075,7 +1075,7 @@ class PhotonicTemplateDB(TemplateDB):
                                             self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
-        self.post_dataprep_flat_content_list = self.dataprep_object.dataprep(push_portshapes_through_dataprep=False)
+        self.post_dataprep_flat_content_list = self.dataprep_object.dataprep()
 
     def lsf_dataprep(self):
         if self.dataprep_object is None:

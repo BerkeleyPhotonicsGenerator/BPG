@@ -20,6 +20,14 @@ dataprep_groups:
 over_under_under_over:
   - !!python/tuple ['SI', 'drawing']
 
+dataprep_ignore_list:
+  - !!python/tuple ['SI', 'port']
+  - !!python/tuple ['POLY', 'port']
+  - !!python/tuple ['SI', 'phot']
+
+dataprep_bypass_list:
+  - !!python/tuple ['SI', 'phot']
+
 manh_size_per_layer:
 #  SI: 0.010
 #  POLY: 0.010
