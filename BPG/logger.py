@@ -24,7 +24,12 @@ def setup_logger(logfile: str = 'bpg.log', verbose: bool = False) -> None:
     formatter = logging.Formatter('[%(filename)s:%(lineno)d] %(levelname)s - %(message)s')
     file_handler.setFormatter(formatter)
 
+    file_handler_info = logging.FileHandler(logfile + '_INFO', 'w')
+    file_handler_info.setLevel(logging.INFO)
+    file_handler_info.setFormatter(formatter)
+
     logger.addHandler(file_handler)
+    logger.addHandler(file_handler_info)
     logger.addHandler(out_handler)
 
     # Print out the current date and time
