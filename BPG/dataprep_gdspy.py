@@ -71,111 +71,6 @@ class Dataprep:
     ################################################################################
     # clean up functions for coordinate lists and gdspy objects
     ################################################################################
-    @staticmethod
-    def coords_apprx_in_line(coord1,  # type: Tuple[float, float]
-                             coord2,  # type: Tuple[float, float]
-                             coord3,  # type: Tuple[float, float]
-                             eps_grid=1e-4,  # type: float
-                             ):
-        # type: (...) -> bool
-        """
-        Determines if three coordinates are in the same line
-    
-        Parameters
-        ----------
-        coord1 : Tuple[float, float]
-            First coordinate
-        coord2 : Tuple[float, float]
-            Second coordinate
-        coord3 : Tuple[float, float]
-            Third coordinate
-        eps_grid : float
-            grid resolution below which points are considered to be the same
-    
-        Returns
-        -------
-        : bool
-            True if coordinates are in a line, False if not in a line
-        """
-        dx1_2 = coord1[0] - coord2[0]
-        dy1_2 = coord1[1] - coord2[1]
-        dx2_3 = coord2[0] - coord3[0]
-        dy2_3 = coord2[1] - coord3[1]
-    
-        # if any of the two consecutive coords are actually the same, the three coords are in a line
-        if ((abs(dx1_2) < eps_grid) and (abs(dy1_2) < eps_grid)) or \
-                ((abs(dx2_3) < eps_grid) and (abs(dy2_3) < eps_grid)):
-            return True
-        else:
-            """
-            if x&y coords are accurate, we should have dx1_acc * dy2_acc =dx2_acc * dy1_acc,
-            because of inaccuracy in float numbers, we have
-            |dx1 * dy2 - dx2 * dy1| = |(dx1_acc + err1) * (dy2_acc + err2) - (dx2_acc + err3) * (dy1_acc + err4)|
-                                    ~ |dx1 * err2 + dy2 * err1 - dx2 * err4 - dy1 * err3|
-                                    < sum(|dx1|, |dx2|, |dy1|, |dy2|) * |err_max|
-            """
-            error_abs = abs(dx1_2 * dy2_3 - dx2_3 * dy1_2)
-            error_rlt = error_abs / (abs(dx1_2) + abs(dx2_3) + abs(dy1_2) + abs(dy2_3))
-            return error_rlt < eps_grid
-
-    def cleanup_loop(self,
-                     coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
-                     eps_grid=1e-4,  # type: float
-                     ):
-        # type: (...) -> Dict[str]
-        """
-    
-        Parameters
-        ----------
-        coords_list_in : List[Tuple[float, float]]
-            The list of x-y coordinates composing a polygon shape
-        eps_grid :
-            grid resolution below which points are considered to be the same
-    
-        Returns
-        -------
-        output_dict : Dict[str]
-            Dictionary of 'coords_list_out' and 'fully_cleaned'
-        """
-
-        if isinstance(coords_list_in, np.ndarray):
-            coords_list_in = coords_list_in
-        else:
-            coords_list_in = np.array(coords_list_in)
-
-        coord_set_lsh = np.roll(coords_list_in, -1, axis=0)
-        coord_set_rsh = np.roll(coords_list_in, 1, axis=0)
-
-        vec_l = coord_set_lsh - coords_list_in
-        vec_r = coords_list_in - coord_set_rsh
-
-        dx_l = vec_l[:, 0]
-        dy_l = vec_l[:, 1]
-        dx_r = vec_r[:, 0]
-        dy_r = vec_r[:, 1]
-
-        dx_l_abs = np.abs(dx_l)
-        dy_l_abs = np.abs(dy_l)
-        dx_r_abs = np.abs(dx_r)
-        dy_r_abs = np.abs(dy_r)
-
-        same_with_left = np.logical_and(dx_l_abs < eps_grid, dy_l_abs < eps_grid)
-        same_with_right = np.logical_and(dx_r_abs < eps_grid, dy_r_abs < eps_grid)
-        diff_from_lr = np.logical_not(np.logical_or(same_with_left, same_with_right))
-
-        # error_abs = np.abs(dx_l * dy_r - dx_r * dy_l)
-        # in_line = error_abs  < eps_grid * (dx_l_abs + dy_l_abs + dx_r_abs + dy_r_abs)
-        in_line = np.logical_or(np.logical_and(dx_l_abs < eps_grid, dx_r_abs < eps_grid),
-                                np.logical_and(dy_l_abs < eps_grid, dy_r_abs < eps_grid))
-
-        delete = np.logical_or(same_with_left, np.logical_and(in_line, diff_from_lr))
-        select = np.logical_not(delete)
-
-        fully_cleaned = np.sum(delete) == 0
-        coord_set_out = coords_list_in[select]
-
-        return {'coord_set_out': coord_set_out, 'fully_cleaned': fully_cleaned}
-
     def cleanup_delete(self,
                        coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
                        eps_grid=1e-4,  # type: float
@@ -221,8 +116,17 @@ class Dataprep:
         same_with_right = np.logical_and(dx_r_abs < eps_grid, dy_r_abs < eps_grid)
         diff_from_lr = np.logical_not(np.logical_or(same_with_left, same_with_right))
 
+        """
+        if x&y coords are accurate, we should have dy2_acc/dx2_acc = dy1_acc/dx1_acc
+        equivalent to    dx1_acc * dy2_acc =dx2_acc * dy1_acc,
+        because of inaccuracy in float numbers, we have
+        |dx1 * dy2 - dx2 * dy1| = |(dx1_acc + err1) * (dy2_acc + err2) - (dx2_acc + err3) * (dy1_acc + err4)|
+                               ~ |dx1 * err2 + dy2 * err1 - dx2 * err4 - dy1 * err3|
+                               < sum(|dx1|, |dx2|, |dy1|, |dy2|) * |err_max|
+        
         # error_abs = np.abs(dx_l * dy_r - dx_r * dy_l)
         # in_line = error_abs  < eps_grid * (dx_l_abs + dy_l_abs + dx_r_abs + dy_r_abs)
+        """
         in_line = np.logical_or(np.logical_and(dx_l_abs < eps_grid, dx_r_abs < eps_grid),
                                 np.logical_and(dy_l_abs < eps_grid, dy_r_abs < eps_grid))
 
