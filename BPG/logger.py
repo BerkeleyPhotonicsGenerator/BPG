@@ -2,7 +2,20 @@ import logging
 from datetime import datetime
 
 
-def setup_logger(logfile: str = 'bpg.log', verbose: bool = False) -> None:
+def setup_logger(logfile: str = 'bpg.log',
+                 verbose: bool = False,
+                 ) -> None:
+    """
+
+    Parameters
+    ----------
+    logfile
+    verbose
+
+    Returns
+    -------
+
+    """
     """ Configures the root logger so that all other loggers in BPG inherit from its properties """
 
     # Set up the initial basic config for the root logger
@@ -14,7 +27,7 @@ def setup_logger(logfile: str = 'bpg.log', verbose: bool = False) -> None:
     out_handler = logging.StreamHandler()
     # If the verbose option is set to False, only display warnings and errors
     if verbose is False:
-        out_handler.setLevel(logging.WARNING)
+        out_handler.setLevel(logging.INFO)
     else:
         out_handler.setLevel(logging.INFO)
 
@@ -39,3 +52,10 @@ def setup_logger(logfile: str = 'bpg.log', verbose: bool = False) -> None:
     logger.info(str(time))
     logger.info('##########################')
 
+    # Set up a dataprep logger for dumping dataprep debug data
+    dataprep_logger = logging.getLogger(name='dataprep')
+    dataprep_logger.setLevel(logging.DEBUG)
+    dataprep_logger.handlers = []
+
+    # Add a file stream for the dataprep logger
+    dataprep_file_handler = logging.FileHandler()
