@@ -158,7 +158,7 @@ class Dataprep:
         coords_set_out : np.ndarray
             The cleaned coordinate set
         """
-        logging.debug(f'coords_list_in: {coords_list_in}')
+        logging.debug(f'in coords_cleanup, coords_list_in: {coords_list_in}')
 
         if isinstance(coords_list_in, np.ndarray):
             coord_set_out = coords_list_in
@@ -175,6 +175,8 @@ class Dataprep:
             coord_set_out = coord_set_out[select_array]
             delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
             not_cleaned = np.sum(delete_array) > 0
+
+        logging.debug(f'in coords_cleanup, coord_set_out: {coord_set_out}')
 
         return coord_set_out
 
@@ -629,17 +631,22 @@ class Dataprep:
         else:
             poly_coords_ori = np.array(poly_coords)
 
+        logging.debug(f'in manh_skill, manh_grid_size: {manh_grid_size}')
+        logging.debug(f'in manh_skill, poly_coords before mapping to manh grid: {poly_coords_ori}')
+
         if poly_coords_ori.size == 0:
             return poly_coords_ori
 
         poly_coords_manhgrid = manh_grid_size * np.round(poly_coords_ori / manh_grid_size)
 
-        poly_coords_manhgrid = self.coords_cleanup(poly_coords_manhgrid)
-        # poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
+        logging.debug(f'in manh_skill, poly_coords after mapping to manh grid: {poly_coords_manhgrid}')
 
-        # # adding the first point to the last if polygon is not closed
-        # if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
-        #     poly_coords_manhgrid = np.append(poly_coords_manhgrid, [poly_coords_manhgrid[0]], axis=0)
+        # poly_coords_manhgrid = self.coords_cleanup(poly_coords_manhgrid)
+        poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
+
+        # adding the first point to the last if polygon is not closed
+        if not apprx_equal_coord(poly_coords_manhgrid[0], poly_coords_manhgrid[-1]):
+            poly_coords_manhgrid = np.append(poly_coords_manhgrid, [poly_coords_manhgrid[0]], axis=0)
 
         # do Manhattanization if manh_type is 'inc'
         if manh_type == 'non':
@@ -707,8 +714,8 @@ class Dataprep:
                                  f'number of non-manh edges is {nonmanh_edge_pre}')
 
             poly_coords_cleanup = self.coords_cleanup(poly_coords_orth_manhgrid)
-            # if poly_coords_cleanup.size != 0:
-            #     poly_coords_cleanup = np.append(poly_coords_cleanup, [poly_coords_cleanup[0]], axis=0)
+            if poly_coords_cleanup.size != 0:
+                poly_coords_cleanup = np.append(poly_coords_cleanup, [poly_coords_cleanup[0]], axis=0)
             nonmanh_edge_post = self.not_manh(poly_coords_cleanup)
             if nonmanh_edge_post:
                 for i in range(0, len(poly_coords_cleanup)):
@@ -1043,10 +1050,14 @@ class Dataprep:
                                                      self.global_grid_size)
                     logging.info(f'OUO on layer {lpp_out} performed with underofover_size = {underofover_size} and'
                                  f'overofunder_size = {overofunder_size}')
+
                     polygon_o = self.dataprep_oversize_gdspy(polygon2, underofover_size)
                     polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
                     polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
                     polygon_out = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
+
+                    # # debug
+                    # polygon_out = polygon2
 
                 else:
                     pass
@@ -1291,6 +1302,7 @@ class Dataprep:
         else:
             manh_size = per_layer_manh[layer]
 
+        # return 0.001
         return manh_size
 
     def dataprep(self,
