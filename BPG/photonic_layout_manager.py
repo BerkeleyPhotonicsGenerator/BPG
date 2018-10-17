@@ -62,7 +62,7 @@ class PhotonicLayoutManager(DesignManager):
         if 'logfile' in self.specs:
             self.log_path = bag_work_dir / self.specs['logfile']
         else:
-            self.log_path = self.project_dir / 'output.log'
+            self.log_path = self.project_dir / (self.specs['project_name'] + '.log')
         setup_logger(logfile=str(self.log_path), verbose=verbose)
 
         # Overwrite tech parameters if specified in the spec file

@@ -36,13 +36,16 @@ class Dataprep:
         # Initialize dataprep related structures
         # Dictionary of layer-keyed gdspy polygonset shapes
         self.flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
-        self.lsf_flat_gdspy_polygonsets_by_layer : Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
+        self.lsf_flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
         # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
         self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), Any] = {}  # TODO: Fix Any
         self.lsf_post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), Any] = {}
         # BAG style content list after dataprep
         self.post_dataprep_flat_content_list: List[Tuple] = []
         self.lsf_post_dataprep_flat_content_list: List[Tuple] = []
+
+        # Dataprep custom configuration
+        self.dataprep_ignore_list: List[Tuple] = []
 
         self.global_grid_size = self.photonic_tech_info.global_grid_size
         self.global_rough_grid_size = self.photonic_tech_info.global_rough_grid_size
@@ -216,7 +219,7 @@ class Dataprep:
                     join_first=True,
                     precision=self.global_clean_up_grid_size,
                 )
-    
+
                 clean_coords = []
                 if isinstance(clean_polygon, gdspy.Polygon):
                     clean_coords = self.global_grid_size * np.round(clean_polygon.points / self.global_grid_size, 0)
@@ -257,9 +260,9 @@ class Dataprep:
         """
         pos_coord_list_list = pos_neg_list_list[0]
         neg_coord_list_list = pos_neg_list_list[1]
-    
+
         polygon_out = shapely.geometry.Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
-    
+
         if len(pos_coord_list_list) > 1:
             for pos_coord_list in pos_coord_list_list[1:]:
                 polygon_pos = shapely.geometry.Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
@@ -268,7 +271,7 @@ class Dataprep:
             for neg_coord_list in neg_coord_list_list:
                 polygon_neg = shapely.geometry.Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
                 polygon_out = polygon_out.difference(polygon_neg)
-    
+
         return polygon_out
 
     # TODO: This is slow
@@ -320,7 +323,7 @@ class Dataprep:
             polygon_out,
             do_cleanup=self.do_cleanup
         )
-    
+
         return polygon_out
 
     def shapely_to_gdspy_polygon(self,
@@ -723,7 +726,7 @@ class Dataprep:
                     if i == len(poly_coords_cleanup) - 1:
                         p2 = poly_coords_cleanup[0]
                     else:
-                        p2 = poly_coords_orth_manhgrid[i+1]
+                        p2 = poly_coords_orth_manhgrid[i + 1]
                     if p1[0] != p2[0] and p1[1] != p2[1]:
                         print('non_manh_edge:', p1, p2)
                 raise ValueError(f'Manhattanization failed after the clean-up, '
@@ -1334,17 +1337,18 @@ class Dataprep:
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             start = time.time()
             # TODO: fix Manhattan size
-            if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label'):
-                # TODO: This is slow
-                self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
-                    self.get_polygon_point_lists_on_layer(layer),
-                    manh_grid_size=self.get_manhattanization_size_on_layer(layer),
-                    do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
-                )
-                end = time.time()
-                logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
-            else:
-                logging.info(f'Did not converting {layer} content to gdspy')
+            if layer not in self.dataprep_ignore_list:
+                if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label'):
+                    # TODO: This is slow
+                    self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
+                        self.get_polygon_point_lists_on_layer(layer),
+                        manh_grid_size=self.get_manhattanization_size_on_layer(layer),
+                        do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
+                    )
+                    end = time.time()
+                    logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
+                else:
+                    logging.info(f'Did not converting {layer} content to gdspy')
 
         end0 = time.time()
         logging.info(f'All pointlist to gdspy conversions took total of {end0 - start0}s')
