@@ -52,7 +52,6 @@ def setup_logger(log_path: str,
     logger.addHandler(out_handler)
     logger.addHandler(file_handler_info)
     # Add filter to prevent dataprep debug logs from hitting the main logger
-    logger.addFilter(DataprepFilter())
 
     # Print out the current date and time
     logger.info('##########################')
@@ -62,15 +61,16 @@ def setup_logger(log_path: str,
     logger.info('##########################')
 
     # Set up a dataprep logger for dumping dataprep debug data
-    dataprep_logger = logging.getLogger('.dataprep')
+    dataprep_logger = logging.getLogger('dataprep')
     dataprep_logger.setLevel(logging.DEBUG)
-    dataprep_logger.handlers = []
+    dataprep_logger.propagate = False
 
     # Add a file stream for the dataprep logger
     dataprep_file_handler = logging.FileHandler(log_path + '/' 'dataprep_debug_dump.log', 'w')
     dataprep_file_handler.setLevel(logging.DEBUG)
     dataprep_file_handler.setFormatter(formatter)
 
+    dataprep_logger.handlers = []
     dataprep_logger.addHandler(dataprep_file_handler)
 
     # Print out the current date and time
@@ -80,8 +80,3 @@ def setup_logger(log_path: str,
     time = datetime.now()
     dataprep_logger.info(str(time))
     dataprep_logger.info('##########################')
-
-
-class DataprepFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord):
-        return not (record.levelno == logging.DEBUG and record.name == 'dataprep')

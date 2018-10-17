@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 
 
 MAX_SIZE = sys.maxsize
+dataprep_logger = logging.getLogger('dataprep')
 
 
 class Dataprep:
@@ -158,7 +159,7 @@ class Dataprep:
         coords_set_out : np.ndarray
             The cleaned coordinate set
         """
-        logging.debug(f'in coords_cleanup, coords_list_in: {coords_list_in}')
+        dataprep_logger.debug(f'in coords_cleanup, coords_list_in: {coords_list_in}')
 
         if isinstance(coords_list_in, np.ndarray):
             coord_set_out = coords_list_in
@@ -176,7 +177,7 @@ class Dataprep:
             delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
             not_cleaned = np.sum(delete_array) > 0
 
-        logging.debug(f'in coords_cleanup, coord_set_out: {coord_set_out}')
+        dataprep_logger.debug(f'in coords_cleanup, coord_set_out: {coord_set_out}')
 
         return coord_set_out
 
@@ -432,14 +433,14 @@ class Dataprep:
             start = time.time()
             polygon_gdspy_in = self.gdspy_manh(polygon_gdspy_in, manh_grid_size=manh_grid_size, do_manh=do_manh)
             end = time.time()
-            logging.debug(f'polyop_gdspy_to_point_list: gdspy_manh took: {end-start}s')
+            dataprep_logger.debug(f'polyop_gdspy_to_point_list: gdspy_manh took: {end-start}s')
 
         if fracture:
             start = time.time()
             # TODO: Magic numbers
             polygon_gdspy = polygon_gdspy_in.fracture(max_points=4094, precision=self.global_grid_size)
             end = time.time()
-            logging.debug(f'polyop_gdspy_to_point_list: fracturing took: {end-start}s')
+            dataprep_logger.debug(f'polyop_gdspy_to_point_list: fracturing took: {end-start}s')
         else:
             polygon_gdspy = polygon_gdspy_in
 
@@ -631,15 +632,15 @@ class Dataprep:
         else:
             poly_coords_ori = np.array(poly_coords)
 
-        logging.debug(f'in manh_skill, manh_grid_size: {manh_grid_size}')
-        logging.debug(f'in manh_skill, poly_coords before mapping to manh grid: {poly_coords_ori}')
+        dataprep_logger.debug(f'in manh_skill, manh_grid_size: {manh_grid_size}')
+        dataprep_logger.debug(f'in manh_skill, poly_coords before mapping to manh grid: {poly_coords_ori}')
 
         if poly_coords_ori.size == 0:
             return poly_coords_ori
 
         poly_coords_manhgrid = manh_grid_size * np.round(poly_coords_ori / manh_grid_size)
 
-        logging.debug(f'in manh_skill, poly_coords after mapping to manh grid: {poly_coords_manhgrid}')
+        dataprep_logger.debug(f'in manh_skill, poly_coords after mapping to manh grid: {poly_coords_manhgrid}')
 
         # poly_coords_manhgrid = self.coords_cleanup(poly_coords_manhgrid)
         poly_coords_manhgrid = self.merge_adjacent_duplicate(poly_coords_manhgrid)
@@ -781,7 +782,7 @@ class Dataprep:
             raise ValueError('polygon_gdspy should be either a Polygon or PolygonSet')
 
         end = time.time()
-        logging.debug(f'gdspy_man took {end-start}s')
+        dataprep_logger.debug(f'gdspy_man took {end-start}s')
 
         return polygon_out
 

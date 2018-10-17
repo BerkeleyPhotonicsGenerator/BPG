@@ -76,11 +76,9 @@ class PhotonicLayoutManager(DesignManager):
             if log_path.is_dir():
                 self.log_path = log_path
                 self.log_filename = 'output.log'
-            elif log_path.is_file():
+            else:
                 self.log_path = log_path.parent
                 self.log_filename = log_path.name
-            else:
-                raise ValueError(f'\'logfile\' parameter in the spec file must be a valid path')
         else:
             self.log_path = self.project_dir
             self.log_filename = 'output.log'
