@@ -446,7 +446,6 @@ class PhotonicTemplateDB(TemplateDB):
                      gds_layermap: str,
                      lsf_export_config: str,
                      lsf_filepath: str,
-                     debug: bool = False,
                      ) -> None:
         """
         Exports shapes into the lumerical LSF format
@@ -468,8 +467,6 @@ class PhotonicTemplateDB(TemplateDB):
             path to yaml containing lumerical export configurations
         lsf_filepath : str
             path to where new lsf will be created
-        debug : bool
-            True to display profiling information
         """
 
         # 1) Import tech information for the layermap and lumerical properties
@@ -608,9 +605,9 @@ class PhotonicTemplateDB(TemplateDB):
                 lsfwriter.add_code_block(lsf_repr)
 
             lsfwriter.export_to_lsf()
-        if debug:
-            end = time.time()
-            print('LSF Generation took %.4g seconds' % (end - start))
+
+        end = time.time()
+        logging.info(f'LSF Generation took {end-start:.4g} seconds')
 
     def instantiate_flat_masters(self,
                                  master_list,  # type: Sequence[DesignMaster]
@@ -1075,16 +1072,23 @@ class PhotonicTemplateDB(TemplateDB):
                                             self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
+        start = time.time()
         self.post_dataprep_flat_content_list = self.dataprep_object.dataprep(push_portshapes_through_dataprep=False)
+        end = time.time()
+        logging.info(f'All dataprep operations completed in {end - start:.4g} s')
 
     def lsf_dataprep(self):
+        logging.info(f'In PhotonicTemplateDB.lsf_dataprep')
         if self.dataprep_object is None:
             self.dataprep_object = Dataprep(self.photonic_tech_info,
                                             self.grid,
                                             self.flat_content_list_by_layer,
                                             self.flat_content_list_separate
                                             )
+        start = time.time()
         self.lsf_post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
+        end = time.time()
+        logging.info(f'All dataprep operations completed in {end - start:.4g} s')
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
