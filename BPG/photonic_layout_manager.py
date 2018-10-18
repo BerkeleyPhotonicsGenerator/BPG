@@ -192,7 +192,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
                               lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
-                              debug=debug,
                               )
 
     def generate_tb(self, generate_gds=False, debug=False):
@@ -241,7 +240,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
                               lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
-                              debug=debug,
                               )
 
         # Create the sweep LSF file

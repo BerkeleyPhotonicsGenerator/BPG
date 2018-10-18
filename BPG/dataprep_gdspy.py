@@ -1493,8 +1493,10 @@ class Dataprep:
             True to perform dataprep and convert the port indicator shapes
         """
 
+        start0 = time.time()
         # 1) Convert layer shapes to gdspy polygon format
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
+            start = time.time()
             # If shapes on the layer need to be dataprepped, convert them to gdspy polygons and add to list
             if push_portshapes_through_dataprep or (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim'):
                 self.lsf_flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
@@ -1502,8 +1504,16 @@ class Dataprep:
                     manh_grid_size=self.get_manhattanization_size_on_layer(layer),
                     do_manh=False,  # TODO: Pavan had this set to false
                 )
+                end = time.time()
+                logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
+            else:
+                logging.info(f'Did not converting {layer} content to gdspy')
+
+        end0 = time.time()
+        logging.info(f'All pointlist to gdspy conversions took total of {end0 - start0}s')
 
         # 3) Perform each dataprep operation in the list on the provided layers in order
+        start0 = time.time()
         dataprep_groups = self.photonic_tech_info.lsf_export_parameters.get('dataprep_groups', [])
         if dataprep_groups is None:
             dataprep_groups = []
@@ -1514,9 +1524,14 @@ class Dataprep:
                 shapes_in = self.lsf_flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
                 # 3b) Iteratively perform each operation on the current lpp_in
                 for lpp_op in dataprep_group['lpp_ops']:
+                    start = time.time()
                     out_layer = (lpp_op[0], lpp_op[1])
                     operation = lpp_op[2]
                     amount = lpp_op[3]
+
+                    logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
+                                 f'to layer: {out_layer}  with size {amount}')
+
                     # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
                     new_out_layer_polygons = self.poly_operation(
                         lpp_out=out_layer,
@@ -1531,12 +1546,20 @@ class Dataprep:
                     if new_out_layer_polygons is not None:
                         self.lsf_flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
 
+                    end = time.time()
+                    logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
+        end0 = time.time()
+        logging.info(f'All dataprep layer operations took {end0 - start0}s')
+
         # 4) Perform a final over_under_under_over operation
+        start0 = time.time()
         ouuo_list = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
         if ouuo_list is None:
             ouuo_list = []
 
         for lpp in ouuo_list:
+            logging.info(f'Performing OUUO on {lpp}')
+            start = time.time()
             new_out_layer_polygons = self.poly_operation(
                 lpp_out=lpp,
                 polygon1=None,
@@ -1548,10 +1571,16 @@ class Dataprep:
 
             if new_out_layer_polygons is not None:
                 self.lsf_flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+            end = time.time()
+            logging.info(f'OUUO on {lpp} took: {end-start}s')
+
+        end0 = time.time()
+        logging.info(f'All OUUO operations took a total of : {end0 - start0}s')
 
         # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         for layer, gdspy_polygons in self.lsf_flat_gdspy_polygonsets_by_layer.items():
+            start = time.time()
             output_shapes = self.polyop_gdspy_to_point_list(gdspy_polygons,
                                                             fracture=True,
                                                             do_manh=False,
@@ -1563,11 +1592,18 @@ class Dataprep:
                 new_shapes.append([coord for coord in shape])
             self.lsf_post_dataprep_polygon_pointlist_by_layer[layer] = new_shapes
 
+            end = time.time()
+            logging.info(f'Converting {layer} from gdspy to point list took: {end - start}s')
+
+
         # Reconstructs content list from dataprepped polygons and with simulation objects
         # TODO: Support creation of multiple masters
         self.generate_lsf_flat_content_list_from_dataprep(self.lsf_post_dataprep_polygon_pointlist_by_layer,
                                                           [self.flat_content_list_separate[0][10],
                                                            self.flat_content_list_separate[0][11],
                                                            self.flat_content_list_separate[0][12]])
+
+        end0 = time.time()
+        logging.info(f'Converting all layers from gdspy to point list took a total of: {end0 - start0}s')
 
         return self.lsf_post_dataprep_flat_content_list
