@@ -23,8 +23,6 @@ class SubLevel2(BPG.PhotonicTemplateBase):
 
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
-
-
         circ = BPG.photonic_objects.PhotonicRound(
             layer='SI',
             resolution=self.grid.resolution/100,
@@ -77,6 +75,22 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             x_span=self.photonic_tech_info.max_width('SI'),
             y_span=self.photonic_tech_info.min_width('SI') + self.grid.resolution,
             center=(40, -20)
+        )
+
+        self.add_photonic_port(
+            name='Port1',
+            center=(-10, -10),
+            orient='R0',
+            width=1,
+            layer='SI'
+        )
+
+        self.add_photonic_port(
+            name='Port2',
+            center=(-10, -10),
+            orient='R0',
+            width=1,
+            layer='POLY'
         )
 
         has_failed = False

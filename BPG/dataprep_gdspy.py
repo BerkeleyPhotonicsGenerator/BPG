@@ -1117,7 +1117,7 @@ class Dataprep:
             return polygon_out
 
     ################################################################################
-    # content list manimulations
+    # content list manipulations
     ################################################################################
     def get_polygon_point_lists_on_layer(self,
                                          layer,  # type: Tuple[str, str]
@@ -1332,7 +1332,7 @@ class Dataprep:
         # 1) Convert layer shapes to gdspy polygon format
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             start = time.time()
-            # TODO: fix Manhattan size
+            # Don't dataprep port layers, label layers, or any layers in the ignore/bypass list
             if (layer[1] != 'port' and layer[1] != 'label') and (
                     layer not in self.dataprep_ignore_list and layer not in self.dataprep_bypass_list):
                 # TODO: This is slow
@@ -1430,13 +1430,33 @@ class Dataprep:
 
             end = time.time()
             logging.info(f'Converting {layer} from gdspy to point list took: {end - start}s')
-
         self.by_layer_polygon_list_to_flat_for_gds_export()
+
+        # 6) Add shapes on layers from the bypass list back in
+        # TODO: Properly support batch dataprep, i.e. cases where there are mulitple gds cells
+        if len(self.post_dataprep_flat_content_list) != 1:
+            logging.warning('Batch dataprep is currently not supported!')
+        for layer in self.dataprep_bypass_list:
+            self.merge_content_lists(self.post_dataprep_flat_content_list[0], self.get_content_on_layer(layer))
 
         end0 = time.time()
         logging.info(f'Converting all layers from gdspy to point list took a total of: {end0 - start0}s')
 
         return self.post_dataprep_flat_content_list
+
+    def merge_content_lists(self, main_list: Tuple, append_list: Tuple) -> None:
+        """
+        Take the content from append list and add them to main list
+
+        Parameters
+        ----------
+        main_list
+        append_list
+        """
+        for main_content, append_content in zip(main_list, append_list):
+            if isinstance(main_content, list):
+                logging.debug(f'extending content list with {append_content}')
+                main_content.extend(append_content)
 
     def generate_lsf_flat_content_list_from_dataprep(self,
                                                      poly_list_by_layer,

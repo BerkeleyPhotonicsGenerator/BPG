@@ -75,10 +75,3 @@ layer_map:
   !!python/tuple [P, phot]: [60, 10]
   !!python/tuple [CLAD, phot]: [8, 10]
   !!python/tuple [BOX, phot]: [9, 10]
-
-# TODO: Complete implementation of gds_invalid_layers
-gds_invalid_layers:
-  !!python/tuple [SI, port]: [0, 100]
-  !!python/tuple [POLY, port]: [4, 100]
-  !!python/tuple [CLAD, phot]: [8, 10]
-  !!python/tuple [BOX, phot]: [9, 10]
