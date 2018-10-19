@@ -1,0 +1,31 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+# Top level directory for the project
+project_name: bpg_test_suite
+
+logfile: 'gen_libs/bpg_test_suite/custom_log_name_test.txt'
+
+# Output Settings
+lsf_filename: logger
+gds_filename: logger
+
+# Cadence related parameters
+impl_lib: 'add_round_lib'
+impl_cell: 'add_round_cell'
+
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.test_logger'
+# Layout generator class name
+layout_class: 'DummyClass'
+
+
+layout_params:  # Place parameters to be passed to the generator class under here
+
+
+# Vestigial parameters required by BAG class
+sweep_params:
+  intent: [standard]
+root_dir: 'data'

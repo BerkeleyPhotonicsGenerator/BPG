@@ -24,8 +24,19 @@ class PhotonicLayoutManager(DesignManager):
     def __init__(self,
                  bprj: "PhotonicBagProject",
                  spec_file,
-                 verbose=False,
+                 verbose: bool = False,
                  ):
+        """
+
+        Parameters
+        ----------
+        bprj : PhotonicBagProject
+            The PhotonicBagProject which must be initialized before calling PLM.
+        spec_file : str
+            The path to the specification file for the layout.
+        verbose : bool
+            True to output debug level messages to stdout. False to output info level messages to stdout.
+        """
 
         DesignManager.__init__(self, bprj, spec_file)
         """
@@ -60,10 +71,18 @@ class PhotonicLayoutManager(DesignManager):
 
         # Enable logging for BPG
         if 'logfile' in self.specs:
-            self.log_path = bag_work_dir / self.specs['logfile']
+            # If logfile is specified in specs, dump all logs in that location
+            log_path = bag_work_dir / self.specs['logfile']
+            if log_path.is_dir():
+                self.log_path = log_path
+                self.log_filename = 'output.log'
+            else:
+                self.log_path = log_path.parent
+                self.log_filename = log_path.name
         else:
-            self.log_path = self.project_dir / (self.specs['project_name'] + '.log')
-        setup_logger(logfile=str(self.log_path), verbose=verbose)
+            self.log_path = self.project_dir
+            self.log_filename = 'output.log'
+        setup_logger(log_path=str(self.log_path), log_filename=str(self.log_filename), verbose=verbose)
 
         # Overwrite tech parameters if specified in the spec file
         # Setup the abstract tech layermap
@@ -173,7 +192,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
                               lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
-                              debug=debug,
                               )
 
     def generate_tb(self, generate_gds=False, debug=False):
@@ -222,7 +240,6 @@ class PhotonicLayoutManager(DesignManager):
         self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
                               lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
                               lsf_filepath=self.lsf_path,
-                              debug=debug,
                               )
 
         # Create the sweep LSF file
@@ -343,7 +360,6 @@ class PhotonicLayoutManager(DesignManager):
                                       cell_name=cell+'_Manh',
                                       debug=True
                                       )
-
 
     def create_materials_file(self):
         """
