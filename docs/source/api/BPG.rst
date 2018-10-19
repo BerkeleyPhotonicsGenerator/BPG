@@ -20,10 +20,34 @@ BPG.dataprep\_shapely module
     :undoc-members:
     :show-inheritance:
 
+BPG.dataprep\_skill module
+--------------------------
+
+.. automodule:: BPG.dataprep_skill
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+BPG.logger module
+-----------------
+
+.. automodule:: BPG.logger
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 BPG.lumerical\_generator module
 -------------------------------
 
 .. automodule:: BPG.lumerical_generator
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+BPG.lumerical\_materials module
+-------------------------------
+
+.. automodule:: BPG.lumerical_materials
     :members:
     :undoc-members:
     :show-inheritance:
@@ -80,6 +104,14 @@ BPG.photonic\_port module
 -------------------------
 
 .. automodule:: BPG.photonic_port
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
+BPG.photonic\_skill module
+--------------------------
+
+.. automodule:: BPG.photonic_skill
     :members:
     :undoc-members:
     :show-inheritance:
