@@ -9,5 +9,5 @@ Welcome to BPG's documentation!
 .. toctree::
    :maxdepth: 2
 
+   dataprep/root
    api/modules
-   api/BPG
