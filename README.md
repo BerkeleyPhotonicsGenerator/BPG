@@ -37,7 +37,7 @@ More detail and screenshots coming soon...
 
 ## Contributing
 We'd love your help in building and improving BPG! Please create an issue and contact Pavan at 
-pvnbhargava@berkeley.edu before sending your first pull request. Please make sure to run the test suite (run_tests.sh)
+pvnbhargava@berkeley.edu before sending your first pull request. Please make sure to run the test suite (run_tests.py)
 in the Photonics_Dev repo prior to making your pull request.
 
 ## Credits
