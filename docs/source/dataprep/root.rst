@@ -1,5 +1,10 @@
 Dataprep
 ========
 
-This is an introduction to the dataprep functionality built into BPG. Dataprep is used to clean DRC, perform
-technology specific layer transformations, and convert abstract design layers to true mask layers for use in Lumerical.
+This chapter contains an in-depth explanation of how dataprep works, and how to customize the dataprep routine to
+support photonic layout compilation for your specific PDK
+
+.. toctree::
+   :maxdepth: 1
+
+   dataprep_basics.md
