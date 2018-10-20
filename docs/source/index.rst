@@ -9,8 +9,8 @@ Welcome to BPG's documentation!
 .. toctree::
    :maxdepth: 2
 
-   getting_started/root.md
-   installation_guide/root.md
-   configuration_files/root.md
-   dataprep/root.md
+   getting_started/root
+   installation_guide/root
+   configuration_files/root
+   dataprep/root
    api/modules
