@@ -16,7 +16,7 @@ BPG is a plugin to BAG, and relies on it for many core functions. BAG requires a
 to get a compatible standalone development file structure with environmental variables, please install BPG through 
 the [Photonics_Dev](https://github.com/pvnbhargava/Photonics_Dev) repository.
 
-Before creating your first layout generator, please run `sh run_tests.sh` in your Photonics_Dev directory to ensure that
+Before creating your first layout generator, please run `run_tests.py` in your Photonics_Dev directory to ensure that
 everything has been installed properly.
 
 ## Documentation
