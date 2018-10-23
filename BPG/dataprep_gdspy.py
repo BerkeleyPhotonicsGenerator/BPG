@@ -1,3 +1,4 @@
+import warnings
 import gdspy
 import time
 import numpy as np
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
 
 MAX_SIZE = sys.maxsize
 dataprep_logger = logging.getLogger('dataprep')
+
+warnings.filterwarnings(
+    action='ignore',
+    message='.*polygon with more than 199 points was created.*',
+)
 
 
 class Dataprep:
@@ -490,8 +496,8 @@ class Dataprep:
 
             non_manh_edge = self.not_manh(polygon_gdspy.points)
             if non_manh_edge:
-                print('Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
-                      'number of non-manh edges is', non_manh_edge)
+                logging.debug(f'Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
+                              f'number of non-manh edges is {non_manh_edge}')
 
         elif isinstance(polygon_gdspy, gdspy.PolygonSet):
             for poly in polygon_gdspy.polygons:
@@ -500,8 +506,8 @@ class Dataprep:
 
                 non_manh_edge = self.not_manh(poly)
                 if non_manh_edge:
-                    print('Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
-                          'number of non-manh edges is', non_manh_edge)
+                    logging.debug(f'Warning: a non-Manhattanized polygon is created in polyop_gdspy_to_point_list, '
+                                  f'number of non-manh edges is {non_manh_edge}')
         else:
             raise ValueError('polygon_gdspy must be a gdspy.Polygon or gdspy.PolygonSet')
 
