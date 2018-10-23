@@ -279,12 +279,11 @@ class Dataprep:
 
         return polygon_out
 
-    # TODO: This is slow
     def dataprep_coord_to_gdspy(
             self,
             pos_neg_list_list: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]],
             manh_grid_size: float,
-            do_manh: bool,
+            do_manh: bool,  # TODO: Remove this argument?
     ) -> Union[gdspy.Polygon, gdspy.PolygonSet]:
         """
         Converts list of polygon coordinate lists into GDSPY polygon objects
@@ -952,6 +951,8 @@ class Dataprep:
                        do_manh: bool = False,
                        ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
+        Performs a dataprep operation on the input shapes passed by polygon2, and merges (adds/subtracts to/from,
+        replaces, etc) with the shapes currently on
 
         Parameters
         ----------
@@ -974,15 +975,24 @@ class Dataprep:
         polygons_out : Union[gdspy.Polygon, gdspy.PolygonSet, None]
             The new polygons present on the output layer
         """
-        # TODO: clean up the input polygons first ?
 
         # If there are no shapes to operate on, return the shapes currently on the output layer
         if polygon2 is None:
             return polygon1
         else:
-            if operation == 'rad':
-                # TODO: THIS IS SLOW
-                # TODO: manh ?
+            if operation == 'manh':
+                # Manhattanize the shape.
+                # Overwrite any shapes currently on the output layer, so disregard polygon1
+                polygon_out = self.dataprep_cleanup_gdspy(
+                    polygon=self.gdspy_manh(
+                        polygon_gdspy=polygon2,
+                        manh_grid_size=size_amount,
+                        do_manh=True  # TODO: Remove this argument?
+                    ),
+                    do_cleanup=self.do_cleanup
+                )
+
+            elif operation == 'rad':
                 polygon_rough_sized = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
 
                 if polygon1 is None:
@@ -1310,7 +1320,6 @@ class Dataprep:
         else:
             manh_size = per_layer_manh[layer]
 
-        # return 0.001
         return manh_size
 
     def dataprep(self) -> List:
@@ -1340,7 +1349,7 @@ class Dataprep:
                 self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=self.get_manhattanization_size_on_layer(layer),
-                    do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,
+                    do_manh=False,  # TODO: Remove this argument?
                 )
                 end = time.time()
                 logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
@@ -1354,16 +1363,47 @@ class Dataprep:
         dataprep_groups = self.photonic_tech_info.dataprep_routine_data.get('dataprep_groups', [])
         if dataprep_groups is None:
             dataprep_groups = []
+
         for dataprep_group in dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
-            for lpp_in in dataprep_group['lpp_in']:
+            for lpp_in_entry in dataprep_group['lpp_in']:
+                lpp_in = lpp_in_entry.get('lpp', None)
+                if lpp_in is None:
+                    raise ValueError(f'lpp_in entry in dataprep groups must be a list of dictionaries with a'
+                                     f' \'lpp_in\' key specified.')
+                if len(lpp_in) != 2:
+                    raise ValueError(f'lpp input key must be specified by both a layer and purpose.\n'
+                                     f'specified lpp: {lpp_in} does not meet this criteria.')
+                # Convert lpp_in list type item into a tuple to serve as a dictionary key
+                lpp_in = (lpp_in[0], lpp_in[1])
+
                 shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
+
                 # 3b) Iteratively perform each operation on the current lpp_in
                 for lpp_op in dataprep_group['lpp_ops']:
                     start = time.time()
-                    out_layer = (lpp_op[0], lpp_op[1])
-                    operation = lpp_op[2]
-                    amount = lpp_op[3]
+                    operation = lpp_op.get('operation', None)
+                    if operation is None:
+                        raise ValueError(f'Operation must be specified for lpp_op {lpp_op}')
+
+                    amount = lpp_op.get('amount', None)
+                    if (amount is None) and (operation != 'manh'):
+                        raise ValueError(f'Amount must be specified for lpp_op {lpp_op}')
+                    if (amount is None) and (operation == 'manh'):
+                        amount = self.get_manhattanization_size_on_layer(lpp_in)
+                        logging.info(f'manh size amount not specified in operation. Setting to {amount}')
+
+                    out_layer = lpp_op.get('lpp', None)
+                    if (out_layer is None) and (operation != 'manh'):
+                        raise ValueError(f'For non manh dataprep operations, output layer must be specified')
+                    if (out_layer is None) and (operation == 'manh'):
+                        out_layer = lpp_in
+                        logging.info(f'manh output layer not specified in operation. Setting to {out_layer}')
+                    if len(out_layer) != 2:
+                        raise ValueError(f'lpp output key must be specified by both a layer and purpose.\n'
+                                         f'Specified lpp: {out_layer} in lpp_op: {lpp_op} does not meet this criteria.')
+
+                    out_layer = (out_layer[0], out_layer[1])
 
                     logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
                                  f'to layer: {out_layer}  with size {amount}')
@@ -1384,6 +1424,7 @@ class Dataprep:
 
                     end = time.time()
                     logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
+
         end0 = time.time()
         logging.info(f'All dataprep layer operations took {end0 - start0}s')
 
@@ -1393,9 +1434,20 @@ class Dataprep:
         if ouuo_list is None:
             ouuo_list = []
 
-        for lpp in ouuo_list:
+        for lpp_entry in ouuo_list:
+            lpp = lpp_entry.get('lpp', None)
+            if lpp is None:
+                raise ValueError(f'over_under_under_over must be composed of a list of dictionaries, each with a '
+                                 f'mandatory \'lpp\' key value specified.')
+            if len(lpp) != 2:
+                raise ValueError(f'lpp must be specified by both layer and purpose (a list of length 2)')
+
+            # Convert lpp to a tuple
+            lpp = (lpp[0], lpp[1])
+
             logging.info(f'Performing OUUO on {lpp}')
             start = time.time()
+
             new_out_layer_polygons = self.poly_operation(
                 lpp_out=lpp,
                 polygon1=None,

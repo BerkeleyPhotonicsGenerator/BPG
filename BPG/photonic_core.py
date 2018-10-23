@@ -367,6 +367,18 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             root_path + 'BPG/BPG/dataprep_skill.il'
         )
 
+        self.layer_map = None
+        self.via_info = None
+        self.lsf_export_parameters = None
+        self.dataprep_parameters = None
+        self.global_dataprep_size_amount = None
+        self.global_grid_size = None
+        self.global_rough_grid_size = None
+        self.dataprep_routine_data = None
+
+        self.load_tech_files()
+
+    def load_tech_files(self):
         with open(self.layermap_path, 'r') as f:
             layer_info = yaml.load(f)
             self.layer_map = layer_info['layer_map']
@@ -380,8 +392,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
                 self.dataprep_parameters = yaml.load(f)
         else:
             self.dataprep_parameters = None
-            print('Warning: dataprep_parameters_filepath not specified in tech config. Dataprep and DRC lookup '
-                  'functions may not work.')
+            logging.warning('Warning: dataprep_parameters_filepath not specified in tech config. '
+                            'Dataprep and DRC lookup functions may not work.')
 
         if self.dataprep_routine_filepath:
             with open(self.dataprep_routine_filepath, 'r') as f:
@@ -391,9 +403,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             self.global_rough_grid_size = self.dataprep_routine_data['GlobalRoughGridSize']
         else:
             self.dataprep_routine_data = None
-            print('Warning: dataprep_routine_filepath not specified in tech config. Dataprep and DRC lookup '
-                  'functions may not work.')
-
+            logging.warning('Warning: dataprep_routine_filepath not specified in tech config. '
+                            'Dataprep and DRC lookup functions may not work.')
 
     @abc.abstractmethod
     def min_width_unit(self,

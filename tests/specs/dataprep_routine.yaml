@@ -13,7 +13,15 @@ dataprep_groups:
   - lpp_in:
       - {lpp: ['SI', 'phot']}
     lpp_ops:
-      - {lpp: ['SI', 'phot'], operation: 'manh', amount: 0.001}
+      - {lpp: ['V1', 'drawing'], operation: 'manh', amount: 0.001}
+  - lpp_in:
+      - {lpp: ['SI', 'phot']}
+    lpp_ops:
+      - {lpp: ['V2', 'drawing'], operation: 'add', amount: 0}
+  - lpp_in:
+      - {lpp: ['V2', 'drawing']}
+    lpp_ops:
+      - {operation: 'manh'}
   - lpp_in:
       - {lpp: ['POLY', 'phot']}
     lpp_ops:
@@ -23,15 +31,8 @@ dataprep_groups:
 over_under_under_over:
   - {lpp: ['SI', 'drawing']}
 
-dataprep_ignore_list:
-  -
-#  - !!python/tuple ['SI', 'phot']
-
-dataprep_bypass_list:
-  - !!python/tuple ['SI', 'port']
-  - !!python/tuple ['POLY', 'port']
-
 manh_size_per_layer:
+  V2: 0.05
 #  SI: 0.010
 #  POLY: 0.010
 #  M1: 0.05
