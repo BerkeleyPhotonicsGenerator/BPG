@@ -19,12 +19,26 @@ dataprep_groups:
     lpp_ops:
       - {lpp: ['POLY', 'exclude'], operation: 'rad', amount: 1.0}
       - {lpp: ['POLY', 'drawing'], operation: 'add', amount: 0.0}
+  - lpp_in:
+      - {lpp: ['M1', 'phot']}
+    lpp_ops:
+      - {lpp: ['M1', 'drawing'], operation: 'add', amount: 0.001}
+  - lpp_in:
+      - {lpp: ['M1', 'drawing']}
+    lpp_ops:
+      - {operation: 'manh', amount: 0.001}
+  - lpp_in:
+      - {lpp: ['M1', 'sub']}
+    lpp_ops:
+      - {lpp: ['M1', 'drawing'], operation: 'sub', amount: 0}
+
+
 
 over_under_under_over:
   - {lpp: ['SI', 'drawing']}
 
-dataprep_ignore_list:
-  -
+#dataprep_ignore_list:
+#  -
 #  - !!python/tuple ['SI', 'phot']
 
 dataprep_bypass_list:
