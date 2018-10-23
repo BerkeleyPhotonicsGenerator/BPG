@@ -105,6 +105,9 @@ class PhotonicLayoutManager(DesignManager):
             self.prj.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
         logging.info(f'loading lumerical export configuration from {self.prj.photonic_tech_info.lsf_export_path}')
 
+        # Now that paths are fully settled, load the tech files
+        self.prj.photonic_tech_info.load_tech_files()
+
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
         self.gds_path = str(self.data_dir / self.specs['gds_filename'])
