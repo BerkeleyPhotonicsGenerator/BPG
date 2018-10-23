@@ -76,6 +76,9 @@ class Dataprep:
         # if function implentations are correct
         self.GLOBAL_DO_FINAL_MANH = False
 
+        # cache list of polygons
+        self.polygon_cache_list = []
+
     ################################################################################
     # clean up functions for coordinate lists and gdspy objects
     ################################################################################
@@ -943,6 +946,7 @@ class Dataprep:
         return polygon_roughsized
 
     def poly_operation(self,
+                       lpp_in: Union[str, Tuple[str, str]],
                        lpp_out: Union[str, Tuple[str, str]],
                        polygon1: Union[gdspy.Polygon, gdspy.PolygonSet, None],
                        polygon2: Union[gdspy.Polygon, gdspy.PolygonSet, None],
@@ -992,14 +996,38 @@ class Dataprep:
                     do_cleanup=self.do_cleanup
                 )
 
+
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
+
             elif operation == 'rad':
-                polygon_rough_sized = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
+                # TODO: polygon cache
+                polygon_found = False
+                for polygon_dict in self.polygon_cache_list:
+                    if (polygon_dict['lpp_in'] == lpp_in and polygon_dict['size_amount'] == size_amount and
+                        polygon_dict['do_manh'] == do_manh):
+                        polygon_found = True
+                        polygon_rough_sized = polygon_dict['polygon']
+
+                if not polygon_found:
+                    polygon_rough_sized = self.dataprep_roughsize_gdspy(polygon2, size_amount=size_amount, do_manh=do_manh)
+                    self.polygon_cache_list.append(
+                        {'lpp_in': lpp_in,
+                         'size_amount': size_amount,
+                         'do_manh': do_manh,
+                         'polygon': polygon_rough_sized
+                         }
+                    )
 
                 if polygon1 is None:
                     polygon_out = polygon_rough_sized
                 else:
                     polygon_out = gdspy.fast_boolean(polygon1, polygon_rough_sized, 'or')
                     polygon_out = self.dataprep_cleanup_gdspy(polygon_out, do_cleanup=self.do_cleanup)
+
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
+
 
             elif operation == 'add':
                 if polygon1 is None:
@@ -1010,6 +1038,9 @@ class Dataprep:
                                                      'or')
                     polygon_out = self.dataprep_cleanup_gdspy(polygon_out, do_cleanup=self.do_cleanup)
 
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
+
             elif operation == 'sub':
                 if polygon1 is None:
                     polygon_out = None
@@ -1018,6 +1049,9 @@ class Dataprep:
                                                      self.dataprep_oversize_gdspy(polygon2, size_amount),
                                                      'not')
                     polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
+
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
 
             elif operation == 'ext':
                 # TODO:
@@ -1056,6 +1090,9 @@ class Dataprep:
                 else:
                     pass
 
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
+
             elif operation == 'ouo':
                 # TODO
                 # if (not (member(LppIn NotToExtendOrOverUnderOrUnderOverLpps) != nil)):
@@ -1079,6 +1116,9 @@ class Dataprep:
 
                 else:
                     pass
+
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
 
             elif operation == 'rouo':
                 # TODO: THIS IS SLOW
@@ -1119,6 +1159,9 @@ class Dataprep:
                     # polygon_simplified = polygon_ouuo
 
                     polygon_out = polygon_simplified
+
+                self.polygon_cache_list[:] = [polygon_dict for polygon_dict in self.polygon_cache_list
+                                              if not polygon_dict['lpp_in'] == lpp_out]
 
             elif operation == 'del':
                 # TODO
@@ -1349,7 +1392,7 @@ class Dataprep:
                 self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=self.get_manhattanization_size_on_layer(layer),
-                    do_manh=False,  # TODO: Remove this argument?
+                    do_manh=self.GLOBAL_DO_MANH_AT_BEGINNING,  # TODO: Remove this argument?
                 )
                 end = time.time()
                 logging.info(f'Converting {layer} content to gdspy took: {end - start}s')
@@ -1410,6 +1453,7 @@ class Dataprep:
 
                     # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
                     new_out_layer_polygons = self.poly_operation(
+                        lpp_in=lpp_in,
                         lpp_out=out_layer,
                         polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
                         polygon2=shapes_in,
@@ -1449,6 +1493,7 @@ class Dataprep:
             start = time.time()
 
             new_out_layer_polygons = self.poly_operation(
+                lpp_in=lpp,
                 lpp_out=lpp,
                 polygon1=None,
                 polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
@@ -1605,6 +1650,7 @@ class Dataprep:
 
                     # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
                     new_out_layer_polygons = self.poly_operation(
+                        lpp_in=lpp_in,
                         lpp_out=out_layer,
                         polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
                         polygon2=shapes_in,
@@ -1632,6 +1678,7 @@ class Dataprep:
             logging.info(f'Performing OUUO on {lpp}')
             start = time.time()
             new_out_layer_polygons = self.poly_operation(
+                lpp_in=lpp,
                 lpp_out=lpp,
                 polygon1=None,
                 polygon2=self.lsf_flat_gdspy_polygonsets_by_layer.get(lpp, None),
