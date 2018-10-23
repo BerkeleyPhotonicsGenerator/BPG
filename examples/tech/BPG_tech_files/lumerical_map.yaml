@@ -4,10 +4,10 @@
 dataprep_groups:
   # Place buried oxide and cladding around all areas covered by Si
   - lpp_in:
-      - !!python/tuple ['SI', 'phot']
+      - {lpp: ['SI', 'phot']}
     lpp_ops:
-      - !!python/tuple ['BOX', 'phot', 'rad', 5.0]
-      - !!python/tuple ['CLAD', 'phot', 'rad', 5.0]
+      - {lpp: ['BOX', 'phot'], operation: 'rad', amount: 5.0}
+      - {lpp: ['CLAD', 'phot'], operation: 'rad', amount: 5.0}
 
 # Don't use final OUUO operation for Lumerical export
 over_under_under_over:

@@ -89,6 +89,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.lsf_export_file = photonic_tech_info.lsf_export_path
         self._export_gds = True
         self.dataprep_object = None
+        self.lsf_dataprep_object = None
 
     @property
     def export_gds(self):
@@ -1066,12 +1067,12 @@ class PhotonicTemplateDB(TemplateDB):
         # Initialize dataprep structure
         # Call dataprep method
         logging.info(f'In PhotonicTemplateDB.dataprep')
-        if self.dataprep_object is None:
-            self.dataprep_object = Dataprep(self.photonic_tech_info,
-                                            self.grid,
-                                            self.flat_content_list_by_layer,
-                                            self.flat_content_list_separate
-                                            )
+        self.dataprep_object = Dataprep(self.photonic_tech_info,
+                                        self.grid,
+                                        self.flat_content_list_by_layer,
+                                        self.flat_content_list_separate,
+                                        is_lsf=False
+                                        )
         start = time.time()
         self.post_dataprep_flat_content_list = self.dataprep_object.dataprep()
         end = time.time()
@@ -1079,16 +1080,16 @@ class PhotonicTemplateDB(TemplateDB):
 
     def lsf_dataprep(self):
         logging.info(f'In PhotonicTemplateDB.lsf_dataprep')
-        if self.dataprep_object is None:
-            self.dataprep_object = Dataprep(self.photonic_tech_info,
+        self.lsf_dataprep_object = Dataprep(self.photonic_tech_info,
                                             self.grid,
                                             self.flat_content_list_by_layer,
-                                            self.flat_content_list_separate
+                                            self.flat_content_list_separate,
+                                            is_lsf=True
                                             )
         start = time.time()
-        self.lsf_post_dataprep_flat_content_list = self.dataprep_object.lsf_dataprep(push_portshapes_through_dataprep=False)
+        self.lsf_post_dataprep_flat_content_list = self.lsf_dataprep_object.dataprep()
         end = time.time()
-        logging.info(f'All dataprep operations completed in {end - start:.4g} s')
+        logging.info(f'All LSF dataprep operations completed in {end - start:.4g} s')
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
