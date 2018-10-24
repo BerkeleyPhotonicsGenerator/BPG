@@ -3,11 +3,10 @@ import gdspy
 import time
 import numpy as np
 import sys
-import shapely.geometry
 import logging
 
 from BPG.photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound
-from math import ceil, sqrt
+from math import ceil
 from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional
 
 if TYPE_CHECKING:
@@ -190,7 +189,7 @@ class Dataprep:
                        ):
         # type (...) -> List[Tuple[float, float]]
         """
-        clean up coordinates in the list that are redundant or harmful for following Shapely functions
+        clean up coordinates in the list that are redundant or harmful for following geometry manipulation functions
     
         Parameters
         ----------
@@ -283,41 +282,8 @@ class Dataprep:
         return clean_polygon
 
     ################################################################################
-    # type-converting functions for coordlist/gdspy/shapely
+    # type-converting functions for coordlist/gdspy
     ################################################################################
-    @staticmethod
-    def coord_to_shapely(
-            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-    ):
-        # type: (...) -> Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
-        """
-        Converts list of coordinate lists into shapely polygon objects
-    
-        Parameters
-        ----------
-        pos_neg_list_list :
-            The tuple of positive and negative lists of coordinate lists
-    
-        Returns
-        -------
-        polygon_out : Union[Polygon, Multipolygon]
-            The Shapely representation of the polygon
-        """
-        pos_coord_list_list = pos_neg_list_list[0]
-        neg_coord_list_list = pos_neg_list_list[1]
-
-        polygon_out = shapely.geometry.Polygon(pos_coord_list_list[0]).buffer(0, cap_style=3, join_style=2)
-
-        if len(pos_coord_list_list) > 1:
-            for pos_coord_list in pos_coord_list_list[1:]:
-                polygon_pos = shapely.geometry.Polygon(pos_coord_list).buffer(0, cap_style=3, join_style=2)
-                polygon_out = polygon_out.union(polygon_pos)
-        if len(neg_coord_list_list):
-            for neg_coord_list in neg_coord_list_list:
-                polygon_neg = shapely.geometry.Polygon(neg_coord_list).buffer(0, cap_style=3, join_style=2)
-                polygon_out = polygon_out.difference(polygon_neg)
-
-        return polygon_out
 
     def dataprep_coord_to_gdspy(
             self,
@@ -369,80 +335,6 @@ class Dataprep:
         )
 
         return polygon_out
-
-    def shapely_to_gdspy_polygon(self,
-                                 polygon_shapely,  # type: shapely.geometry.Polygon
-                                 ):
-        # type: (...) -> gdspy.Polygon
-        """
-        Converts the shapely representation of a polygon to a gdspy representation
-
-        Parameters
-        ----------
-        polygon_shapely : shapely.geometry.Polygon
-            The shapely representation of the polygon
-
-        Returns
-        -------
-        polygon_gdspy : gdspy.Polygon
-            The gdspy representation of the polygon
-        """
-        if not isinstance(polygon_shapely, shapely.geometry.Polygon):
-            raise ValueError("input must be a Shapely Polygon")
-        else:
-            ext_coord_list = list(zip(*polygon_shapely.exterior.coords.xy))
-            polygon_gdspy = gdspy.Polygon(ext_coord_list)
-            if len(polygon_shapely.interiors):
-                for interior in polygon_shapely.interiors:
-                    int_coord_list = list(zip(*interior.coords.xy))
-                    polygon_gdspy_int = gdspy.Polygon(int_coord_list)
-
-                    polygon_gdspy = self.dataprep_cleanup_gdspy(
-                        gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_int,
-                                           'not',
-                                           max_points=MAX_SIZE,
-                                           precision=self.global_operation_precision),
-                        do_cleanup=self.do_cleanup
-                    )
-            else:
-                pass
-            return polygon_gdspy
-
-    def shapely_to_gdspy(self,
-                         geom_shapely,  # type: Union[shapely.geometry.Polygon, shapely.geometry.MultiPolygon]
-                         ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
-        """
-        Convert the shapely representation of a polygon/multipolygon into the gdspy representation of the
-        polygon/polygonset
-
-        Parameters
-        ----------
-        geom_shapely : Union[Polygon, MultiPolygon]
-            The shapely representation of the polygon
-
-        Returns
-        -------
-        polygon_gdspy : Union[gdspy.Polygon, gdspy.PolygonSet]
-            The gdspy representation of the polygon
-        """
-        if isinstance(geom_shapely, shapely.geometry.Polygon):
-            return self.shapely_to_gdspy_polygon(geom_shapely)
-        elif isinstance(geom_shapely, shapely.geometry.MultiPolygon):
-            polygon_gdspy = self.shapely_to_gdspy_polygon(geom_shapely[0])
-            for polygon_shapely in geom_shapely[1:]:
-                polygon_gdspy_append = self.shapely_to_gdspy_polygon(polygon_shapely)
-
-                polygon_gdspy = self.dataprep_cleanup_gdspy(
-                    gdspy.fast_boolean(polygon_gdspy, polygon_gdspy_append,
-                                       'or',
-                                       max_points=MAX_SIZE,
-                                       precision=self.global_operation_precision),
-                    do_cleanup=self.do_cleanup)
-
-            return polygon_gdspy
-        else:
-            raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
 
     def polyop_gdspy_to_point_list(self,
                                    polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
@@ -823,38 +715,6 @@ class Dataprep:
         return polygon_out
 
     ################################################################################
-    # Simplify function
-    ################################################################################
-    def simplify_coord_to_gdspy(
-            self,
-            pos_neg_list_list,  # type: Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-            tolerance=5e-4,  # type: float
-    ):
-        # type: (...) -> Union[gdspy.PolygonSet, gdspy.Polygon]
-        """
-        Simplifies a polygon coordinate-list representation of a complex polygon (multiple shapes, with holes, etc) and
-        converts the simplified polygon into gdspy representation. Simplification involves reducing the number of points
-        in the shape based on a tolerance of how far the points are from being collinear.
-
-        Parameters
-        ----------
-        pos_neg_list_list : Tuple[List[List[Tuple[float, float]]], List[List[Tuple[float, float]]]]
-            Tuple containing the positive and negative list of polygon point-lists
-        tolerance : float
-            The tolerance within which a set of points are deemed collinear
-
-        Returns
-        -------
-        poly_gdspy_simplified : Union[gdspy.PolygonSet, gdspy.Polygon]
-            The simplified polygon in gdspy representation
-        """
-        poly_shapely = self.coord_to_shapely(pos_neg_list_list)
-        poly_shapely_simplified = poly_shapely.simplify(tolerance)
-        poly_gdspy_simplified = self.shapely_to_gdspy(poly_shapely_simplified)
-
-        return poly_gdspy_simplified
-
-    ################################################################################
     # Dataprep related operations
     ################################################################################
     def dataprep_oversize_gdspy(self,
@@ -999,7 +859,7 @@ class Dataprep:
             The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
         size_amount : Union[float, Tuple[Float, Float]]
             The amount to over/undersize the shapes to be added/subtracted.
-            For ouo and rouo, the 0.5*minWidth related over and under size amount
+            For ouo, the 0.5*minWidth related over and under size amount
         do_manh_in_rad : bool
             True to perform Manhattanization during the 'rad' operation
 
@@ -1115,44 +975,6 @@ class Dataprep:
                 polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
                 polygon_out = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
 
-            # TODO: Is this function used. Check its output / performance
-            elif operation == 'rouo':
-                if polygon2 is None:
-                    polygon_out = None
-                else:
-                    min_space = self.photonic_tech_info.min_space(lpp_out)
-                    min_width = self.photonic_tech_info.min_width(lpp_out)
-                    underofover_size = \
-                        self.global_grid_size * ceil(0.5 * min_space / self.global_grid_size)
-                    overofunder_size = \
-                        self.global_grid_size * ceil(0.5 * min_width / self.global_grid_size)
-
-                    min_space_width = min(min_space, min_width)
-                    simplify_tolerance = 0.999 * min_space_width * self.global_rough_grid_size / sqrt(
-                        min_space_width ** 2 + self.global_rough_grid_size ** 2)
-                    # simplify_tolerance = 1.4 * rough_grid_size
-
-                    # TODO: see if do_manh should always be True here
-                    polygon_manh = self.gdspy_manh(polygon2, self.global_rough_grid_size, do_manh=True)
-
-                    polygon_o = self.dataprep_oversize_gdspy(polygon_manh, underofover_size)
-                    polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
-                    polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
-                    polygon_ouuo = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
-
-                    # Todo: global grid or rough global grid?
-                    coord_list = self.polyop_gdspy_to_point_list(polygon_ouuo,
-                                                                 fracture=False,
-                                                                 do_manh=False,
-                                                                 manh_grid_size=self.global_rough_grid_size,
-                                                                 )
-                    polygon_simplified = self.simplify_coord_to_gdspy((coord_list, []),
-                                                                      # TODO: Figure out the magic number
-                                                                      tolerance=simplify_tolerance,
-                                                                      )
-
-                    polygon_out = polygon_simplified
-
             elif operation == 'del':
                 # TODO
                 polygon_out = None
@@ -1179,7 +1001,7 @@ class Dataprep:
         Parameters
         ----------
         layer : Tuple[str, str]
-            the layer purpose pair to get all shapes in shapely format
+            the layer purpose pair on which to get all shapes
         debug : bool
             true to print debug info
 
