@@ -39,11 +39,11 @@ over_under_under_over:
 
 #dataprep_ignore_list:
 #  -
-#  - !!python/tuple ['SI', 'phot']
+#  - {lpp: ['SI', 'phot']}
 
 dataprep_bypass_list:
-  - !!python/tuple ['SI', 'port']
-  - !!python/tuple ['POLY', 'port']
+  - {lpp: ['SI', 'port']}
+  - {lpp: ['POLY', 'port']}
 
 manh_size_per_layer:
 #  SI: 0.010
