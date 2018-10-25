@@ -29,6 +29,8 @@ warnings.filterwarnings(
     message='.*polygon with more than 199 points was created.*',
 )
 
+# List of
+IMPLEMENTED_DATAPREP_OPERATIONS = ['rad', 'add', 'manh', 'ouo', 'sub', 'ext']
 
 class Dataprep:
     def __init__(self,
@@ -71,14 +73,14 @@ class Dataprep:
         # Either we must do this (and can then set GLOBAL_DO_MANH_AT_BEGINNING to false, or must manhattanize here to
         #  replicate skill dataprep output)
         self.GLOBAL_DO_MANH_AT_BEGINNING = False
-        # SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad (and rouo?) for both skill and gdspy
+        # SKILL has GLOBAL_DO_MANH_DURING_OP as True. Only used during rad for both skill and gdspy
         # implementations
         self.GLOBAL_DO_MANH_DURING_OP = True
 
         # True to ensure that final shape will be on a Manhattan grid. If GLOBAL_DO_MANH_AT_BEGINNING
         # and GLOBAL_DO_MANH_DURING_OP are set,
         # GLOBAL_DO_FINAL_MANH can be False, and we should still have Manhattanized shapes on Manhattan grid
-        # if function implentations are correct
+        # if function implementations are correct
         self.GLOBAL_DO_FINAL_MANH = False
 
         # Initialize dataprep related structures
@@ -90,30 +92,176 @@ class Dataprep:
         self.post_dataprep_flat_content_list: List[Tuple] = []
 
         # Dataprep custom configuration
-        self.dataprep_ignore_list: List[Tuple] = self.photonic_tech_info.dataprep_routine_data.get(
+        self.dataprep_ignore_list: List[Tuple[str, str]] = []
+        self.dataprep_bypass_list: List[Tuple[str, str]] = []
+
+        dataprep_ignore_list_temp = self.photonic_tech_info.dataprep_routine_data.get(
             'dataprep_ignore_list', [])
-        self.dataprep_bypass_list: List[Tuple] = self.photonic_tech_info.dataprep_routine_data.get(
+        dataprep_bypass_list_temp = self.photonic_tech_info.dataprep_routine_data.get(
             'dataprep_bypass_list', [])
-        if self.dataprep_ignore_list is None:
+
+        # If ignore/bypass were not specified in the yaml, handle appropriately. If they were specified
+        # reformat ignore and bypass lists, as they are specified as dictionaries in the yaml
+        if dataprep_ignore_list_temp is None:
             self.dataprep_ignore_list = []
-        if self.dataprep_bypass_list is None:
+        else:
+            for lpp_entry in dataprep_ignore_list_temp:
+                self.dataprep_ignore_list.append(self._check_lpp_entry(lpp_entry))
+        if dataprep_bypass_list_temp is None:
             self.dataprep_bypass_list = []
+        else:
+            for lpp_entry in dataprep_bypass_list_temp:
+                self.dataprep_bypass_list.append(self._check_lpp_entry(lpp_entry))
 
         # Load the dataprep operations list and OUUO list
+        self.ouuo_list: List[Tuple[str, str]] = []
+        self.dataprep_groups: List[Dict] = []
         if self.is_lsf:
-            self.dataprep_groups = self.photonic_tech_info.lsf_export_parameters.get('dataprep_groups', [])
-            self.ouuo_list = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
+            dataprep_groups_temp = self.photonic_tech_info.lsf_export_parameters.get('dataprep_groups', [])
+            ouuo_list_temp = self.photonic_tech_info.lsf_export_parameters.get('over_under_under_over', [])
         else:
-            self.dataprep_groups = self.photonic_tech_info.dataprep_routine_data.get('dataprep_groups', [])
-            self.ouuo_list = self.photonic_tech_info.dataprep_routine_data.get('over_under_under_over', [])
+            dataprep_groups_temp = self.photonic_tech_info.dataprep_routine_data.get('dataprep_groups', [])
+            ouuo_list_temp = self.photonic_tech_info.dataprep_routine_data.get('over_under_under_over', [])
 
-        if self.dataprep_groups is None:
+        if dataprep_groups_temp is None:
             self.dataprep_groups = []
-        if self.ouuo_list is None:
+        else:
+            for dataprep_group in dataprep_groups_temp:
+                self.dataprep_groups.append(self._check_dataprep_ops(dataprep_group))
+
+        if ouuo_list_temp is None:
             self.ouuo_list = []
+        else:
+            for lpp_entry in ouuo_list_temp:
+                self.ouuo_list.append(self._check_lpp_entry(lpp_entry))
 
         # cache list of polygons
         self.polygon_cache: Dict[Tuple, Union[gdspy.Polygon, gdspy.PolygonSet]] = {}
+
+    @staticmethod
+    def _check_lpp_entry(lpp_entry,
+                         ) -> Tuple[str, str]:
+        """
+        Checks whether the lpp entry is a dictionary with an 'lpp' key, whose value is a list composed of 2 strings
+        Raises an error if the lpp entry is not valid.
+
+        Parameters
+        ----------
+        lpp_entry :
+            The lpp entry from the yaml file to check
+
+        Returns
+        -------
+        lpp_key : Tuple[str, str]
+            The valid lpp as a tuple of two strings.
+        """
+        if not isinstance(lpp_entry, dict):
+            raise ValueError(f'lpp list entries must be dictionaries.\n'
+                             f'Entry {lpp_entry} violates this.')
+        lpp_layer = lpp_entry.get('lpp', None)
+        if lpp_layer is None:
+            raise ValueError(f'List entries must be dictionaries with an lpp key:'
+                             f'  - {{lpp: [layer, purpose]}}\n'
+                             f'Entry {lpp_entry} violates this.')
+        if len(lpp_layer) != 2:
+            raise ValueError(f'lpp entry must specify a layer and a purpose, in that order.\n'
+                             f'Specified entry {lpp_entry} does not meet this criteria.')
+        if not (isinstance(lpp_layer[0], str) and isinstance(lpp_layer[1], str)):
+            raise ValueError(f'Lpp layers and purposes must be specified as a list of two strings.\n'
+                             f'Entry {lpp_entry} does not meet this criteria.')
+        return lpp_layer[0], lpp_layer[1]
+
+    def _check_dataprep_ops(self,
+                            dataprep_group,
+                            ) -> Dict[str, List]:
+        """
+        Checks whether the passed dataprep group is valid.
+        Raises an error if the dataprep group is not valid.
+
+        Parameters
+        ----------
+        dataprep_group :
+            The dataprep_group entry from the yaml file to check.
+
+        Returns
+        -------
+        dataprep_group_clean : Dict[str, List]
+            The clean
+        """
+        # Check that lpp_in and lpp_ops are specified, and that they are both lists
+        if 'lpp_in' not in dataprep_group:
+            raise ValueError(f'Dataprep group entry must be a dictionary containing a key named \'lpp_in\'.\n'
+                             f'Dataprep group {dataprep_group} does not meet this criteria.')
+        if 'lpp_ops' not in dataprep_group:
+            raise ValueError(f'Dataprep group entry must be a dictionary containing a key named \'lpp_ops\'.\n'
+                             f'Dataprep group {dataprep_group} does not meet this criteria.')
+        if not(isinstance(dataprep_group['lpp_in'], list)):
+            raise ValueError(f'lpp_in must be a list of dictionaries.\n'
+                             f'Dataprep group {dataprep_group} does not meet this criteria.')
+        if not(isinstance(dataprep_group['lpp_ops'], list)):
+            raise ValueError(f'lpp_ops must be a list of dictionaries.\n'
+                             f'Dataprep group {dataprep_group} does not meet this criteria.')
+
+        # Check the lpp_in entries
+        lpp_in_clean = []
+        for lpp_in_entry in dataprep_group['lpp_in']:
+            lpp_in_clean.append(self._check_lpp_entry(lpp_in_entry))
+
+        # Check the lpp_ops entries
+        lpp_op_clean = []
+        for lpp_op_entry in dataprep_group['lpp_ops']:
+            # Check entry is a dict
+            if not isinstance(lpp_op_entry, dict):
+                raise ValueError(f'lpp_ops entries must be dictionaries.\n'
+                                 f'Dataprep group {dataprep_group} does not meet this criteria.')
+            # Check that 'operation' is specified and valid
+            if 'operation' not in lpp_op_entry:
+                raise ValueError(f'lpp_ops entry must specify a value for the key \'operation\'\n'
+                                 f'Dataprep group {dataprep_group} does not meet this criteria.')
+            if lpp_op_entry['operation'] not in IMPLEMENTED_DATAPREP_OPERATIONS:
+                raise ValueError(f'The following dataprep operations are implemented at this '
+                                 f'time: {IMPLEMENTED_DATAPREP_OPERATIONS}\n'
+                                 f'Dataprep group {dataprep_group} uses an unsupported dataprep '
+                                 f'operation {lpp_op_entry["operation"]}.')
+
+            operation = lpp_op_entry['operation']
+
+            # Check amount is specified and valid, if necessary
+            amount = lpp_op_entry.get('amount', None)
+            if (amount is None) and (operation != 'manh'):
+                raise ValueError(f'Amount must be specified for operation \'{operation}\' '
+                                 f'in dataprep group {dataprep_group}')
+            if (amount is not None) and not (isinstance(amount, int) or isinstance(amount, float)):
+                raise ValueError(f'amount must be a float or int.\n'
+                                 f'Operation \'{operation}\' in dataprep group {dataprep_group} '
+                                 f'does not meet this criteria.')
+
+            out_layer = lpp_op_entry.get('lpp', None)
+            if (out_layer is None) and (operation != 'manh'):
+                raise ValueError(f'output lpp must be specified for operation \'{operation}\' '
+                                 f'in dataprep group {dataprep_group}')
+            if out_layer is not None:
+                if len(out_layer) != 2:
+                    raise ValueError(f'lpp entry must specify a layer and a purpose, in that order.\n'
+                                     f'Specified entry {out_layer} does not meet this criteria.')
+                if not (isinstance(out_layer[0], str) and isinstance(out_layer[1], str)):
+                    raise ValueError(f'Lpp layers and purposes must be specified as a list of two strings.\n'
+                                     f'{out_layer} in dataprep group {dataprep_group} does not meet this criteria.')
+                out_layer = (out_layer[0], out_layer[1])
+
+            lpp_op_clean.append(
+                dict(
+                    operation=operation,
+                    amount=amount,
+                    lpp=out_layer,
+                )
+            )
+
+        return dict(
+            lpp_in=lpp_in_clean,
+            lpp_ops=lpp_op_clean,
+        )
+
 
     ################################################################################
     # clean up functions for coordinate lists and gdspy objects
@@ -845,6 +993,8 @@ class Dataprep:
         Performs a dataprep operation on the input shapes passed by polygon2, and merges (adds/subtracts to/from,
         replaces, etc) with the shapes currently on the layer passed by polygon1.
 
+        The operations implemented in this function must be kept up to date with IMPLEMENTED_DATAPREP_OPERATIONS.
+
         Parameters
         ----------
         lpp_in : Union[str, Tuple[str, str]]
@@ -856,7 +1006,8 @@ class Dataprep:
         polygon2 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
             The shapes on the input layer that will be added/subtracted to/from the output layer
         operation : str
-            The operation to perform:  'rad', 'add', 'sub', 'ext', 'ouo', 'del'
+            The operation to perform:  'manh', 'rad', 'add', 'sub', 'ext', 'ouo'. The implemented functions must match
+            the variable IMPLEMENTED_DATAPREP_OPERATIONS.
         size_amount : Union[float, Tuple[Float, Float]]
             The amount to over/undersize the shapes to be added/subtracted.
             For ouo, the 0.5*minWidth related over and under size amount
@@ -979,6 +1130,8 @@ class Dataprep:
                 # TODO
                 polygon_out = None
                 pass
+            else:
+                raise ValueError(f'Operation {operation} specified in dataprep algorithm, but is not implemented.')
 
             # Invalidate the cache for the current output layer, as it has changed, and future dataprep operations must
             # use the new shapes
@@ -1242,7 +1395,7 @@ class Dataprep:
             # Don't dataprep port layers, label layers, or any layers in the ignore/bypass list
             if (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim') and (
                     layer not in self.dataprep_ignore_list and layer not in self.dataprep_bypass_list):
-                # TODO: This is slow
+
                 self.flat_gdspy_polygonsets_by_layer[layer] = self.dataprep_coord_to_gdspy(
                     self.get_polygon_point_lists_on_layer(layer),
                     manh_grid_size=self.get_manhattanization_size_on_layer(layer),
@@ -1260,45 +1413,23 @@ class Dataprep:
 
         for dataprep_group in self.dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
-            for lpp_in_entry in dataprep_group['lpp_in']:
-                # Get the lpp_in entry and check for data validity
-                lpp_in = lpp_in_entry.get('lpp', None)
-                if lpp_in is None:
-                    raise ValueError(f'lpp_in entry in dataprep groups must be a list of dictionaries with a'
-                                     f' \'lpp_in\' key specified.')
-                if len(lpp_in) != 2:
-                    raise ValueError(f'lpp input key must be specified by both a layer and purpose.\n'
-                                     f'specified lpp: {lpp_in} does not meet this criteria.')
-                # Convert lpp_in list type item into a tuple to serve as a dictionary key
-                lpp_in = (lpp_in[0], lpp_in[1])
-
+            for lpp_in in dataprep_group['lpp_in']:
                 shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
 
                 # 3b) Iteratively perform each operation on the current lpp_in
                 for lpp_op in dataprep_group['lpp_ops']:
                     start = time.time()
-                    operation = lpp_op.get('operation', None)
-                    if operation is None:
-                        raise ValueError(f'Operation must be specified for lpp_op {lpp_op}')
 
-                    amount = lpp_op.get('amount', None)
-                    if (amount is None) and (operation != 'manh'):
-                        raise ValueError(f'Amount must be specified for lpp_op {lpp_op}')
+                    operation = lpp_op['operation']
+                    amount = lpp_op['amount']
                     if (amount is None) and (operation == 'manh'):
                         amount = self.get_manhattanization_size_on_layer(lpp_in)
                         logging.info(f'manh size amount not specified in operation. Setting to {amount}')
 
-                    out_layer = lpp_op.get('lpp', None)
-                    if (out_layer is None) and (operation != 'manh'):
-                        raise ValueError(f'For non manh dataprep operations, output layer must be specified')
+                    out_layer = lpp_op['lpp']
                     if (out_layer is None) and (operation == 'manh'):
                         out_layer = lpp_in
                         logging.info(f'manh output layer not specified in operation. Setting to {out_layer}')
-                    if len(out_layer) != 2:
-                        raise ValueError(f'lpp output key must be specified by both a layer and purpose.\n'
-                                         f'Specified lpp: {out_layer} in lpp_op: {lpp_op} does not meet this criteria.')
-
-                    out_layer = (out_layer[0], out_layer[1])
 
                     logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
                                  f'to layer: {out_layer}  with size {amount}')
@@ -1327,17 +1458,7 @@ class Dataprep:
         # 4) Perform a final over_under_under_over operation
         start0 = time.time()
 
-        for lpp_entry in self.ouuo_list:
-            lpp = lpp_entry.get('lpp', None)
-            if lpp is None:
-                raise ValueError(f'over_under_under_over must be composed of a list of dictionaries, each with a '
-                                 f'mandatory \'lpp\' key value specified.')
-            if len(lpp) != 2:
-                raise ValueError(f'lpp must be specified by both layer and purpose (a list of length 2)')
-
-            # Convert lpp to a tuple
-            lpp = (lpp[0], lpp[1])
-
+        for lpp in self.ouuo_list:
             logging.info(f'Performing OUUO on {lpp}')
             start = time.time()
 
