@@ -4,10 +4,11 @@ import time
 import numpy as np
 import sys
 import logging
+import re
 
 from BPG.photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 from math import ceil
-from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional
+from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional, Pattern, Iterable
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
@@ -92,6 +93,7 @@ class Dataprep:
         self.post_dataprep_flat_content_list: List[Tuple] = []
 
         # Dataprep custom configuration
+        # bypass and ignore lists are lists of LPP pairs in tuple state.
         self.dataprep_ignore_list: List[Tuple[str, str]] = []
         self.dataprep_bypass_list: List[Tuple[str, str]] = []
 
@@ -105,16 +107,29 @@ class Dataprep:
         if dataprep_ignore_list_temp is None:
             self.dataprep_ignore_list = []
         else:
+            # lpp entries can be regex. Find all layers to ignore now
             for lpp_entry in dataprep_ignore_list_temp:
-                self.dataprep_ignore_list.append(self._check_lpp_entry(lpp_entry))
+                self.dataprep_ignore_list.extend(
+                    self.regex_search_lpps(
+                        regex=self._check_input_lpp_entry_and_convert_to_regex(lpp_entry),
+                        keys=self.flat_content_list_by_layer.keys()
+                    )
+                )
+
         if dataprep_bypass_list_temp is None:
             self.dataprep_bypass_list = []
         else:
+            # lpp entries can be regex. Find all layers to bypass now
             for lpp_entry in dataprep_bypass_list_temp:
-                self.dataprep_bypass_list.append(self._check_lpp_entry(lpp_entry))
+                self.dataprep_bypass_list.extend(
+                    self.regex_search_lpps(
+                        regex=self._check_input_lpp_entry_and_convert_to_regex(lpp_entry),
+                        keys=self.flat_content_list_by_layer.keys()
+                    )
+                )
 
         # Load the dataprep operations list and OUUO list
-        self.ouuo_list: List[Tuple[str, str]] = []
+        self.ouuo_regex_list: List[Tuple[Pattern, Pattern]] = []
         self.dataprep_groups: List[Dict] = []
         if self.is_lsf:
             dataprep_groups_temp = self.photonic_tech_info.lsf_export_parameters.get('dataprep_groups', [])
@@ -130,17 +145,18 @@ class Dataprep:
                 self.dataprep_groups.append(self._check_dataprep_ops(dataprep_group))
 
         if ouuo_list_temp is None:
-            self.ouuo_list = []
+            self.ouuo_regex_list = []
         else:
+            # lpp entries can be regex. Keep as regex, as the final list of used layers is not known at this time
             for lpp_entry in ouuo_list_temp:
-                self.ouuo_list.append(self._check_lpp_entry(lpp_entry))
+                self.ouuo_regex_list.append(self._check_input_lpp_entry_and_convert_to_regex(lpp_entry))
 
         # cache list of polygons
         self.polygon_cache: Dict[Tuple, Union[gdspy.Polygon, gdspy.PolygonSet]] = {}
 
     @staticmethod
-    def _check_lpp_entry(lpp_entry,
-                         ) -> Tuple[str, str]:
+    def _check_input_lpp_entry_and_convert_to_regex(lpp_entry,
+                                                    ) -> Tuple[Pattern, Pattern]:
         """
         Checks whether the lpp entry is a dictionary with an 'lpp' key, whose value is a list composed of 2 strings
         Raises an error if the lpp entry is not valid.
@@ -152,8 +168,8 @@ class Dataprep:
 
         Returns
         -------
-        lpp_key : Tuple[str, str]
-            The valid lpp as a tuple of two strings.
+        lpp_key : Tuple[Pattern, Pattern]
+            The valid lpp as a tuple of two regex patterns.
         """
         if not isinstance(lpp_entry, dict):
             raise ValueError(f'lpp list entries must be dictionaries.\n'
@@ -163,13 +179,19 @@ class Dataprep:
             raise ValueError(f'List entries must be dictionaries with an lpp key:'
                              f'  - {{lpp: [layer, purpose]}}\n'
                              f'Entry {lpp_entry} violates this.')
+
         if len(lpp_layer) != 2:
             raise ValueError(f'lpp entry must specify a layer and a purpose, in that order.\n'
-                             f'Specified entry {lpp_entry} does not meet this criteria.')
+                             f'Specified lpp {lpp_layer} does not meet this criteria.')
         if not (isinstance(lpp_layer[0], str) and isinstance(lpp_layer[1], str)):
             raise ValueError(f'Lpp layers and purposes must be specified as a list of two strings.\n'
-                             f'Entry {lpp_entry} does not meet this criteria.')
-        return lpp_layer[0], lpp_layer[1]
+                             f'Entry {lpp_layer} does not meet this criteria.')
+
+        # Try to compile the lpp entries to ensure they are valid regexes
+        layer_regex = re.compile(lpp_layer[0])
+        purpose_regex = re.compile(lpp_layer[1])
+
+        return layer_regex, purpose_regex
 
     def _check_dataprep_ops(self,
                             dataprep_group,
@@ -205,7 +227,7 @@ class Dataprep:
         # Check the lpp_in entries
         lpp_in_clean = []
         for lpp_in_entry in dataprep_group['lpp_in']:
-            lpp_in_clean.append(self._check_lpp_entry(lpp_in_entry))
+            lpp_in_clean.append(self._check_input_lpp_entry_and_convert_to_regex(lpp_in_entry))
 
         # Check the lpp_ops entries
         lpp_op_clean = []
@@ -261,7 +283,6 @@ class Dataprep:
             lpp_in=lpp_in_clean,
             lpp_ops=lpp_op_clean,
         )
-
 
     ################################################################################
     # clean up functions for coordinate lists and gdspy objects
@@ -1024,8 +1045,6 @@ class Dataprep:
         if polygon2 is None:
             return polygon1
         else:
-            polygon_out = None
-
             # Create the key for the polygon cache
             polygon_key = (lpp_in, operation, size_amount, do_manh_in_rad)
 
@@ -1372,6 +1391,33 @@ class Dataprep:
 
         return manh_size
 
+    @staticmethod
+    def regex_search_lpps(regex: Tuple[Pattern, Pattern],
+                          keys: Iterable[Tuple[str, str]],
+                          ) -> List[Tuple[str, str]]:
+        """
+        Returns a list of all keys in the dictionary that match the passed lpp regex.
+        Searches for a match in both the layer and purpose regex.
+
+        Parameters
+        ----------
+        regex : Tuple[Pattern, Pattern]
+            The lpp regex patterns to match
+        keys : Iterable[Tuple[str, str]]
+            The iterable containing the keys of the dictionary.
+
+        Returns
+        -------
+        matches : List[Tuple[str, str]]
+            The list of dictionary keys that match the provided regex
+        """
+        matches = []
+        for key in keys:
+            if regex[0].search(key[0]) and regex[1].search(key[1]):
+                matches.append(key)
+
+        return matches
+
     def dataprep(self) -> List:
         """
         Takes the flat content list and performs the specified transformations on the shapes for the purpose
@@ -1388,8 +1434,10 @@ class Dataprep:
         3) Performs a final over_under_under_over operation
         4) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
         """
+
         start0 = time.time()
         # 1) Convert layer shapes to gdspy polygon format
+        logging.info(f'-------- Converting polygons from content list to gdspy format --------')
         for layer, gds_shapes in self.flat_content_list_by_layer.items():
             start = time.time()
             # Don't dataprep port layers, label layers, or any layers in the ignore/bypass list
@@ -1410,78 +1458,86 @@ class Dataprep:
 
         # 3) Perform each dataprep operation in the list on the provided layers in order
         start0 = time.time()
-
+        logging.info(f'-------- Performing Dataprep Procedure --------')
+        # self.dataprep_group has lpp_in as list of regex
         for dataprep_group in self.dataprep_groups:
             # 3a) Iteratively perform operations on all layers in lpp_in
-            for lpp_in in dataprep_group['lpp_in']:
-                shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
+            for lpp_in_regex in dataprep_group['lpp_in']:
+                # Loop over all lpps that match the lpp_in regex
+                lpp_in_list = self.regex_search_lpps(lpp_in_regex, self.flat_gdspy_polygonsets_by_layer.keys())
+                for lpp_in in lpp_in_list:
 
-                # 3b) Iteratively perform each operation on the current lpp_in
-                for lpp_op in dataprep_group['lpp_ops']:
-                    start = time.time()
+                    shapes_in = self.flat_gdspy_polygonsets_by_layer.get(lpp_in, None)
 
-                    operation = lpp_op['operation']
-                    amount = lpp_op['amount']
-                    if (amount is None) and (operation == 'manh'):
-                        amount = self.get_manhattanization_size_on_layer(lpp_in)
-                        logging.info(f'manh size amount not specified in operation. Setting to {amount}')
+                    # 3b) Iteratively perform each operation on the current lpp_in
+                    for lpp_op in dataprep_group['lpp_ops']:
+                        start = time.time()
 
-                    out_layer = lpp_op['lpp']
-                    if (out_layer is None) and (operation == 'manh'):
-                        out_layer = lpp_in
-                        logging.info(f'manh output layer not specified in operation. Setting to {out_layer}')
+                        operation = lpp_op['operation']
+                        amount = lpp_op['amount']
+                        if (amount is None) and (operation == 'manh'):
+                            amount = self.get_manhattanization_size_on_layer(lpp_in)
+                            logging.info(f'manh size amount not specified in operation. Setting to {amount}')
 
-                    logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
-                                 f'to layer: {out_layer}  with size {amount}')
+                        out_layer = lpp_op['lpp']
+                        if (out_layer is None) and (operation == 'manh'):
+                            out_layer = lpp_in
+                            logging.info(f'manh output layer not specified in operation. Setting to {out_layer}')
 
-                    # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
-                    new_out_layer_polygons = self.poly_operation(
-                        lpp_in=lpp_in,
-                        lpp_out=out_layer,
-                        polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
-                        polygon2=shapes_in,
-                        operation=operation,
-                        size_amount=amount,
-                        do_manh_in_rad=(False if self.is_lsf else self.GLOBAL_DO_MANH_DURING_OP),
-                    )
+                        logging.info(f'Performing dataprep operation: {operation}  on layer: {lpp_in}  '
+                                     f'to layer: {out_layer}  with size {amount}')
 
-                    # Update the layer's content
-                    if new_out_layer_polygons is not None:
-                        self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+                        # 3c) Maps the operation in the spec file to the desired gdspy implementation and performs it
+                        new_out_layer_polygons = self.poly_operation(
+                            lpp_in=lpp_in,
+                            lpp_out=out_layer,
+                            polygon1=self.flat_gdspy_polygonsets_by_layer.get(out_layer, None),
+                            polygon2=shapes_in,
+                            operation=operation,
+                            size_amount=amount,
+                            do_manh_in_rad=(False if self.is_lsf else self.GLOBAL_DO_MANH_DURING_OP),
+                        )
 
-                    end = time.time()
-                    logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
+                        # Update the layer's content
+                        if new_out_layer_polygons is not None:
+                            self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+
+                        end = time.time()
+                        logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
 
         end0 = time.time()
         logging.info(f'All dataprep layer operations took {end0 - start0}s')
 
         # 4) Perform a final over_under_under_over operation
         start0 = time.time()
+        logging.info(f'-------- Performing OUUO Procedure --------')
+        for lpp_regex in self.ouuo_regex_list:
+            lpp_list = self.regex_search_lpps(lpp_regex, self.flat_gdspy_polygonsets_by_layer.keys())
+            for lpp in lpp_list:
+                logging.info(f'Performing OUUO on {lpp}')
+                start = time.time()
 
-        for lpp in self.ouuo_list:
-            logging.info(f'Performing OUUO on {lpp}')
-            start = time.time()
+                new_out_layer_polygons = self.poly_operation(
+                    lpp_in=lpp,
+                    lpp_out=lpp,
+                    polygon1=None,
+                    polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
+                    operation='ouo',
+                    size_amount=0,
+                    do_manh_in_rad=self.GLOBAL_DO_MANH_AT_BEGINNING,
+                )
 
-            new_out_layer_polygons = self.poly_operation(
-                lpp_in=lpp,
-                lpp_out=lpp,
-                polygon1=None,
-                polygon2=self.flat_gdspy_polygonsets_by_layer.get(lpp, None),
-                operation='ouo',
-                size_amount=0,
-                do_manh_in_rad=self.GLOBAL_DO_MANH_AT_BEGINNING,
-            )
-
-            if new_out_layer_polygons is not None:
-                self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
-            end = time.time()
-            logging.info(f'OUUO on {lpp} took: {end-start}s')
+                if new_out_layer_polygons is not None:
+                    self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+                end = time.time()
+                logging.info(f'OUUO on {lpp} took: {end-start}s')
 
         end0 = time.time()
         logging.info(f'All OUUO operations took a total of : {end0 - start0}s')
 
         # 5) Take the dataprepped gdspy shapes and import them into a new post-dataprep content list
         start0 = time.time()
+        logging.info(f'-------- Converting gdspy shapes to content list --------')
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             start = time.time()
@@ -1513,9 +1569,12 @@ class Dataprep:
 
         # 6) Add shapes on layers from the bypass list back in
         # TODO: Properly support batch dataprep, i.e. cases where there are mulitple gds cells
+        logging.info(f'-------- Adding bypass layer objects back into the content list --------')
         if len(self.post_dataprep_flat_content_list) != 1:
             logging.warning('Batch dataprep is currently not supported!')
+        # dataprep_bypass_list is the post-regex-search list of lpps
         for layer in self.dataprep_bypass_list:
+            logging.info(f'Adding bypass layer {layer} back into post-dataprep content list')
             self.merge_content_lists(self.post_dataprep_flat_content_list[0], self.get_content_on_layer(layer))
 
         end0 = time.time()
