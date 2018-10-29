@@ -1499,8 +1499,13 @@ class Dataprep:
                         )
 
                         # Update the layer's content
-                        if new_out_layer_polygons is not None:
+                        if (new_out_layer_polygons is not None):
                             self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
+                        elif ((new_out_layer_polygons is None) and 
+                              (out_layer in self.flat_gdspy_polygonsets_by_layer.keys())):
+                            # print('---In dataprep, layer %s emptied; popping from flat_gdspy_polygonsets_by_layer' 
+                            #       % (str(out_layer)))
+                            self.flat_gdspy_polygonsets_by_layer.pop(out_layer, 'None')
 
                         end = time.time()
                         logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
