@@ -4,30 +4,43 @@ GlobalDataprepSizeAmount: 1
 GlobalGridSize: 0.001
 GlobalRoughGridSize: 0.1
 
+# This is a sample dataprep flow.
+# It does not necessarily do an 'expected' dataprep flow, but is meant to show how the flow is written
 dataprep_groups:
-  - lpp_in:
+  - # Rough add pre-manhattanized (SI, phot) to (SI, exclude) with a 2.0 sizing
+    lpp_in:
+      - {lpp: ['SI', 'phot']}
+    lpp_ops:
+      - {lpp: ['SI', 'exclude'], operation: 'rad', amount: 2.0}
+  - # Manhattanize all layers with phot purpose on a grid of 0.001.
+    # Output shapes will be on the same layers as inputs
+    lpp_in:
+      - {lpp: ['.*', 'phot']}
+    lpp_ops:
+      - {operation: 'manh', amount: 0.001}
+  - # Add the Manhattanized (SI, phot) to (SI, drawing)
+    lpp_in:
       - {lpp: ['SI', 'phot']}
     lpp_ops:
       - {lpp: ['SI', 'drawing'], operation: 'add', amount: 0.0}
-      - {lpp: ['SI', 'exclude'], operation: 'rad', amount: 2.0}
-  - lpp_in:
-      - {lpp: ['SI', 'phot']}
-    lpp_ops:
-      - {lpp: ['SI', 'phot'], operation: 'manh', amount: 0.001}
-  - lpp_in:
+  - # Add the Manhattanized (POLY, phot) to (POLY, drawing), and rough add it to (POLY, exclude)
+    lpp_in:
       - {lpp: ['POLY', 'phot']}
     lpp_ops:
       - {lpp: ['POLY', 'exclude'], operation: 'rad', amount: 1.0}
       - {lpp: ['POLY', 'drawing'], operation: 'add', amount: 0.0}
-  - lpp_in:
+  - # Add the Manhattanized (SI, phot) to (SI, drawing)
+    lpp_in:
       - {lpp: ['M1', 'phot']}
     lpp_ops:
       - {lpp: ['M1', 'drawing'], operation: 'add', amount: 0.001}
-  - lpp_in:
+  - # Add the Manhattanized (SI, phot) to (SI, drawing)
+    lpp_in:
       - {lpp: ['M1', 'drawing']}
     lpp_ops:
       - {operation: 'manh', amount: 0.001}
-  - lpp_in:
+  - # Add the Manhattanized (SI, phot) to (SI, drawing)
+    lpp_in:
       - {lpp: ['M1', 'sub']}
     lpp_ops:
       - {lpp: ['M1', 'drawing'], operation: 'sub', amount: 0}
@@ -42,8 +55,8 @@ over_under_under_over:
 #  - {lpp: ['SI', 'phot']}
 
 dataprep_bypass_list:
-  - {lpp: ['SI', 'port']}
-  - {lpp: ['POLY', 'port']}
+  - # Let all port objects skip dataprep and be drawn on the final GDS
+    {lpp: ['.*', 'port']}
 
 manh_size_per_layer:
 #  SI: 0.010
