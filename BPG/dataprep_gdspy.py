@@ -33,6 +33,7 @@ warnings.filterwarnings(
 # List of
 IMPLEMENTED_DATAPREP_OPERATIONS = ['rad', 'add', 'manh', 'ouo', 'sub', 'ext']
 
+
 class Dataprep:
     def __init__(self,
                  photonic_tech_info: "PhotonicTechInfo",
@@ -56,7 +57,7 @@ class Dataprep:
         """
         self.photonic_tech_info: PhotonicTechInfo = photonic_tech_info
         self.grid = grid
-        self.flat_content_list_by_layer: Dict[Tuple(str, str), Tuple] = flat_content_list_by_layer
+        self.flat_content_list_by_layer: Dict[Tuple[str, str], Tuple] = flat_content_list_by_layer
         self.flat_content_list_separate = flat_content_list_separate
         self.is_lsf = is_lsf
 
@@ -86,9 +87,9 @@ class Dataprep:
 
         # Initialize dataprep related structures
         # Dictionary of layer-keyed gdspy polygonset shapes
-        self.flat_gdspy_polygonsets_by_layer: Dict[Tuple(str, str), Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
+        self.flat_gdspy_polygonsets_by_layer: Dict[Tuple[str, str], Union[gdspy.PolygonSet, gdspy.Polygon]] = {}
         # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
-        self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple(str, str), List] = {}
+        self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple[str, str], List] = {}
         # BAG style content list after dataprep
         self.post_dataprep_flat_content_list: List[Tuple] = []
 
@@ -288,15 +289,16 @@ class Dataprep:
     # clean up functions for coordinate lists and gdspy objects
     ################################################################################
     @staticmethod
-    def cleanup_delete(coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
-                       eps_grid=1e-4,  # type: float
-                       ):
-        # type: (...) -> np.ndarray
+    def cleanup_delete(coords_list_in: np.ndarray,
+                       eps_grid: float=1e-4,
+                       ) -> np.ndarray:
         """
+        From the passed coordinate list, returns a numpy array of bools of the same length where each value indicates
+        whether that point should be deleted from the coord_list
 
         Parameters
         ----------
-        coords_list_in : Union[List[Tuple[float, float]], np.ndarray]
+        coords_list_in : np.ndarray
             The list of x-y coordinates composing a polygon shape
         eps_grid :
             grid resolution below which points are considered to be the same
@@ -306,11 +308,6 @@ class Dataprep:
         delete_array : np.ndarray
             Numpy array of bools telling whether to delete the coordinate or not
         """
-
-        if isinstance(coords_list_in, np.ndarray):
-            coords_list_in = coords_list_in
-        else:
-            coords_list_in = np.array(coords_list_in)
 
         coord_set_lsh = np.roll(coords_list_in, -1, axis=0)
         coord_set_rsh = np.roll(coords_list_in, 1, axis=0)
@@ -353,16 +350,15 @@ class Dataprep:
         return delete_array
 
     def coords_cleanup(self,
-                       coords_list_in,  # type: Union[List[Tuple[float, float]], np.ndarray]
-                       eps_grid=1e-4,  # type: float
-                       ):
-        # type (...) -> List[Tuple[float, float]]
+                       coords_list: np.ndarray,
+                       eps_grid: float=1e-4,
+                       ) -> np.ndarray:
         """
         clean up coordinates in the list that are redundant or harmful for following geometry manipulation functions
     
         Parameters
         ----------
-        coords_list_in : Union[List[Tuple[float, float]], np.ndarray]
+        coords_list : np.ndarray
             list of coordinates that enclose a polygon
         eps_grid : float
             a size smaller than the resolution grid size,
@@ -374,33 +370,27 @@ class Dataprep:
         coords_set_out : np.ndarray
             The cleaned coordinate set
         """
-        dataprep_logger.debug(f'in coords_cleanup, coords_list_in: {coords_list_in}')
+        dataprep_logger.debug(f'in coords_cleanup, coords_list_in: {coords_list}')
 
-        if isinstance(coords_list_in, np.ndarray):
-            coord_set_out = coords_list_in
-        else:
-            coord_set_out = np.array(coords_list_in)
-
-        delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
+        delete_array = self.cleanup_delete(coords_list, eps_grid=eps_grid)
         not_cleaned = np.sum(delete_array) > 0
 
         # in some cases, some coordinates become on the line if the following coord is deleted,
         # need to loop until no coord is deleted during one loop
         while not_cleaned:
             select_array = np.logical_not(delete_array)
-            coord_set_out = coord_set_out[select_array]
-            delete_array = self.cleanup_delete(coord_set_out, eps_grid=eps_grid)
+            coords_list = coords_list[select_array]
+            delete_array = self.cleanup_delete(coords_list, eps_grid=eps_grid)
             not_cleaned = np.sum(delete_array) > 0
 
-        dataprep_logger.debug(f'in coords_cleanup, coord_set_out: {coord_set_out}')
+        dataprep_logger.debug(f'in coords_cleanup, coord_set_out: {coords_list}')
 
-        return coord_set_out
+        return coords_list
 
     def dataprep_cleanup_gdspy(self,
-                               polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                               do_cleanup=True  # type: bool
-                               ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                               polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                               do_cleanup: bool=True,
+                               ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
     
@@ -506,12 +496,11 @@ class Dataprep:
         return polygon_out
 
     def polyop_gdspy_to_point_list(self,
-                                   polygon_gdspy_in,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                                   fracture=True,  # type: bool
-                                   do_manh=True,  # type: bool
-                                   manh_grid_size=None,  # type: Optional[float]
-                                   ):
-        # type: (...) -> List[List[Tuple[float, float]]]
+                                   polygon_gdspy_in: Union[gdspy.Polygon, gdspy.PolygonSet],
+                                   fracture: bool=True,
+                                   do_manh: bool=True,
+                                   manh_grid_size: Optional[float]=None,
+                                   ) -> List[List[Tuple[float, float]]]:
         """
         Converts the gdspy representation of the polygon into a list of fractured polygon point lists
 
@@ -579,16 +568,28 @@ class Dataprep:
     # Manhattanization related functions
     ################################################################################
     @staticmethod
-    def merge_adjacent_duplicate(coord_set,
-                                 eps_grid=1e-6):
-        if isinstance(coord_set, np.ndarray):
-            coords_list_in = coord_set
-        else:
-            coords_list_in = np.array(coord_set)
+    def merge_adjacent_duplicate(coord_set: np.ndarray,
+                                 eps_grid: float=1e-6,
+                                 ) -> np.ndarray:
+        """
+        Merges all points in the passed list of coordinates that are duplicate adjacent points.
 
-        coord_set_shift = np.roll(coords_list_in, 1, axis=0)
+        Parameters
+        ----------
+        coord_set : np.ndarray
+            The input list of coordinates to check for adjacent duplicates.
+        eps_grid : float
+            The grid tolerance below which points are considered the same.
+
+        Returns
+        -------
+        coord_set_merged : np.ndarray
+            The coordinate list with all adjacent duplicate points removed.
+        """
+
+        coord_set_shift = np.roll(coord_set, 1, axis=0)
         # 2D array: array of [abs(deltax) > eps, abs(deltay) > eps]
-        coord_cmp_eq = np.abs(coord_set_shift - coords_list_in) < eps_grid
+        coord_cmp_eq = np.abs(coord_set_shift - coord_set) < eps_grid
         # 1D array: array of [this point is not a duplicate]
         select = np.sum(coord_cmp_eq, axis=1) <= 1
 
@@ -597,10 +598,9 @@ class Dataprep:
         return coord_set_merged
 
     @staticmethod
-    def not_manh(coord_list,  # type: np.ndarray
-                 eps_grid=1e-6,  # type: float
-                 ):
-        # type (...) -> int
+    def not_manh(coord_list: np.ndarray,
+                 eps_grid: float=1e-6,
+                 ) -> int:
         """
         Checks whether the passed coordinate list is Manhattanized
 
@@ -616,58 +616,54 @@ class Dataprep:
         non_manh_edge : int
             The count of number of edges that are non-Manhattan in this shape
         """
-        if isinstance(coord_list, np.ndarray):
-            coord_set_in = coord_list
-        else:
-            coord_set_in = np.array(coord_list)
 
-        coord_set_shift = np.roll(coord_set_in, 1, axis=0)
+        coord_set_shift = np.roll(coord_list, 1, axis=0)
         # 2D array: array of [deltax > eps, deltay > eps]
-        coord_cmp = np.abs(coord_set_shift - coord_set_in) > eps_grid
+        coord_cmp = np.abs(coord_set_shift - coord_list) > eps_grid
         # 1D array: array of [this edge is not manhattanized]
         edge_not_manh = np.sum(coord_cmp, axis=1) > 1
 
-        non_manh_edge = np.sum(edge_not_manh, axis=0)
+        non_manh_edge = int(np.sum(edge_not_manh, axis=0))
 
         return non_manh_edge
 
     @staticmethod
-    def manh_edge_tran(p1,
-                       dx,
-                       dy,
-                       nstep,
-                       inc_x_first,
-                       manh_grid_size,
-                       eps_grid=1e-4,
-                       ):
+    def manh_edge_tran(p1: np.ndarray,
+                       dx: float,
+                       dy: float,
+                       nstep: int,
+                       inc_x_first: bool,
+                       manh_grid_size: float,
+                       eps_grid: float=1e-4,
+                       ) -> np.ndarray:
         """
-        Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge
+        Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge.
 
         Parameters
         ----------
-        p1
-        dx
-        dy
-        nstep
-        inc_x_first
-        manh_grid_size
-        eps_grid
+        p1 : np.ndarray
+            The starting point of the non-Manhattan edge.
+        dx : float
+            The x distance to the next point.
+        dy : float
+            The y distance to the next point.
+        nstep : int
+            The number of steps (each consisting of one horizontal and one vertical segment) that must be added.
+        inc_x_first : bool
+            True if the first segment should be horizontal.
+        manh_grid_size : float
+            The grid size on which to quantize the steps.
+        eps_grid : float
+            The size below which points are considered the same.
 
         Returns
         -------
-
+        edge_coord_set : np.ndarray
+            The array of coordinates that define the new Manhattanized edge.
         """
         # this point and the next point can form a manhattanized edge, no need to create new points
         if (abs(dx) < eps_grid) or (abs(dy) < eps_grid):
             edge_coord_set = np.array([p1.tolist()])
-            # print("debug", p1, dx, dy, nstep, inc_x_first, manh_grid_size,)
-        # if nstep == 0:
-        #     if inc_x_first:
-        #         edge_coord_set = np.round(
-        #             np.array([p1.tolist(), [p1[0] + dx, p1[1]]]) / manh_grid_size) * manh_grid_size
-        #     else:
-        #         edge_coord_set = np.round(
-        #             np.array([p1.tolist(), [p1[0], p1[1] + dy]]) / manh_grid_size) * manh_grid_size
         # otherwise we need to insert new points, dx or dy might not be on manh grid, need to
         else:
             x_set = np.empty((2 * nstep,), dtype=p1.dtype)
@@ -696,17 +692,16 @@ class Dataprep:
         return edge_coord_set
 
     def manh_skill(self,
-                   poly_coords,  # type: np.ndarray
-                   manh_grid_size,  # type: float
-                   manh_type,  # type: str
-                   ):
-        # type: (...) -> np.ndarray[Tuple[float, float]]
+                   poly_coords: Union[List[Tuple[float, float]], np.ndarray],
+                   manh_grid_size: float,
+                   manh_type: str,
+                   ) -> np.ndarray:
         """
         Convert a polygon into a polygon with orthogonal edges (ie, performs Manhattanization)
 
         Parameters
         ----------
-        poly_coords : List[Tuple[float, float]]
+        poly_coords : Union[List[Tuple[float, float]], np.ndarray]
             list of coordinates that enclose a polygon
         manh_grid_size : float
             grid size for Manhattanization, edge length after Manhattanization should be larger than it
@@ -721,16 +716,16 @@ class Dataprep:
             The Manhattanized list of coordinates describing the polygon
         """
 
-        def apprx_equal(float1,  # type: float
-                        float2,  # type: float
-                        eps_grid=1e-9  # type: float
-                        ):
+        def apprx_equal(float1: float,
+                        float2: float,
+                        eps_grid: float=1e-9,
+                        ) -> bool:
             return abs(float1 - float2) < eps_grid
 
-        def apprx_equal_coord(coord1,  # type: Tuple[float, float]
-                              coord2,  # type: Tuple[float, float]
-                              eps_grid=1e-9  # type: float
-                              ):
+        def apprx_equal_coord(coord1: Tuple[float, float],
+                              coord2: Tuple[float, float],
+                              eps_grid: float=1e-9,
+                              ) -> bool:
             return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
 
         # map the coordinates to the manh grid
@@ -832,11 +827,10 @@ class Dataprep:
             raise ValueError(f'manh_type = {manh_type} should be either "non", "inc" or "dec"')
 
     def gdspy_manh(self,
-                   polygon_gdspy,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                   manh_grid_size,  # type: float
-                   do_manh,  # type: bool
-                   ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+                   polygon_gdspy: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                   manh_grid_size: float,
+                   do_manh: bool,
+                   ) -> Union[gdspy.Polygon, gdspy.PolygonSet]:
         """
         Performs Manhattanization on a gdspy representation of a polygon, and returns a gdspy representation of the
         Manhattanized polygon
@@ -887,10 +881,9 @@ class Dataprep:
     # Dataprep related operations
     ################################################################################
     def dataprep_oversize_gdspy(self,
-                                polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                                offset,  # type: float
-                                ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                                polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                                offset: float,
+                                ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Grow a polygon by an offset. Perform cleanup to ensure proper polygon shape.
 
@@ -920,10 +913,9 @@ class Dataprep:
             return polygon_oversized
 
     def dataprep_undersize_gdspy(self,
-                                 polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet, None]
-                                 offset,  # type: float
-                                 ):
-        # type: (...) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]
+                                 polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
+                                 offset: float,
+                                 ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Shrink a polygon by an offset. Perform cleanup to ensure proper polygon shape.
 
@@ -954,11 +946,10 @@ class Dataprep:
             return polygon_undersized
 
     def dataprep_roughsize_gdspy(self,
-                                 polygon,  # type: Union[gdspy.Polygon, gdspy.PolygonSet]
-                                 size_amount,  # type: float
-                                 do_manh,  # type: bool
-                                 ):
-        # type (...) -> Union[gdspy.Polygon, gdspy.PolygonSet]
+                                 polygon: Union[gdspy.Polygon, gdspy.PolygonSet],
+                                 size_amount: float,
+                                 do_manh: bool,
+                                 ) -> Union[gdspy.Polygon, gdspy.PolygonSet]:
         """
         Add a new polygon that is rough sized by 'size_amount' from the provided polygon.
         Rough sizing entails:
@@ -1164,9 +1155,9 @@ class Dataprep:
     # content list manipulations
     ################################################################################
     def get_polygon_point_lists_on_layer(self,
-                                         layer,  # type: Tuple[str, str]
-                                         debug=False,  # type: bool
-                                         ):
+                                         layer: Tuple[str, str],
+                                         debug: bool=False,
+                                         ) -> Tuple[List, List]:
         """
         Returns a list of all shapes
 
@@ -1185,9 +1176,8 @@ class Dataprep:
         return self.to_polygon_pointlist_from_content_list(content_list=content, debug=debug)
 
     def get_content_on_layer(self,
-                             layer,  # type: Tuple[str, str]
-                             ):
-        # type: (...) -> Tuple
+                             layer: Tuple[str, str],
+                             ) -> Tuple:
         """Returns only the content that exists on a given layer
 
         Parameters
@@ -1359,7 +1349,7 @@ class Dataprep:
 
     def get_manhattanization_size_on_layer(self,
                                            layer: Union[str, Tuple[str, str]]
-                                           ):
+                                           ) -> float:
         """
         Finds the layer-specific Manhattanization size.
 
@@ -1498,14 +1488,16 @@ class Dataprep:
                             do_manh_in_rad=(False if self.is_lsf else self.GLOBAL_DO_MANH_DURING_OP),
                         )
 
-                        # Update the layer's content
-                        if (new_out_layer_polygons is not None):
+                        # Update the layer's content.
+                        # Do not add new layer if no shapes are on it.
+                        if new_out_layer_polygons is not None:
                             self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
                         elif ((new_out_layer_polygons is None) and 
                               (out_layer in self.flat_gdspy_polygonsets_by_layer.keys())):
-                            # print('---In dataprep, layer %s emptied; popping from flat_gdspy_polygonsets_by_layer' 
-                            #       % (str(out_layer)))
-                            self.flat_gdspy_polygonsets_by_layer.pop(out_layer, 'None')
+                            logging.debug(f'Dataprep operation {operation} on layer {out_layer} from layer {lpp_in} '
+                                          f'resulted in no shapes on the output layer (an empty layer). '
+                                          f'Popping the output layer from flat_gdspy_polygonsets_by_layer')
+                            self.flat_gdspy_polygonsets_by_layer.pop(out_layer, None)
 
                         end = time.time()
                         logging.info(f'{operation} on {lpp_in} to {out_layer} by {amount} took: {end-start}s')
@@ -1534,8 +1526,15 @@ class Dataprep:
 
                 if new_out_layer_polygons is not None:
                     self.flat_gdspy_polygonsets_by_layer[lpp] = new_out_layer_polygons
+                elif ((new_out_layer_polygons is None) and
+                      (lpp in self.flat_gdspy_polygonsets_by_layer.keys())):
+                    logging.debug(f'OUUO on layer {lpp} '
+                                  f'resulted in no shapes on the output layer (an empty layer). '
+                                  f'Popping the output layer from flat_gdspy_polygonsets_by_layer')
+                    self.flat_gdspy_polygonsets_by_layer.pop(lpp, None)
+
                 end = time.time()
-                logging.info(f'OUUO on {lpp} took: {end-start}s')
+                logging.info(f'OUUO on {lpp} took: {end - start}s')
 
         end0 = time.time()
         logging.info(f'All OUUO operations took a total of : {end0 - start0}s')
