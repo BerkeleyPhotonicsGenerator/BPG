@@ -74,7 +74,7 @@ class PhotonicTemplateDB(TemplateDB):
         self.flat_content_list_separate = None
         # Variable where flattened layout content will be stored, by layer.
         # Format is a dictionary whose keys are LPPs, and whose values are BAG content list format
-        self.flat_content_list_by_layer = {}  # type: Dict[Tuple(str, str), Tuple]
+        self.flat_content_list_by_layer = {}  # type: Dict[Tuple[str, str], Tuple]
         self.flat_gdspy_polygonsets_by_layer = {}
         self.post_dataprep_polygon_pointlist_by_layer = {}
         self.post_dataprep_flat_content_list = []
@@ -974,7 +974,8 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
-    def via_to_polygon_list(self, via, via_lay_info, x0, y0):
+    @staticmethod
+    def via_to_polygon_list(via, via_lay_info, x0, y0):
         blay = via_lay_info['bot_layer']
         tlay = via_lay_info['top_layer']
         vlay = via_lay_info['via_layer']
