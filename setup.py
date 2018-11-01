@@ -9,6 +9,7 @@ setup(name='BPG',
           'PyYAML>=3.11',
           'numpy>=1.10',
           'pytest',
+          'memory_profiler>=0.54.0',
       ],
       url='https://github.com/pvnbhargava/BPG',
       packages=['BPG']
