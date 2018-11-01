@@ -1,6 +1,7 @@
 # Test the functionality of ports with various orientations on waveguide objects
 
 project_name: bpg_test_suite
+layermap: 'BPG/examples/tech/BPG_tech_files/gds_map.yaml'
 
 # Output Settings
 lsf_filename: waveguide_port
