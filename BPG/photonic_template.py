@@ -28,6 +28,7 @@ from collections import OrderedDict
 # from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
 
 from numpy import pi
+from memory_profiler import memory_usage
 
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo
@@ -611,12 +612,12 @@ class PhotonicTemplateDB(TemplateDB):
         logging.info(f'LSF Generation took {end-start:.4g} seconds')
 
     def instantiate_flat_masters(self,
-                                 master_list,  # type: Sequence[DesignMaster]
-                                 name_list=None,  # type: Optional[Sequence[Optional[str]]]
-                                 lib_name='',  # type: str
-                                 rename_dict=None,  # type: Optional[Dict[str, str]],
-                                 draw_flat_gds=True,  # type: bool
-                                 sort_by_layer=True,  # type: bool
+                                 master_list: Sequence[DesignMaster],
+                                 name_list: Optional[Sequence[Optional[str]]]=None,
+                                 lib_name: str='',
+                                 rename_dict: Optional[Dict[str, str]]=None,
+                                 draw_flat_gds: bool=True,
+                                 sort_by_layer: bool=True,
                                  ) -> None:
         """
         Create all given masters in the database to a flat hierarchy.
@@ -632,7 +633,7 @@ class PhotonicTemplateDB(TemplateDB):
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
         """
-        logging.info(f'In instantiate_flat_masters')
+        logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
         if name_list is None:
             name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
@@ -713,20 +714,29 @@ class PhotonicTemplateDB(TemplateDB):
             self.create_masters_in_db(lib_name, self.flat_content_list)
 
     def _flatten_instantiate_master_helper(self,
-                                           master,  # type:
-                                           ):
+                                           master: DesignMaster,
+                                           hierarchy_name: Optional[str]=None,
+                                           ) -> Tuple:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
         elements to create a flat design
 
         Parameters
         ----------
-        master :
-
+        master : DesignMaster
+            The master that should be flattened.
+        hierarchy_name : Optional[str]
+            The name describing the hierarchy to get the the particular master being flattened.
+            Should only be None when a top level cell is being flattened in PhotonicTemplateDB.instantiate_flat_masters.
         Returns
         -------
-
+        new_content_list : Tuple
+            The content list of the flattened master
         """
-        logging.debug(f'in _flatten_instantiate_master_helper')
+        # If hierarchy_name is not provided, get the name from the master itself. This shoul
+        if hierarchy_name is None:
+            hierarchy_name = master.__class__.__name__
+
+        logging.debug(f'PhotonicTemplateDB._flatten_instantiate_master_helper called on {hierarchy_name}')
 
         start = time.time()
 
@@ -769,15 +779,19 @@ class PhotonicTemplateDB(TemplateDB):
         for child_instance_info in master_subinstances:
             child_master_key = child_instance_info['master_key']
             child_master = self._master_lookup[child_master_key]
+            hierarchy_name_addon = f'{child_master.__class__.__name__}'
+            if child_instance_info['name'] is not None:
+                hierarchy_name_addon += f'(inst_name={child_instance_info["name"]})'
 
             child_content = self._flatten_instantiate_master_helper(
                 master=child_master,
+                hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
             )
-
             transformed_child_content = self._transform_child_content(
                 content=child_content,
                 loc=child_instance_info['loc'],
                 orient=child_instance_info['orient'],
+                child_name=f'{hierarchy_name}.{hierarchy_name_addon}'
             )
 
             # We got the children's info. Now append it to polygons within the current master
@@ -786,36 +800,42 @@ class PhotonicTemplateDB(TemplateDB):
 
         end = time.time()
 
-        logging.debug(f'_flatten_instantiate_master_helper took {end-start:.4g}s')
+        logging.debug(f'PhotonicTemplateDB._flatten_instantiate_master_helper finished on '
+                      f'{hierarchy_name}: \n'
+                      f'\t\t\t\t\t\t\t\t\t\tflattening took {end - start:.4g}s.\n'
+                      f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB')
 
         return new_content_list
 
     def _transform_child_content(self,
-                                 content,  # type: Tuple
-                                 loc=(0, 0),  # type: coord_type
-                                 orient='R0',  # type: str
-                                 unit_mode=False,  # type: bool
-                                 ):
+                                 content: Tuple,
+                                 loc: coord_type=(0, 0),
+                                 orient: str='R0',
+                                 unit_mode: bool=False,
+                                 child_name: Optional[str]=None,
+                                 ) -> Tuple:
         """
         Translates and rotates the passed content list
 
         Parameters
         ----------
         content : Tuple
-            The content list to be transformed
+            The content list to be transformed.
         loc : Tuple[Union[float, int], Union[float, int]]
-            The translation vector
+            The translation vector.
         orient : str
-            The rotation string
+            The rotation string.
         unit_mode : bool
-            True if translation vector is in layout resolution units
+            True if translation vector is in layout resolution units.
+        child_name : Optional[str]
+            The hierarchy name of the instance being transformed.
 
         Returns
         -------
         new_content_list : tuple
-            The translated and rotated content list
+            The translated and rotated content list.
         """
-        logging.debug(f'In _transform_child_content')
+        logging.debug(f'PhotonicTemplateDB._transform_child_content called on {child_name}')
 
         (rect_list, via_list, pin_list, path_list, blockage_list, boundary_list, polygon_list, round_list,
          sim_list, source_list, monitor_list) = content
