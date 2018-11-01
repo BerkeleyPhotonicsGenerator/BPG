@@ -3,6 +3,7 @@
 # Directory Locations
 # Top level directory for the project
 project_name: bpg_test_suite
+layermap: 'BPG/examples/tech/BPG_tech_files/gds_map.yaml'
 
 logfile: 'gen_libs/bpg_test_suite/custom_log_name_test.txt'
 
