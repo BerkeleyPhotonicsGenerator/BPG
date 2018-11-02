@@ -59,7 +59,7 @@ database:
     # RCX runset
     rcx_runset: "${BAG_TECH_CONFIG_DIR}/workspace_setup/rcx_runset"
     # source.added file location
-    source_added_file: "$PROJECT/cad/lib/include.sp"
+    source_added_file: "{BAG_TECH_CONFIG_DIR}/workspace_setup/include.sp"
     # maximum number of LVS/RCX processes BAG can launch
     max_workers: 1
   # True to use calibre view
@@ -121,5 +121,5 @@ new_lib_path: "BagModules"
 
 # Configuration for Berkeley Photonics Generator
 bpg_config:
-#  photonic_tech_config_path:  INSERT PATH TO TECH CONFIG FILE HERE
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
 
