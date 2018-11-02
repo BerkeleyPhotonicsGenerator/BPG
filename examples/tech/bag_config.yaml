@@ -111,7 +111,7 @@ simulation:
 
 # technology specific configuration are stored in a separate file.
 # this field tells BAG where to look for it.
-tech_config_path: "${BAG_TECH_CONFIG_DIR}/tech_config.yaml"
+tech_config_path: "${BAG_WORK_DIR}/BPG/examples/tech/BAG_tech_files/tech_config.yaml"
 
 # BAG design libraries definition file.
 lib_defs: "bag_libs.def"
