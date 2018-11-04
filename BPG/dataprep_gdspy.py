@@ -41,7 +41,7 @@ class Dataprep:
                  flat_content_list_by_layer,
                  flat_content_list_separate,
                  is_lsf: bool = False,
-                 impl_cell = None,
+                 impl_cell=None,
                  ):
         """
 
@@ -155,9 +155,9 @@ class Dataprep:
 
         # cache list of polygons
         self.polygon_cache: Dict[Tuple, Union[gdspy.Polygon, gdspy.PolygonSet]] = {}
-        
+
         # Set the cell name for flattened gds output
-        if(type(impl_cell) is str ):
+        if type(impl_cell) is str:
             self.impl_cell = impl_cell
         else:
             self.impl_cell = "dummy_name"
@@ -225,10 +225,10 @@ class Dataprep:
         if 'lpp_ops' not in dataprep_group:
             raise ValueError(f'Dataprep group entry must be a dictionary containing a key named \'lpp_ops\'.\n'
                              f'Dataprep group {dataprep_group} does not meet this criteria.')
-        if not(isinstance(dataprep_group['lpp_in'], list)):
+        if not (isinstance(dataprep_group['lpp_in'], list)):
             raise ValueError(f'lpp_in must be a list of dictionaries.\n'
                              f'Dataprep group {dataprep_group} does not meet this criteria.')
-        if not(isinstance(dataprep_group['lpp_ops'], list)):
+        if not (isinstance(dataprep_group['lpp_ops'], list)):
             raise ValueError(f'lpp_ops must be a list of dictionaries.\n'
                              f'Dataprep group {dataprep_group} does not meet this criteria.')
 
@@ -297,7 +297,7 @@ class Dataprep:
     ################################################################################
     @staticmethod
     def cleanup_delete(coords_list_in: np.ndarray,
-                       eps_grid: float=1e-4,
+                       eps_grid: float = 1e-4,
                        ) -> np.ndarray:
         """
         From the passed coordinate list, returns a numpy array of bools of the same length where each value indicates
@@ -358,7 +358,7 @@ class Dataprep:
 
     def coords_cleanup(self,
                        coords_list: np.ndarray,
-                       eps_grid: float=1e-4,
+                       eps_grid: float = 1e-4,
                        ) -> np.ndarray:
         """
         clean up coordinates in the list that are redundant or harmful for following geometry manipulation functions
@@ -396,7 +396,7 @@ class Dataprep:
 
     def dataprep_cleanup_gdspy(self,
                                polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
-                               do_cleanup: bool=True,
+                               do_cleanup: bool = True,
                                ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Clean up a gdspy Polygon/PolygonSet by performing offset with size = 0
@@ -504,9 +504,9 @@ class Dataprep:
 
     def polyop_gdspy_to_point_list(self,
                                    polygon_gdspy_in: Union[gdspy.Polygon, gdspy.PolygonSet],
-                                   fracture: bool=True,
-                                   do_manh: bool=True,
-                                   manh_grid_size: Optional[float]=None,
+                                   fracture: bool = True,
+                                   do_manh: bool = True,
+                                   manh_grid_size: Optional[float] = None,
                                    ) -> List[List[Tuple[float, float]]]:
         """
         Converts the gdspy representation of the polygon into a list of fractured polygon point lists
@@ -576,7 +576,7 @@ class Dataprep:
     ################################################################################
     @staticmethod
     def merge_adjacent_duplicate(coord_set: np.ndarray,
-                                 eps_grid: float=1e-6,
+                                 eps_grid: float = 1e-6,
                                  ) -> np.ndarray:
         """
         Merges all points in the passed list of coordinates that are duplicate adjacent points.
@@ -606,7 +606,7 @@ class Dataprep:
 
     @staticmethod
     def not_manh(coord_list: np.ndarray,
-                 eps_grid: float=1e-6,
+                 eps_grid: float = 1e-6,
                  ) -> int:
         """
         Checks whether the passed coordinate list is Manhattanized
@@ -641,7 +641,7 @@ class Dataprep:
                        nstep: int,
                        inc_x_first: bool,
                        manh_grid_size: float,
-                       eps_grid: float=1e-4,
+                       eps_grid: float = 1e-4,
                        ) -> np.ndarray:
         """
         Converts pointlist of an edge (ie 2 points), to a pointlist of a Manhattanized edge.
@@ -725,13 +725,13 @@ class Dataprep:
 
         def apprx_equal(float1: float,
                         float2: float,
-                        eps_grid: float=1e-9,
+                        eps_grid: float = 1e-9,
                         ) -> bool:
             return abs(float1 - float2) < eps_grid
 
         def apprx_equal_coord(coord1: Tuple[float, float],
                               coord2: Tuple[float, float],
-                              eps_grid: float=1e-9,
+                              eps_grid: float = 1e-9,
                               ) -> bool:
             return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
 
@@ -1163,7 +1163,7 @@ class Dataprep:
     ################################################################################
     def get_polygon_point_lists_on_layer(self,
                                          layer: Tuple[str, str],
-                                         debug: bool=False,
+                                         debug: bool = False,
                                          ) -> Tuple[List, List]:
         """
         Returns a list of all shapes
@@ -1316,7 +1316,7 @@ class Dataprep:
             A dictionary containing lists all dataprepped polygons organized by layername
         sim_obj_list : Tuple[List, List, List]
             A tuple of lists containing all simulation objects to be used
-        impl_cell :  Str 
+        impl_cell : str
             Name of cell in flat gds output
 
         Returns
@@ -1501,7 +1501,7 @@ class Dataprep:
                         # Do not add new layer if no shapes are on it.
                         if new_out_layer_polygons is not None:
                             self.flat_gdspy_polygonsets_by_layer[out_layer] = new_out_layer_polygons
-                        elif ((new_out_layer_polygons is None) and 
+                        elif ((new_out_layer_polygons is None) and
                               (out_layer in self.flat_gdspy_polygonsets_by_layer.keys())):
                             logging.debug(f'Dataprep operation {operation} on layer {out_layer} from layer {lpp_in} '
                                           f'resulted in no shapes on the output layer (an empty layer). '

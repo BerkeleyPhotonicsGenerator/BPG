@@ -614,11 +614,11 @@ class PhotonicTemplateDB(TemplateDB):
 
     def instantiate_flat_masters(self,
                                  master_list: Sequence[DesignMaster],
-                                 name_list: Optional[Sequence[Optional[str]]]=None,
-                                 lib_name: str='',
-                                 rename_dict: Optional[Dict[str, str]]=None,
-                                 draw_flat_gds: bool=True,
-                                 sort_by_layer: bool=True,
+                                 name_list: Optional[Sequence[Optional[str]]] = None,
+                                 lib_name: str = '',
+                                 rename_dict: Optional[Dict[str, str]] = None,
+                                 draw_flat_gds: bool = True,
+                                 sort_by_layer: bool = True,
                                  ) -> None:
         """
         Create all given masters in the database to a flat hierarchy.
@@ -633,6 +633,10 @@ class PhotonicTemplateDB(TemplateDB):
             Library to create the masters in.  If empty or None, use default library.
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
+        draw_flat_gds : bool
+            If true, this method will also create a gds file
+        sort_by_layer : bool
+            If true, this method will also generate a content list organized by layer
         """
         logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
@@ -713,14 +717,14 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: put here or in different function?
         if draw_flat_gds:
             self.create_masters_in_db(lib_name, self.flat_content_list)
-        
-        if(len(name_list) == 1):
+
+        if (len(name_list) == 1):
             # If called from generate_flat_gds, name_list is just [self.specs['impl_cell']]
             self.impl_cell = name_list[0]
 
     def _flatten_instantiate_master_helper(self,
                                            master: DesignMaster,
-                                           hierarchy_name: Optional[str]=None,
+                                           hierarchy_name: Optional[str] = None,
                                            ) -> Tuple:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
         elements to create a flat design
@@ -814,10 +818,10 @@ class PhotonicTemplateDB(TemplateDB):
 
     def _transform_child_content(self,
                                  content: Tuple,
-                                 loc: coord_type=(0, 0),
-                                 orient: str='R0',
-                                 unit_mode: bool=False,
-                                 child_name: Optional[str]=None,
+                                 loc: coord_type = (0, 0),
+                                 orient: str = 'R0',
+                                 unit_mode: bool = False,
+                                 child_name: Optional[str] = None,
                                  ) -> Tuple:
         """
         Translates and rotates the passed content list
@@ -846,7 +850,7 @@ class PhotonicTemplateDB(TemplateDB):
          sim_list, source_list, monitor_list) = content
 
         new_rect_list = []
-        new_via_list = []       # via list which can not be handled by DataPrep
+        new_via_list = []  # via list which can not be handled by DataPrep
         new_pin_list = []
         new_path_list = []
         new_blockage_list = []
@@ -1098,7 +1102,7 @@ class PhotonicTemplateDB(TemplateDB):
                                         self.flat_content_list_by_layer,
                                         self.flat_content_list_separate,
                                         is_lsf=False,
-                                        impl_cell = self.impl_cell)
+                                        impl_cell=self.impl_cell)
         start = time.time()
         self.post_dataprep_flat_content_list = self.dataprep_object.dataprep()
         end = time.time()
