@@ -91,6 +91,7 @@ class PhotonicTemplateDB(TemplateDB):
         self._export_gds = True
         self.dataprep_object = None
         self.lsf_dataprep_object = None
+        self.impl_cell = None
 
     @property
     def export_gds(self):
@@ -712,6 +713,10 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: put here or in different function?
         if draw_flat_gds:
             self.create_masters_in_db(lib_name, self.flat_content_list)
+        
+        if(len(name_list) == 1):
+            # If called from generate_flat_gds, name_list is just [self.specs['impl_cell']]
+            self.impl_cell = name_list[0]
 
     def _flatten_instantiate_master_helper(self,
                                            master: DesignMaster,
@@ -1092,8 +1097,8 @@ class PhotonicTemplateDB(TemplateDB):
                                         self.grid,
                                         self.flat_content_list_by_layer,
                                         self.flat_content_list_separate,
-                                        is_lsf=False
-                                        )
+                                        is_lsf=False,
+                                        impl_cell = self.impl_cell)
         start = time.time()
         self.post_dataprep_flat_content_list = self.dataprep_object.dataprep()
         end = time.time()
