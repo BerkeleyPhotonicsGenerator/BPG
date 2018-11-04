@@ -41,6 +41,7 @@ class Dataprep:
                  flat_content_list_by_layer,
                  flat_content_list_separate,
                  is_lsf: bool = False,
+                 impl_cell = None,
                  ):
         """
 
@@ -154,6 +155,12 @@ class Dataprep:
 
         # cache list of polygons
         self.polygon_cache: Dict[Tuple, Union[gdspy.Polygon, gdspy.PolygonSet]] = {}
+        
+        # Set the cell name for flattened gds output
+        if(type(impl_cell) is str ):
+            self.impl_cell = impl_cell
+        else:
+            self.impl_cell = "dummy_name"
 
     @staticmethod
     def _check_input_lpp_entry_and_convert_to_regex(lpp_entry,
@@ -1299,7 +1306,7 @@ class Dataprep:
     @staticmethod
     def polygon_list_by_layer_to_flat_content_list(poly_list_by_layer,
                                                    sim_obj_list,
-                                                   ) -> List[Tuple]:
+                                                   impl_cell='no_name_cell') -> List[Tuple]:
         """
         Converts a LPP-keyed dictionary of polygon pointlists to a flat content list format
 
@@ -1309,6 +1316,8 @@ class Dataprep:
             A dictionary containing lists all dataprepped polygons organized by layername
         sim_obj_list : Tuple[List, List, List]
             A tuple of lists containing all simulation objects to be used
+        impl_cell :  Str 
+            Name of cell in flat gds output
 
         Returns
         -------
@@ -1326,7 +1335,7 @@ class Dataprep:
                     )
                 )
         # TODO: get the right name?
-        return [('dummy_name', [], [], [], [], [], [], [],
+        return [(impl_cell, [], [], [], [], [], [], [],
                  polygon_content_list, [],
                  sim_obj_list[0], sim_obj_list[1], sim_obj_list[2])]
 
@@ -1568,7 +1577,8 @@ class Dataprep:
                 self.flat_content_list_separate[0][10],
                 self.flat_content_list_separate[0][11],
                 self.flat_content_list_separate[0][12],
-            ]
+            ],
+            impl_cell=self.impl_cell
         )
 
         # 6) Add shapes on layers from the bypass list back in
