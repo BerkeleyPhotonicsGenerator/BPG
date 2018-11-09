@@ -24,18 +24,14 @@ class SubLevel2(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        circ = BPG.photonic_objects.PhotonicRound(
+        self.add_rect(
             layer='SI',
-            resolution=self.grid.resolution,
-            center=(3, 3),
-            rout=2,
-            theta0=45,
-            theta1=60,
+            coord1=(0, 0),
+            coord2=(2, 4),
             unit_mode=False
         )
-        self.add_round(circ)
         self.add_photonic_port(name='Sublevel2',
-                               center=(3, 3),
+                               center=(0, 0),
                                orient='R0',
                                layer='SI',
                                width=1)
@@ -64,21 +60,23 @@ class SubLevel1(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        self.add_polygon(
+        self.add_rect(
             layer='SI',
-            points=[(0, 0), (3, 0), (2, 6), (0, 4)]
+            coord1=(0, 0),
+            coord2=(2, 4),
+            unit_mode=False
         )
 
         sublevel2_master = self.new_template(params={}, temp_cls=SubLevel2)
         self.add_instance(
             master=sublevel2_master,
-            inst_name='sub2_name',
-            loc=(5, 1),
-            orient='R180'
+            inst_name='sub2_1',
+            loc=(0, 5),
+            orient='R0'
         )
 
         self.add_photonic_port(name='Sublevel1',
-                               center=(2, 6),
+                               center=(0, 0),
                                orient='R0',
                                layer='SI',
                                width=1)
@@ -109,30 +107,38 @@ class TopLevel(BPG.PhotonicTemplateBase):
 
         self.add_rect(
             layer='SI',
-            coord1=(5, 3),
-            coord2=(6, 6),
+            coord1=(0, 0),
+            coord2=(2, 4),
             unit_mode=False
         )
         self.add_photonic_port(name='TopLevel',
-                               center=(6, 6),
+                               center=(0, 0),
                                orient='R0',
                                layer='SI',
                                width=1)
 
-        sub_master = self.new_template(params={}, temp_cls=SubLevel1)
+        sub_master1 = self.new_template(params={}, temp_cls=SubLevel1)
+        sub_master2 = self.new_template(params={}, temp_cls=SubLevel2)
 
         self.add_instance(
-            master=sub_master,
-            inst_name='sub_inst_name',
-            loc=(-10, 9),
+            master=sub_master1,
+            inst_name='sub1_1',
+            loc=(6, 0),
             orient='R0',
         )
 
         self.add_instance(
-            master=sub_master,
-            inst_name='sub2',
-            loc=(20, 20),
-            orient='MXR90'
+            master=sub_master1,
+            inst_name='sub1_2',
+            loc=(10, 0),
+            orient='R0'
+        )
+
+        self.add_instance(
+            master=sub_master2,
+            inst_name='sub2_2',
+            loc=(14, 0),
+            orient='R0'
         )
 
 
