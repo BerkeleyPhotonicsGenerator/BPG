@@ -780,9 +780,18 @@ class PhotonicTemplateDB(TemplateDB):
         # TODO: do we need to clean up the new_via_list here or just keep it?
         new_via_list = []
 
-        new_content_list = (new_rect_list, new_via_list, new_pin_list, new_path_list,
-                            new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
-                            new_sim_list, new_source_list, new_monitor_list)
+        new_content_list = (new_rect_list.copy(),
+                            new_via_list.copy(),
+                            new_pin_list.copy(),
+                            new_path_list.copy(),
+                            new_blockage_list.copy(),
+                            new_boundary_list.copy(),
+                            new_polygon_list.copy(),
+                            new_round_list.copy(),
+                            new_sim_list.copy(),
+                            new_source_list.copy(),
+                            new_monitor_list.copy()
+                            )
 
         # For each instance in this level, recurse to get all its content
         for child_instance_info in master_subinstances:
