@@ -34,6 +34,11 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             unit_mode=False
         )
         self.add_round(circ)
+        self.add_photonic_port(name='Sublevel2',
+                               center=(3, 3),
+                               orient='R0',
+                               layer='SI',
+                               width=1)
 
 
 class SubLevel1(BPG.PhotonicTemplateBase):
@@ -72,6 +77,12 @@ class SubLevel1(BPG.PhotonicTemplateBase):
             orient='R180'
         )
 
+        self.add_photonic_port(name='Sublevel1',
+                               center=(2, 6),
+                               orient='R0',
+                               layer='SI',
+                               width=1)
+
 
 class TopLevel(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
@@ -102,6 +113,11 @@ class TopLevel(BPG.PhotonicTemplateBase):
             coord2=(6, 6),
             unit_mode=False
         )
+        self.add_photonic_port(name='TopLevel',
+                               center=(6, 6),
+                               orient='R0',
+                               layer='SI',
+                               width=1)
 
         sub_master = self.new_template(params={}, temp_cls=SubLevel1)
 
