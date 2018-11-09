@@ -1543,9 +1543,6 @@ class PhotonicPinInfo(PinInfo):
         new_box = self.bbox.transform(loc=loc, orient=orient, unit_mode=unit_mode)
         new_box = [[new_box.left, new_box.bottom], [new_box.right, new_box.top]]
         if copy:
-            self.bbox = new_box
-            return self
-        else:
             return PhotonicPinInfo(
                 res=self._resolution,
                 net_name=self.net_name,
@@ -1555,3 +1552,6 @@ class PhotonicPinInfo(PinInfo):
                 bbox=new_box,
                 make_rect=self.make_rect
             )
+        else:
+            self['bbox'] = new_box
+            return self
