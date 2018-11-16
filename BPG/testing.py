@@ -25,7 +25,6 @@ from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPol
     PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
 from BPG import LumericalDesignGenerator
 from collections import OrderedDict
-# from BPG.dataprep_gdspy import dataprep_coord_to_gdspy, poly_operation, polyop_gdspy_to_point_list
 
 from numpy import pi
 from memory_profiler import memory_usage
