@@ -4,7 +4,7 @@ from typing import Dict, Set, Any, TYPE_CHECKING
 from bag.layout.core import BBox
 
 if TYPE_CHECKING:
-    from BPG.photonic_template import PhotonicTemplateDB
+    from BPG.testing import PhotonicTemplateDB
 
 
 class Waveguide(BPG.PhotonicTemplateBase):
