@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
-from .photonic_template import PhotonicTemplateDB
+from .testing import PhotonicTemplateDB
 from .lumerical_generator import LumericalSweepGenerator
 from .lumerical_materials import LumericalMaterialGenerator
 from .logger import setup_logger
