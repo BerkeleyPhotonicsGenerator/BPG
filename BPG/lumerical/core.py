@@ -9,7 +9,7 @@ from .objects import *
 
 class LumericalPlugin(AbstractPlugin):
     def __init__(self, config):
-        super(LumericalPlugin, self).__init__(config)
+        AbstractPlugin.__init__(self, config)
         self.config = config
         self.gds_layermap = self.config['gds_layermap']
         self.lsf_export_config = self.config['lsf_export_config']
