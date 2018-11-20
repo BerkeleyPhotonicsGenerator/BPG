@@ -8,7 +8,6 @@ if TYPE_CHECKING:
 
 
 class Waveguide(BPG.PhotonicTemplateBase):
-
     def __init__(self,
                  temp_db,  # type: PhotonicTemplateDB
                  lib_name,  # type: str
