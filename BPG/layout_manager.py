@@ -21,6 +21,7 @@ class PhotonicLayoutManager:
     """
     User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
+
     def __init__(self,
                  bprj: 'PhotonicBagProject',
                  spec_file: str,
@@ -153,7 +154,7 @@ class PhotonicLayoutManager:
             layout_params_list = [self.specs['layout_params']]
         if cell_name_list is None:
             if len(layout_params_list) > 1:
-                cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
+                cell_name_list = [self.specs['impl_cell'] + str(count) for count in range(len(layout_params_list))]
             else:
                 cell_name_list = [self.specs['impl_cell']]
 
@@ -184,10 +185,10 @@ class PhotonicLayoutManager:
         if create_materials is True:
             self.create_materials_file()
 
-        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
-                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                              lsf_filepath=self.lsf_path,
-                              )
+        self.tdb.to_lumerical_plugin(gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                                     lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                     lsf_filepath=self.lsf_path,
+                                     )
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
@@ -344,7 +345,7 @@ class PhotonicLayoutManager:
         print('\n---Running dataprep on manh---\n')
         for cell in self.cell_name_list:
             self.prj.impl_db.dataprep(lib_name=self.impl_lib,
-                                      cell_name=cell+'_Manh',
+                                      cell_name=cell + '_Manh',
                                       debug=True
                                       )
 
