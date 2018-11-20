@@ -2,7 +2,7 @@ from shapely.geometry import Polygon, MultiPolygon
 from typing import Union, Tuple, List
 import sys
 import gdspy
-from BPG.dataprep_gdspy import dataprep_cleanup_gdspy, GLOBAL_OPERATION_PRECISION, GLOBAL_DO_CLEANUP
+from BPG.compiler.dataprep_gdspy import dataprep_cleanup_gdspy, GLOBAL_OPERATION_PRECISION, GLOBAL_DO_CLEANUP
 
 
 MAX_POINTS = sys.maxsize
