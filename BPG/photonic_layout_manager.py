@@ -2,13 +2,13 @@ import yaml
 import importlib
 import os
 import logging
-
 from pathlib import Path
+
 from bag.layout import RoutingGrid
 from bag.simulation.core import DesignManager
-from .testing import PhotonicTemplateDB
-from .lumerical_generator import LumericalSweepGenerator
-from .lumerical_materials import LumericalMaterialGenerator
+from .db import PhotonicTemplateDB
+from .lumerical.code_generator import LumericalSweepGenerator
+from .lumerical.code_generator import LumericalMaterialGenerator
 from .logger import setup_logger
 
 from typing import TYPE_CHECKING
@@ -27,7 +27,6 @@ class PhotonicLayoutManager(DesignManager):
                  verbose: bool = False,
                  ):
         """
-
         Parameters
         ----------
         bprj : PhotonicBagProject
@@ -310,14 +309,6 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self):
-        """
-        Parameters
-        ----------
-        debug : bool
-            True to print debug information
-        Returns
-        -------
-        """
         logging.info('---Running dataprep---')
         self.generate_flat_gds(generate_gds=False)
         self.tdb.dataprep()

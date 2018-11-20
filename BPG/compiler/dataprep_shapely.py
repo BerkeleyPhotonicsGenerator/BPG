@@ -8,10 +8,10 @@
 
 # import importlib
 # from figures import SIZE, BLUE, GRAY, set_limits
-from typing import TYPE_CHECKING, Tuple, List, Union
-from math import ceil, floor
-from shapely.geometry import Point, Polygon, MultiPolygon
-from BPG.manh_shapely import polyop_manh, coords_cleanup
+from typing import Tuple, List, Union
+from math import ceil
+from shapely.geometry import Polygon, MultiPolygon
+from BPG.compiler.manh_shapely import polyop_manh
 from BPG.shapely_debug import shapely_plot
 
 
