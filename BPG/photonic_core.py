@@ -9,12 +9,12 @@ from pathlib import Path
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
 from decimal import Decimal
 from bag.layout.core import BagLayout
-from .photonic_port import PhotonicPort
+from .port import PhotonicPort
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 from itertools import chain
 
 if TYPE_CHECKING:
-    from BPG.photonic_objects import PhotonicRound
+    from BPG.objects import PhotonicRound
     from bag.layout.objects import InstanceInfo
     from bag.layout.core import TechInfo
 
@@ -287,7 +287,7 @@ class PhotonicBagLayout(BagLayout):
 
         Parameters
         ----------
-        round_obj : BPG.photonic_objects.PhotonicRound
+        round_obj : BPG.objects.PhotonicRound
             the round object to add.
         """
         if self._finalized:

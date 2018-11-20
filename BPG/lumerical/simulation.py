@@ -10,7 +10,7 @@ from BPG.lumerical.code_generator import LumericalCodeGenerator
 
 # Type checking imports
 from typing import List, Tuple
-from BPG.photonic_port import PhotonicPort
+from BPG.port import PhotonicPort
 
 
 class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
