@@ -1,5 +1,5 @@
 import BPG
-from BPG.lumerical_tb import LumericalTB
+from BPG.lumerical.testbench import LumericalTB
 
 
 class WaveguideFDE(LumericalTB):
