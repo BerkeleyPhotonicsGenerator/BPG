@@ -9,7 +9,7 @@ from bag.layout.template import TemplateDB
 from bag.util.cache import _get_unique_name, DesignMaster
 from BPG.compiler.dataprep_gdspy import Dataprep
 
-from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound, \
+from .objects import PhotonicRect, PhotonicPolygon, PhotonicRound, \
     PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
 from BPG import LumericalDesignGenerator
 from collections import OrderedDict
