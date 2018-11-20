@@ -13,7 +13,7 @@ class LumericalPlugin(AbstractPlugin):
         self.config = config
         self.gds_layermap = self.config['gds_layermap']
         self.lsf_export_config = self.config['lsf_export_config']
-        self.lsf_filepath = self.lsf_export_config['lsf_filepath']
+        self.lsf_filepath = self.config['lsf_filepath']
 
     def export_content_list(self, content_list, **kwargs):
         """
@@ -22,30 +22,15 @@ class LumericalPlugin(AbstractPlugin):
         Parameters
         ----------
         content_list
-            A raw unflattened content list containing all physical design information
+            A flattened content list that has already been run through lumerical dataprep
         """
         start = time.time()
         # 1) Import tech information for the layermap and lumerical properties
-        # TODO: Is loading the gds layermap really needed here?
-        # with open(self.gds_layermap, 'r') as f:
-        #     lay_info = yaml.load(f)
-        #     lay_map = lay_info['layer_map']
         with open(self.lsf_export_config, 'r') as f:
             lay_info = yaml.load(f)
             prop_map = lay_info['lumerical_prop_map']
 
-        # TODO: This section of the code needs to be refactored
-        # # 2) Make sure that a flat content list has been generated for the layout already
-        # start = time.time()
-        # if self.flat_content_list_separate is None:
-        #     raise ValueError('Please generate a flat GDS before exporting to Lumerical')
-        #
-        # # 3) Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
-        # self.lsf_dataprep()
-        # content_list = self.lsf_post_dataprep_flat_content_list
-        # self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
-
-        # 4) For each element in the flat content list, convert it into lsf code and append to running file
+        # 2) For each element in the content list, convert it into lsf code and append to running file
         for count, content in enumerate(content_list):
             lsfwriter = LumericalDesignGenerator(self.lsf_filepath + '_' + str(count))
 
