@@ -1,5 +1,5 @@
 import yaml
-from BPG.lumerical_materials import LumericalMaterialGenerator
+from BPG.lumerical.code_generator import LumericalMaterialGenerator
 from pathlib import Path
 
 
