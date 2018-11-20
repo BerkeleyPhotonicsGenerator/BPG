@@ -7,13 +7,13 @@ import logging
 
 # bag imports
 import bag.io
-from bag.layout.template import TemplateBase, TemplateDB
+from bag.layout.template import TemplateBase
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from BPG.photonic_core import PhotonicBagLayout
 
 # Photonic object imports
-from .photonic_port import PhotonicPort
-from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
+from .port import PhotonicPort
+from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
     PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
 
 # Typing imports
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo
     from bag.layout.objects import InstanceInfo, Instance
     from BPG.photonic_core import PhotonicTechInfo
+    from BPG.db import PhotonicTemplateDB
 
 layer_type = Union[str, Tuple[str, str]]
 dim_type = Union[float, int]
@@ -234,12 +235,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return polygon
 
     def finalize(self):
-        """
-
-        Returns
-        -------
-
-        """
         # TODO: Implement port polygon adding here?
         # Need to remove match port's polygons?
         # Anything else?
