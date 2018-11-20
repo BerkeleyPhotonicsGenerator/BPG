@@ -185,10 +185,8 @@ class PhotonicLayoutManager:
         if create_materials is True:
             self.create_materials_file()
 
-        self.tdb.to_lumerical_plugin(gds_layermap=self.prj.photonic_tech_info.layermap_path,
-                                     lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                                     lsf_filepath=self.lsf_path,
-                                     )
+        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                     lsf_filepath=self.lsf_path)
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
