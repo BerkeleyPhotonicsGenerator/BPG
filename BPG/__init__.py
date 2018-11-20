@@ -5,7 +5,7 @@ from .lumerical.code_generator import LumericalDesignGenerator, LumericalSweepGe
 from .template import PhotonicTemplateBase
 
 # Expose PhotonicLayoutManager to encapsulate gds and lsf export
-from .photonic_layout_manager import PhotonicLayoutManager
+from .layout_manager import PhotonicLayoutManager
 from .photonic_core import PhotonicBagProject
 
 __version__ = '0.0.1'

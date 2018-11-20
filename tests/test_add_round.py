@@ -1,5 +1,5 @@
 import BPG
-from BPG.photonic_objects import PhotonicRound
+from BPG.objects import PhotonicRound
 
 
 class AddRound(BPG.PhotonicTemplateBase):

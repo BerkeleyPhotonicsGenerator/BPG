@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from bag.layout import RoutingGrid
-from bag.simulation.core import DesignManager
+from bag.io.file import read_yaml
 from .db import PhotonicTemplateDB
 from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
@@ -17,13 +17,13 @@ if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
 
 
-class PhotonicLayoutManager(DesignManager):
+class PhotonicLayoutManager:
     """
-    Class that manages the creation of Photonic Layouts and Lumerical LSF files
+    User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
     def __init__(self,
-                 bprj: "PhotonicBagProject",
-                 spec_file,
+                 bprj: 'PhotonicBagProject',
+                 spec_file: str,
                  verbose: bool = False,
                  ):
         """
@@ -36,17 +36,10 @@ class PhotonicLayoutManager(DesignManager):
         verbose : bool
             True to output debug level messages to stdout. False to output info level messages to stdout.
         """
+        self.prj = bprj
+        self.specs = read_yaml(spec_file)
 
-        DesignManager.__init__(self, bprj, spec_file)
-        """
-        [ Relevant Inherited Variables ]
-        self.prj: contains the BagProject instance
-        self.specs: contains the specs passed in spec_file
-        """
-
-        # PhotonicTemplateDB instance for layout creation
-        self.prj: "PhotonicBagProject"
-        self.tdb: "PhotonicTemplateDB" = None
+        self.tdb = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
