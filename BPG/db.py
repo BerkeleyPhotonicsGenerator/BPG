@@ -1,4 +1,3 @@
-import os
 import yaml
 import time
 import logging
@@ -7,7 +6,6 @@ from memory_profiler import memory_usage
 
 # BAG Imports
 from bag.core import BagProject, RoutingGrid
-from bag.io import get_encoding
 from bag.layout.template import TemplateDB
 from bag.util.cache import _get_unique_name, DesignMaster
 
@@ -90,78 +88,6 @@ class PhotonicTemplateDB(TemplateDB):
         # type: (bool) -> None
         self._export_gds = val
 
-    def create_masters_in_db(self, lib_name, content_list, export_gds=None):
-        # type: (str, Sequence[Any], bool) -> None
-        """Create the masters in the design database.
-
-        Parameters
-        ----------
-        lib_name : str
-            library to create the designs in.
-        content_list : Sequence[Any]
-            a list of the master contents.  Must be created in this order.
-        export_gds : bool
-            True to export the gds.
-            False to not export a gds even if a gds layermap is provided.
-        """
-        if self._prj is None:
-            raise ValueError('BagProject is not defined.')
-        if export_gds is None:
-            export_gds = self._export_gds
-
-        if self._gds_lay_file and export_gds:
-            self.to_gds_plugin(lib_name, content_list)
-        elif self._use_cybagoa:
-            # remove write locks from old layouts
-            cell_view_list = [(item[0], 'layout') for item in content_list]
-            if self._pure_oa:
-                pass
-            else:
-                # create library if it does not exist
-                self._prj.create_library(self._lib_name)
-                self._prj.release_write_locks(self._lib_name, cell_view_list)
-
-            logging.info(f'Instantiating layout')
-
-            # create OALayouts
-            start = time.time()
-            if 'CDSLIBPATH' in os.environ:
-                cds_lib_path = os.path.abspath(os.path.join(os.environ['CDSLIBPATH'], 'cds.lib'))
-            else:
-                cds_lib_path = os.path.abspath('./cds.lib')
-            with cybagoa.PyOALayoutLibrary(cds_lib_path, self._lib_name, self._prj.default_lib_path,
-                                           self._prj.tech_info.via_tech_name,
-                                           get_encoding()) as lib:
-                lib.add_layer('prBoundary', 235)
-                lib.add_purpose('label', 237)
-                lib.add_purpose('drawing1', 241)
-                lib.add_purpose('drawing2', 242)
-                lib.add_purpose('drawing3', 243)
-                lib.add_purpose('drawing4', 244)
-                lib.add_purpose('drawing5', 245)
-                lib.add_purpose('drawing6', 246)
-                lib.add_purpose('drawing7', 247)
-                lib.add_purpose('drawing8', 248)
-                lib.add_purpose('drawing9', 249)
-                lib.add_purpose('boundary', 250)
-                lib.add_purpose('pin', 251)
-
-                for cell_name, oa_layout in content_list:
-                    lib.create_layout(cell_name, 'layout', oa_layout)
-            end = time.time()
-            logging.info(f'Layout instantiation took {end-start:.4g}s')
-        else:
-            # create library if it does not exist
-            self._prj.create_library(self._lib_name)
-
-            logging.info(f'Instantiating layout')
-
-            via_tech_name = self._grid.tech_info.via_tech_name
-            start = time.time()
-            self._prj.instantiate_layout(self._lib_name, 'layout', via_tech_name, content_list)
-            end = time.time()
-            logging.info(f'Layout instantiation took {end-start:.4g}s')
-
     def generate_content_list(self,
                               master_list,  # type: Sequence[DesignMaster]
                               name_list=None,  # type: Optional[Sequence[Optional[str]]]
@@ -229,19 +155,17 @@ class PhotonicTemplateDB(TemplateDB):
 
         # use ordered dict so that children are created before parents.
         info_dict = OrderedDict()  # type: Dict[str, DesignMaster]
-        start = time.time()
         for master, top_name in zip(master_list, name_list):
             self._instantiate_master_helper(info_dict, master)
-        end = time.time()
 
         if not lib_name:
             lib_name = self.lib_name
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        self.content_list = [master.get_content(lib_name, self.format_cell_name)
-                             for master in info_dict.values()]
-        return self.content_list
+        content_list = [master.get_content(lib_name, self.format_cell_name)
+                        for master in info_dict.values()]
+        return content_list
 
     def to_gds_plugin(self,
                       lib_name: str,
