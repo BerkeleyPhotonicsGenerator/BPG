@@ -19,6 +19,7 @@ from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orie
 from bag.util.cache import _get_unique_name, DesignMaster
 from BPG.photonic_core import PhotonicBagLayout
 from BPG.dataprep_gdspy import Dataprep
+from copy import deepcopy
 
 from .photonic_port import PhotonicPort
 from .photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
@@ -1156,6 +1157,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def photonic_ports_names_iter(self):
         # type: () -> Iterable[str]
         return self._photonic_ports.keys()
+
+    def new_template(self, params=None, temp_cls=None, debug=False, **kwargs):
+        """
+        Override TemplateBase's new_template so that we deepcopy the sent in parameters to avoid any mutable dictionary
+        issues.
+        """
+        new_params = deepcopy(params)
+        return TemplateBase.new_template(self, params=new_params, temp_cls=temp_cls, debug=debug, **kwargs)
 
     def add_rect(self,
                  layer,  # type: Union[str, Tuple[str, str]]
