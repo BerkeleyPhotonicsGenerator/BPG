@@ -9,15 +9,13 @@ from BPG.objects import *
 
 
 class GDSPlugin(AbstractPlugin):
-    def __init__(self, config):
-        AbstractPlugin.__init__(self, config)
-        self.config = config
-        self.grid = self.config['grid']
-        self.gds_layermap = self.config['gds_layermap']
-        self.gds_filepath = self.config['gds_filepath']
-        self.lib_name = config['lib_name']
+    def __init__(self, grid, gds_layermap, gds_filepath, lib_name):
+        self.grid = grid
+        self.gds_layermap = gds_layermap
+        self.gds_filepath = gds_filepath
+        self.lib_name = lib_name
 
-    def export_content_list(self, content_list, **kwargs):
+    def export_content_list(self, content_list):
         """
         Exports the physical design into the lumerical LSF format
 
