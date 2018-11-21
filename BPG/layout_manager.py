@@ -21,7 +21,6 @@ class PhotonicLayoutManager:
     """
     User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
-
     def __init__(self,
                  bprj: 'PhotonicBagProject',
                  spec_file: str,
