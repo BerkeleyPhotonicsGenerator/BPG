@@ -13,8 +13,8 @@ from bag.util.cache import _get_unique_name, DesignMaster
 
 # BPG Imports
 from BPG.compiler.dataprep_gdspy import Dataprep
-from .objects import PhotonicRect, PhotonicPolygon, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
+from .objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
+    PhotonicPath, PhotonicPinInfo
 
 # Plugin Imports
 from .lumerical.core import LumericalPlugin
@@ -110,7 +110,7 @@ class PhotonicTemplateDB(TemplateDB):
             export_gds = self._export_gds
 
         if self._gds_lay_file and export_gds:
-            self._create_gds_plugin(lib_name, content_list)
+            self.to_gds_plugin(lib_name, content_list)
         elif self._use_cybagoa:
             # remove write locks from old layouts
             cell_view_list = [(item[0], 'layout') for item in content_list]
@@ -149,7 +149,7 @@ class PhotonicTemplateDB(TemplateDB):
                 for cell_name, oa_layout in content_list:
                     lib.create_layout(cell_name, 'layout', oa_layout)
             end = time.time()
-            logging.info(f'Layout instnatiation took {end-start:.4g}s')
+            logging.info(f'Layout instantiation took {end-start:.4g}s')
         else:
             # create library if it does not exist
             self._prj.create_library(self._lib_name)
@@ -160,18 +160,17 @@ class PhotonicTemplateDB(TemplateDB):
             start = time.time()
             self._prj.instantiate_layout(self._lib_name, 'layout', via_tech_name, content_list)
             end = time.time()
-            logging.info(f'Layout instnatiation took {end-start:.4g}s')
+            logging.info(f'Layout instantiation took {end-start:.4g}s')
 
-    def instantiate_masters(self,
-                            master_list,  # type: Sequence[DesignMaster]
-                            name_list=None,  # type: Optional[Sequence[Optional[str]]]
-                            lib_name='',  # type: str
-                            debug=False,  # type: bool
-                            rename_dict=None,  # type: Optional[Dict[str, str]]
-                            ) -> None:
+    def generate_content_list(self,
+                              master_list,  # type: Sequence[DesignMaster]
+                              name_list=None,  # type: Optional[Sequence[Optional[str]]]
+                              lib_name='',  # type: str
+                              debug=False,  # type: bool
+                              rename_dict=None,  # type: Optional[Dict[str, str]]
+                              ) -> Sequence[Any]:
         """
-        Create all given masters in the database. Currently, this is being overridden so that the content_list is stored
-        locally. This is a little hacky, and may need to be changed pending further testing
+        Create the content list from the provided masters and returns it.
 
         Parameters
         ----------
@@ -185,6 +184,11 @@ class PhotonicTemplateDB(TemplateDB):
             True to print debugging messages
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
+
+        Returns
+        -------
+        content_list : Sequence[Any]
+            Generated content list of the provided masters
         """
         if name_list is None:
             name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
@@ -237,16 +241,12 @@ class PhotonicTemplateDB(TemplateDB):
 
         self.content_list = [master.get_content(lib_name, self.format_cell_name)
                              for master in info_dict.values()]
+        return self.content_list
 
-        if debug:
-            print('master content retrieval took %.4g seconds' % (end - start))
-
-        self.create_masters_in_db(lib_name, self.content_list)
-
-    def _create_gds_plugin(self,
-                           lib_name: str,
-                           content_list: Sequence[Any],
-                           ) -> None:
+    def to_gds_plugin(self,
+                      lib_name: str,
+                      content_list: Sequence[Any],
+                      ) -> None:
         """
         Generates a GDS file using the standard GDS plugin
 
@@ -289,7 +289,7 @@ class PhotonicTemplateDB(TemplateDB):
         # Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
         self.lsf_dataprep()
         content_list = self.lsf_post_dataprep_flat_content_list
-        self.create_masters_in_db(lib_name='_lsf_dp', content_list=content_list)
+        self.to_gds_plugin(lib_name='_lsf_dp', content_list=content_list)
 
         # Export the actual data to LSF
         plugin.export_content_list(content_list)
@@ -396,11 +396,10 @@ class PhotonicTemplateDB(TemplateDB):
 
         logging.info(f'Master content retrieval took {end - start:.4g}s')
 
-        # TODO: put here or in different function?
         if draw_flat_gds:
-            self.create_masters_in_db(lib_name, self.flat_content_list)
+            self.to_gds_plugin(lib_name, self.flat_content_list)
 
-        if (len(name_list) == 1):
+        if len(name_list) == 1:
             # If called from generate_flat_gds, name_list is just [self.specs['impl_cell']]
             self.impl_cell = name_list[0]
 
