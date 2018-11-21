@@ -173,11 +173,8 @@ class PhotonicLayoutManager:
             template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
             temp_list.append(template)
 
-        self.tdb.batch_layout(self.prj,
-                              template_list=temp_list,
-                              name_list=cell_name_list,
-                              lib_name='',
-                              )
+        content_list = self.tdb.generate_content_list(master_list=temp_list, name_list=cell_name_list)
+        self.tdb.to_gds_plugin(lib_name=self.impl_lib, content_list=content_list)
 
     def generate_lsf(self, debug=False, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
@@ -229,12 +226,9 @@ class PhotonicLayoutManager:
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
                                           )
-
         # Create the design LSF file
-        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
-                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                              lsf_filepath=self.lsf_path,
-                              )
+        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                     lsf_filepath=self.lsf_path)
 
         # Create the sweep LSF file
         filepath = self.tdb.lsf_filepath + '_sweep'
@@ -304,19 +298,19 @@ class PhotonicLayoutManager:
         logging.info('---Running dataprep---')
         self.generate_flat_gds(generate_gds=False)
         self.tdb.dataprep()
-        self.tdb.create_masters_in_db(lib_name='_dataprep',
-                                      content_list=self.tdb.post_dataprep_flat_content_list,
-                                      )
+        self.tdb.to_gds_plugin(lib_name='_dataprep',
+                               content_list=self.tdb.post_dataprep_flat_content_list,
+                               )
 
-    def dataprep_skill(self, debug=False):
+    def dataprep_skill(self):
         print('\n---Running dataprep_skill---')
 
         # Must call self.generate_gds first
         # Do not export a gds
         self.tdb.export_gds = False
-        self.tdb.create_masters_in_db(lib_name=self.impl_lib,
-                                      content_list=self.tdb.content_list,
-                                      )
+        self.tdb.to_gds_plugin(lib_name=self.impl_lib,
+                               content_list=self.tdb.content_list,
+                               )
         lib_path = os.path.join(self.tdb._prj.impl_db.default_lib_path, self.impl_lib)
 
         self.tdb._prj.impl_db.setup_bpg_skill(
