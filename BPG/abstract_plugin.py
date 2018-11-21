@@ -7,18 +7,12 @@ list to another representation, setting up simulations and testbench scripts, et
 """
 
 import abc
-from typing import Dict, Any
 
 
 class AbstractPlugin(metaclass=abc.ABCMeta):
-    def __init__(self, config: Dict[str, Any]):
-        """
-        The init method should load a dictionary for configuration
-        """
-        self.config = config
 
     @abc.abstractmethod
-    def export_content_list(self, content_list, **kwargs):
+    def export_content_list(self, content_list):
         """
         This method will take a content list and generate a script that specifies the structure in the desired software
         package. Ex: for lumerical, export_content_list will generate an lsf file that tells lumerical how to
@@ -27,6 +21,5 @@ class AbstractPlugin(metaclass=abc.ABCMeta):
         Parameters
         ----------
         content_list
-        kwargs
         """
         pass

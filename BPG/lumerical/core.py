@@ -8,13 +8,11 @@ from .objects import *
 
 
 class LumericalPlugin(AbstractPlugin):
-    def __init__(self, config):
-        AbstractPlugin.__init__(self, config)
-        self.config = config
-        self.lsf_export_config = self.config['lsf_export_config']
-        self.lsf_filepath = self.config['lsf_filepath']
+    def __init__(self, lsf_export_config, lsf_filepath):
+        self.lsf_export_config = lsf_export_config
+        self.lsf_filepath = lsf_filepath
 
-    def export_content_list(self, content_list, **kwargs):
+    def export_content_list(self, content_list):
         """
         Exports the physical design into the lumerical LSF format
 
@@ -33,11 +31,11 @@ class LumericalPlugin(AbstractPlugin):
         for count, content in enumerate(content_list):
             lsfwriter = LumericalDesignGenerator(self.lsf_filepath + '_' + str(count))
 
+            # Unpack content list for easy access by type
             (cell_name, inst_tot_list, rect_list, via_list, pin_list,
              path_list, blockage_list, boundary_list, polygon_list, round_list,
              sim_list, source_list, monitor_list) = content
 
-            # add rectangles if they are valid lumerical layers
             if len(rect_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#------------------ ')
@@ -67,7 +65,6 @@ class LumericalPlugin(AbstractPlugin):
                     lsf_repr = PhotonicPolygon.lsf_export(path['polygon_points'], layer_prop)
                     lsfwriter.add_formatted_code_block(lsf_repr)
 
-            # add polygons if they are valid lumerical layers
             if len(polygon_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#---------------- ')
@@ -79,7 +76,6 @@ class LumericalPlugin(AbstractPlugin):
                     lsf_repr = PhotonicPolygon.lsf_export(polygon['points'], layer_prop)
                     lsfwriter.add_formatted_code_block(lsf_repr)
 
-            # add rounds if they are valid lumerical layers
             if len(round_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#-------------- ')
@@ -114,7 +110,6 @@ class LumericalPlugin(AbstractPlugin):
                         )
                     lsfwriter.add_formatted_code_block(lsf_repr)
 
-            # Add simulation objects
             if len(sim_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#-------------------------- ')
@@ -124,7 +119,6 @@ class LumericalPlugin(AbstractPlugin):
                 lsf_repr = sim.lsf_export()
                 lsfwriter.add_formatted_code_block(lsf_repr)
 
-            # Add simulation sources
             if len(source_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#---------------------- ')
@@ -134,7 +128,6 @@ class LumericalPlugin(AbstractPlugin):
                 lsf_repr = source.lsf_export()
                 lsfwriter.add_formatted_code_block(lsf_repr)
 
-            # Add simulation monitors
             if len(monitor_list) != 0:
                 lsfwriter.add_formatted_line(' ')
                 lsfwriter.add_formatted_line('#----------------------- ')
