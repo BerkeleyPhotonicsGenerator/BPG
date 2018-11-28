@@ -6,7 +6,7 @@ import sys
 import logging
 import re
 
-from BPG.photonic_objects import PhotonicRect, PhotonicPolygon, PhotonicRound
+from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 from math import ceil
 from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional, Pattern, Iterable
 

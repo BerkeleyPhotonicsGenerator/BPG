@@ -4,7 +4,7 @@ import abc
 import logging
 
 from typing import Dict, Any, List
-from .lumerical_sim import *
+from .simulation import *
 
 logger = logging.getLogger(__name__)
 

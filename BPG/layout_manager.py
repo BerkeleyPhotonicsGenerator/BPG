@@ -2,13 +2,13 @@ import yaml
 import importlib
 import os
 import logging
-
 from pathlib import Path
+
 from bag.layout import RoutingGrid
-from bag.simulation.core import DesignManager
-from .photonic_template import PhotonicTemplateDB
-from .lumerical_generator import LumericalSweepGenerator
-from .lumerical_materials import LumericalMaterialGenerator
+from bag.io.file import read_yaml
+from .db import PhotonicTemplateDB
+from .lumerical.code_generator import LumericalSweepGenerator
+from .lumerical.code_generator import LumericalMaterialGenerator
 from .logger import setup_logger
 
 from typing import TYPE_CHECKING
@@ -17,17 +17,16 @@ if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
 
 
-class PhotonicLayoutManager(DesignManager):
+class PhotonicLayoutManager:
     """
-    Class that manages the creation of Photonic Layouts and Lumerical LSF files
+    User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
     def __init__(self,
-                 bprj: "PhotonicBagProject",
-                 spec_file,
+                 bprj: 'PhotonicBagProject',
+                 spec_file: str,
                  verbose: bool = False,
                  ):
         """
-
         Parameters
         ----------
         bprj : PhotonicBagProject
@@ -37,17 +36,10 @@ class PhotonicLayoutManager(DesignManager):
         verbose : bool
             True to output debug level messages to stdout. False to output info level messages to stdout.
         """
+        self.prj = bprj
+        self.specs = read_yaml(spec_file)
 
-        DesignManager.__init__(self, bprj, spec_file)
-        """
-        [ Relevant Inherited Variables ]
-        self.prj: contains the BagProject instance
-        self.specs: contains the specs passed in spec_file
-        """
-
-        # PhotonicTemplateDB instance for layout creation
-        self.prj: "PhotonicBagProject"
-        self.tdb: "PhotonicTemplateDB" = None
+        self.tdb = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
@@ -161,7 +153,7 @@ class PhotonicLayoutManager(DesignManager):
             layout_params_list = [self.specs['layout_params']]
         if cell_name_list is None:
             if len(layout_params_list) > 1:
-                cell_name_list = [self.specs['impl_cell']+str(count) for count in range(len(layout_params_list))]
+                cell_name_list = [self.specs['impl_cell'] + str(count) for count in range(len(layout_params_list))]
             else:
                 cell_name_list = [self.specs['impl_cell']]
 
@@ -180,11 +172,8 @@ class PhotonicLayoutManager(DesignManager):
             template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
             temp_list.append(template)
 
-        self.tdb.batch_layout(self.prj,
-                              template_list=temp_list,
-                              name_list=cell_name_list,
-                              lib_name='',
-                              )
+        content_list = self.tdb.generate_content_list(master_list=temp_list, name_list=cell_name_list)
+        self.tdb.to_gds_plugin(lib_name=self.impl_lib, content_list=content_list)
 
     def generate_lsf(self, debug=False, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
@@ -192,10 +181,8 @@ class PhotonicLayoutManager(DesignManager):
         if create_materials is True:
             self.create_materials_file()
 
-        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
-                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                              lsf_filepath=self.lsf_path,
-                              )
+        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                     lsf_filepath=self.lsf_path)
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
@@ -238,12 +225,9 @@ class PhotonicLayoutManager(DesignManager):
                                           rename_dict=None,
                                           draw_flat_gds=generate_gds,
                                           )
-
         # Create the design LSF file
-        self.tdb.to_lumerical(gds_layermap=self.prj.photonic_tech_info.layermap_path,
-                              lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                              lsf_filepath=self.lsf_path,
-                              )
+        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                     lsf_filepath=self.lsf_path)
 
         # Create the sweep LSF file
         filepath = self.tdb.lsf_filepath + '_sweep'
@@ -310,30 +294,22 @@ class PhotonicLayoutManager(DesignManager):
                                           )
 
     def dataprep(self):
-        """
-        Parameters
-        ----------
-        debug : bool
-            True to print debug information
-        Returns
-        -------
-        """
         logging.info('---Running dataprep---')
         self.generate_flat_gds(generate_gds=False)
         self.tdb.dataprep()
-        self.tdb.create_masters_in_db(lib_name='_dataprep',
-                                      content_list=self.tdb.post_dataprep_flat_content_list,
-                                      )
+        self.tdb.to_gds_plugin(lib_name='_dataprep',
+                               content_list=self.tdb.post_dataprep_flat_content_list,
+                               )
 
-    def dataprep_skill(self, debug=False):
+    def dataprep_skill(self):
         print('\n---Running dataprep_skill---')
 
         # Must call self.generate_gds first
         # Do not export a gds
         self.tdb.export_gds = False
-        self.tdb.create_masters_in_db(lib_name=self.impl_lib,
-                                      content_list=self.tdb.content_list,
-                                      )
+        self.tdb.to_gds_plugin(lib_name=self.impl_lib,
+                               content_list=self.tdb.content_list,
+                               )
         lib_path = os.path.join(self.tdb._prj.impl_db.default_lib_path, self.impl_lib)
 
         self.tdb._prj.impl_db.setup_bpg_skill(
@@ -360,7 +336,7 @@ class PhotonicLayoutManager(DesignManager):
         print('\n---Running dataprep on manh---\n')
         for cell in self.cell_name_list:
             self.prj.impl_db.dataprep(lib_name=self.impl_lib,
-                                      cell_name=cell+'_Manh',
+                                      cell_name=cell + '_Manh',
                                       debug=True
                                       )
 

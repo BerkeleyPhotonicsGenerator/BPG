@@ -1,14 +1,15 @@
 """
-Module containing various classes used to systematically generate clean Lumerical script code
+Module containing classes used to systematically generate clean Lumerical script code
 """
 import datetime
-from typing import List
+from typing import List, Dict, Any
 
 
 class LumericalCodeGenerator:
-    """ This class enables the generation of lumerical .lsf code """
-    def __init__(self):
-        self._code = []
+    """ This is the base class that encapsulates the generation of lumerical .lsf code """
+    def __init__(self, config=None):
+        self.config: Dict[str, Any] = config
+        self._code: List[str] = []
 
     def add_code(self, code: str) -> None:
         """
@@ -22,9 +23,9 @@ class LumericalCodeGenerator:
         """
         self._code.append(code + ';\n')
 
-    def add_code_block(self, code: List[str]):
+    def add_formatted_code_block(self, code: List[str]):
         """
-        Adds a preformatted list of lines of code to the script file
+        Adds a pre-formatted list of lines of code to the script file
 
         Parameters
         ----------
@@ -33,7 +34,7 @@ class LumericalCodeGenerator:
         """
         self._code += code
 
-    def add_line(self, code: str) -> None:
+    def add_formatted_line(self, code: str) -> None:
         """
         Adds provided line of code to the script file
         Does not add a semicolon, but does add a newline character
@@ -78,7 +79,7 @@ class LumericalCodeGenerator:
 class LumericalSweepGenerator(LumericalCodeGenerator):
     """ This class enables the creation of .lsf files for swept variables """
     def __init__(self, filepath):
-        LumericalCodeGenerator.__init__(self)
+        LumericalCodeGenerator.__init__(self, None)
         self.filepath = filepath
         self._script_list = []
 
@@ -100,31 +101,31 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
 
         # Create the list of layout scripts to be run
         sweep_len = len(self._script_list)
-        self.add_line('\n# Init variables')
+        self.add_formatted_line('\n# Init variables')
         self.add_code('sweep_len={}'.format(sweep_len))
         self.add_code('script_list=cell({})'.format(sweep_len))
-        self.add_line('\n# Add all scripts to be executed to the list')
+        self.add_formatted_line('\n# Add all scripts to be executed to the list')
         for count, name in enumerate(self._script_list):
             self.add_code('script_list{{{}}}="{}"'.format(count + 1, name))
 
         # Run a loop over all of the layout scripts
-        self.add_line('\n# Main execution loop')
-        self.add_line('for(i=1:sweep_len){')
-        self.add_line('# Setup logic')
+        self.add_formatted_line('\n# Main execution loop')
+        self.add_formatted_line('for(i=1:sweep_len){')
+        self.add_formatted_line('# Setup logic')
         self.add_code('addanalysisgroup')
         self.add_code('set("name", script_list{i})')
         # self.set('name', 'script_list{i}')
         self.add_code('groupscope(script_list{i})')
 
-        self.add_line('\n# Run the script')
+        self.add_formatted_line('\n# Run the script')
         self.add_code('feval(script_list{i})')
 
-        self.add_line('\n# Teardown logic')
+        self.add_formatted_line('\n# Teardown logic')
         self.add_code('switchtolayout')
         self.add_code('groupscope(script_list{i})')
         self.add_code('delete')
         self.add_code('groupscope("::model")')
-        self.add_line('}')
+        self.add_formatted_line('}')
 
     def export_to_lsf(self):
         """ Take all code in the database and export it to a lumerical script file """
@@ -150,3 +151,73 @@ class LumericalDesignGenerator(LumericalCodeGenerator):
         with open(self.filepath + '.lsf', 'w') as stream:
             stream.writelines(file)
 
+
+class LumericalMaterialGenerator(LumericalCodeGenerator):
+    """ This class enables BPG to create a custom set of materials for use in Lumerical """
+    def __init__(self, filepath):
+        LumericalCodeGenerator.__init__(self)
+        self.filepath = filepath
+
+    def add_material(self, name) -> None:
+        """
+        Each time this is called a new material with the provided name is created
+
+        Parameters
+        ----------
+        name : str
+            name of the new material being created
+        """
+        self.add_code(f'matname = {name}')
+        self.add_code('newmaterial = addmaterial("Lorentz")')  # TODO: What is Lorentz, do we need other options here?
+        self.add_code(f'setmaterial(newmaterial, "name", matname)')
+
+    def add_property(self, prop_name, prop_value) -> None:
+        """
+        Each time this method is called, an lsf line setting the property value to the property name is added
+
+        Parameters
+        ----------
+        prop_name : str
+            name of the property to be set
+        prop_value : Any
+            value of the property to be set
+        """
+        if isinstance(prop_value, str):
+            self.add_code(f'setmaterial(matname,"{prop_name}","{prop_value}")')
+        else:
+            self.add_code(f'setmaterial(matname,"{prop_name}",{prop_value})')
+
+    def import_material_from_dict(self, material_name: str, prop_dict: dict) -> None:
+        """
+        Creates and configures a new material given the properties inside the dictionary.
+
+        Parameters
+        ----------
+        material_name : str
+            the name of the new material to be created
+        prop_dict : dict
+            dict containing all the property info necessary to define the material
+        """
+        self.add_material(material_name)
+        for key, value in prop_dict.items():
+            self.add_property(key, value)
+
+    def import_material_file(self, material_dict) -> None:
+        """
+        Takes a dictionary containing other dictionaries and creates an lsf file that defines all of the materials and
+        their properties. Each key in the top level dict is the name of the material, and each value is a dictionary
+        containing the material properties.
+
+        Parameters
+        ----------
+        material_dict : dict
+            dict of dicts specifying the materials to be created
+        """
+        for key, value in material_dict.items():
+            self.import_material_from_dict(material_name=key, prop_dict=value)
+
+    def export_to_lsf(self):
+        file = self.get_file_header()
+        file += self._code
+        with open(self.filepath, 'w+') as stream:
+            stream.writelines(file)
