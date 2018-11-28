@@ -22,8 +22,8 @@ from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from BPG.photonic_template import PhotonicTemplateBase
-    from BPG.photonic_port import PhotonicPort
+    from BPG.template import PhotonicTemplateBase
+    from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
 
 ldim = Union[float, int]

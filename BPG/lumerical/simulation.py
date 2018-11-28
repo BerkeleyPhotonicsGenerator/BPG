@@ -1,11 +1,16 @@
+"""
+Module containing simulation objects that can be added in lumerical
+"""
+# Base imports
 import abc
 
-from .photonic_core import Box, CoordBase
-from .lumerical_generator import LumericalCodeGenerator
+# BPG imports
+from BPG.photonic_core import Box, CoordBase
+from BPG.lumerical.code_generator import LumericalCodeGenerator
 
 # Type checking imports
 from typing import List, Tuple
-from .photonic_port import PhotonicPort
+from BPG.port import PhotonicPort
 
 
 class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
@@ -134,11 +139,11 @@ class FDESolver(LumericalSimObj):
         self._export_solver_type()
         self._export_geometry()
         self._export_mesh_settings()
-        self.add_line('\n# Simulation Settings')
+        self.add_formatted_line('\n# Simulation Settings')
         self._export_sim_settings()
-        self.add_line('\n# Run Simulation')
+        self.add_formatted_line('\n# Run Simulation')
         self.add_code('findmodes')  # Start the mode simulation
-        self.add_line('\n# Save Data')
+        self.add_formatted_line('\n# Save Data')
         self._export_data()
 
         return self._code
