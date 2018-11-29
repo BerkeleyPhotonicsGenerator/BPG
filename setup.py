@@ -12,5 +12,6 @@ setup(name='BPG',
           'memory_profiler>=0.54.0',
       ],
       url='https://github.com/pvnbhargava/BPG',
-      packages=['BPG']
+      packages=['BPG'],
+      scripts=['BPG/bpg']
       )
