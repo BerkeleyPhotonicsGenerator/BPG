@@ -10,6 +10,8 @@ from .db import PhotonicTemplateDB
 from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .logger import setup_logger
+from .gds.core import GDSPlugin
+from .lumerical.core import LumericalPlugin
 
 from typing import TYPE_CHECKING
 
@@ -21,6 +23,7 @@ class PhotonicLayoutManager:
     """
     User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
+
     def __init__(self,
                  bprj: 'PhotonicBagProject',
                  spec_file: str,
@@ -39,10 +42,11 @@ class PhotonicLayoutManager:
         self.prj = bprj
         self.specs = read_yaml(spec_file)
 
-        self.tdb = None
+        self.template_plugin = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
+        self.routing_grid = None
 
         # Setup relevant output files and directories
         if 'project_dir' in self.specs:
@@ -103,14 +107,16 @@ class PhotonicLayoutManager:
         # Set the paths of the output files
         self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
         self.gds_path = str(self.data_dir / self.specs['gds_filename'])
-
-        # Make the PhotonicTemplateDB
-        self.make_tdb()
         logging.info('loaded paths successfully')
 
-    def make_tdb(self) -> None:
+        # Plugin storage
+        self.gds_plugin = None
+        self.lsf_plugin = None
+        self.init_plugins()  # Create the default plugins
+
+    def init_plugins(self) -> None:
         """
-        Makes a new PhotonicTemplateDB instance assuming all contained layouts are generated independently of the grid
+        Creates all built-in plugins based on the provided configuration and tech-info
         """
         lib_name = self.specs['impl_lib']
         self.impl_lib = lib_name
@@ -125,14 +131,26 @@ class PhotonicLayoutManager:
         spaces = grid_specs['spaces']
         widths = grid_specs['widths']
         bot_dir = grid_specs['bot_dir']
+        self.routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
 
-        routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
+        self.template_plugin = PhotonicTemplateDB('template_libs.def',
+                                                  routing_grid=self.routing_grid,
+                                                  lib_name=lib_name,
+                                                  use_cybagoa=True,
+                                                  gds_lay_file=self.prj.photonic_tech_info.layermap_path,
+                                                  gds_filepath=self.gds_path,
+                                                  photonic_tech_info=self.prj.photonic_tech_info
+                                                  )
 
-        self.tdb = PhotonicTemplateDB('template_libs.def', routing_grid, lib_name, use_cybagoa=True,
-                                      gds_lay_file=self.prj.photonic_tech_info.layermap_path,
-                                      gds_filepath=self.gds_path, lsf_filepath=self.lsf_path,
-                                      photonic_tech_info=self.prj.photonic_tech_info
-                                      )
+        self.gds_plugin = GDSPlugin(grid=self.routing_grid,
+                                    gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                                    gds_filepath=self.gds_path,
+                                    lib_name=self.impl_lib
+                                    )
+
+        self.lsf_plugin = LumericalPlugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+                                          lsf_filepath=self.lsf_path
+                                          )
 
     def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
         """
@@ -169,20 +187,30 @@ class PhotonicLayoutManager:
 
         temp_list = []
         for lay_params in layout_params_list:
-            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
+            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
             temp_list.append(template)
 
-        content_list = self.tdb.generate_content_list(master_list=temp_list, name_list=cell_name_list)
-        self.tdb.to_gds_plugin(lib_name=self.impl_lib, content_list=content_list)
+        content_list = self.template_plugin.generate_content_list(master_list=temp_list, name_list=cell_name_list)
 
-    def generate_lsf(self, debug=False, create_materials=True):
+        # Generate a GDS from the content list
+        gds_plugin = GDSPlugin(grid=self.routing_grid,
+                               gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                               gds_filepath=self.gds_path,
+                               lib_name=self.impl_lib)
+        gds_plugin.export_content_list(content_list=content_list)
+
+    def generate_lsf(self, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
         logging.info('---Generating the design .lsf file---')
         if create_materials is True:
             self.create_materials_file()
 
-        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                                     lsf_filepath=self.lsf_path)
+        if self.template_plugin.flat_content_list_separate is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+        self.template_plugin.lsf_dataprep()  # Run dataprep to generate BOX and cladding
+
+        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
+        self.lsf_plugin.export_content_list(content_list=content_list)
 
     def generate_tb(self, generate_gds=False, debug=False):
         """ Generates the lumerical testbench lsf """
@@ -214,23 +242,32 @@ class PhotonicLayoutManager:
         temp_cls = getattr(lay_module, cls_name)
 
         # Create TB lsf file
-        self.tdb._prj = self.prj
+        self.template_plugin._prj = self.prj
         temp_list = []
         for lay_params in layout_params_list:
-            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
             temp_list.append(template)
-        self.tdb.instantiate_flat_masters(master_list=temp_list,
-                                          name_list=cell_name_list,
-                                          lib_name='_tb',
-                                          rename_dict=None,
-                                          draw_flat_gds=generate_gds,
-                                          )
+        self.template_plugin.instantiate_flat_masters(master_list=temp_list,
+                                                      name_list=cell_name_list,
+                                                      lib_name='_tb',
+                                                      rename_dict=None,
+                                                      draw_flat_gds=generate_gds,
+                                                      )
         # Create the design LSF file
-        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                                     lsf_filepath=self.lsf_path)
+        if self.template_plugin.flat_content_list_separate is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+
+        # Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
+        self.template_plugin.lsf_dataprep()
+        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
+        # TODO: also export to gds
+        # self.gds_plugin.export_content()
+
+        # Export the actual data to LSF
+        self.lsf_plugin.export_content_list(content_list)
 
         # Create the sweep LSF file
-        filepath = self.tdb.lsf_filepath + '_sweep'
+        filepath = self.template_plugin.lsf_filepath + '_sweep'
         lsfwriter = LumericalSweepGenerator(filepath)
         for script in cell_name_list:
             lsfwriter.add_sweep_point(script_name=script)
@@ -282,37 +319,37 @@ class PhotonicLayoutManager:
 
         temp_list = []
         for lay_params in layout_params_list:
-            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
             temp_list.append(template)
 
-        self.tdb._prj = self.prj
-        self.tdb.instantiate_flat_masters(master_list=temp_list,
-                                          name_list=cell_name_list,
-                                          lib_name='_flat',
-                                          rename_dict=None,
-                                          draw_flat_gds=generate_gds,
-                                          )
+        self.template_plugin._prj = self.prj
+        self.template_plugin.instantiate_flat_masters(master_list=temp_list,
+                                                      name_list=cell_name_list,
+                                                      lib_name='_flat',
+                                                      rename_dict=None,
+                                                      draw_flat_gds=generate_gds,
+                                                      )
 
     def dataprep(self):
         logging.info('---Running dataprep---')
         self.generate_flat_gds(generate_gds=False)
-        self.tdb.dataprep()
-        self.tdb.to_gds_plugin(lib_name='_dataprep',
-                               content_list=self.tdb.post_dataprep_flat_content_list,
-                               )
+        self.template_plugin.dataprep()
+        self.template_plugin.to_gds_plugin(lib_name='_dataprep',
+                                           content_list=self.template_plugin.post_dataprep_flat_content_list,
+                                           )
 
     def dataprep_skill(self):
         print('\n---Running dataprep_skill---')
 
         # Must call self.generate_gds first
         # Do not export a gds
-        self.tdb.export_gds = False
-        self.tdb.to_gds_plugin(lib_name=self.impl_lib,
-                               content_list=self.tdb.content_list,
-                               )
-        lib_path = os.path.join(self.tdb._prj.impl_db.default_lib_path, self.impl_lib)
+        self.template_plugin.export_gds = False
+        self.template_plugin.to_gds_plugin(lib_name=self.impl_lib,
+                                           content_list=self.template_plugin.content_list,
+                                           )
+        lib_path = os.path.join(self.template_plugin._prj.impl_db.default_lib_path, self.impl_lib)
 
-        self.tdb._prj.impl_db.setup_bpg_skill(
+        self.template_plugin._prj.impl_db.setup_bpg_skill(
             output_path=lib_path,
             dataprep_procedure_path=self.prj.photonic_tech_info.dataprep_path,
             dataprep_parameters_path=self.prj.photonic_tech_info.dataprep_params_path,
