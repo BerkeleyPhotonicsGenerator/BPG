@@ -34,21 +34,8 @@ class DummyClass(BPG.PhotonicTemplateBase):
 
 
 def test_logger():
-    """
-    Unit Test
-    """
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('creating BAG project')
-        bprj = BPG.PhotonicBagProject()
-
-    else:
-        print('loading BAG project')
-        bprj = local_dict['bprj']
-
     spec_file = 'BPG/tests/specs/logger_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file, verbose=True)
+    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
     PLM.generate_gds()
     log_path = PLM.log_path
     log_name = PLM.log_filename
@@ -56,21 +43,8 @@ def test_logger():
 
 
 def test_logger_no_logfile():
-    """
-    Unit Test
-    """
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('creating BAG project')
-        bprj = BPG.PhotonicBagProject()
-
-    else:
-        print('loading BAG project')
-        bprj = local_dict['bprj']
-
     spec_file = 'BPG/tests/specs/logger_specs_no_logfile.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file, verbose=True)
+    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
     PLM.generate_gds()
     log_path = PLM.log_path
     log_name = PLM.log_filename

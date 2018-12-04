@@ -51,21 +51,8 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
 
 
 def test_wg():
-    """
-    Unit Test
-    """
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('Creating BAG project')
-        bprj = BPG.PhotonicBagProject()
-
-    else:
-        print('Loading BAG project')
-        bprj = local_dict['bprj']
-
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file, verbose=True)
+    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
     PLM.generate_flat_gds()
     PLM.generate_lsf()
 

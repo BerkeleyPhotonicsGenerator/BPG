@@ -123,11 +123,11 @@ class PhotonicTemplateDB(TemplateDB):
         logging.info(f'All LSF dataprep operations completed in {end - start:.4g} s')
 
     def generate_content_list(self,
-                              master_list,  # type: Sequence[DesignMaster]
-                              name_list=None,  # type: Optional[Sequence[Optional[str]]]
-                              lib_name='',  # type: str
-                              debug=False,  # type: bool
-                              rename_dict=None,  # type: Optional[Dict[str, str]]
+                              master_list: Sequence['DesignMaster'],
+                              name_list: Optional[Sequence[Optional[str]]] = None,
+                              lib_name: str = '',
+                              debug: bool = False,
+                              rename_dict: Optional[Dict[str, str]] = None,
                               ) -> Sequence[Any]:
         """
         Create the content list from the provided masters and returns it.
