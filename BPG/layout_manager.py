@@ -41,176 +41,65 @@ class PhotonicLayoutManager(PhotonicBagProject):
         PhotonicBagProject.__init__(self, bag_config_path=bag_config_path, port=port)
         self.load_paths(spec_file=spec_file)
         self.photonic_tech_info.load_tech_files()
-
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
-        self.cell_name_list = None  # list of names for each created cell
-        self.layout_params_list = None  # list of dicts containing layout design parameters
-        self.routing_grid = None
 
         # Plugin initialization
         self.gds_plugin = None
         self.lsf_plugin = None
         self.template_plugin = None
-        self.init_plugins()
+        self.init_plugins()  # Initializes all of the built-in plugins
 
-    def init_plugins(self) -> None:
+    def generate_content(self, layout_params=None, cell_name=None):
         """
-        Creates all built-in plugins based on the provided configuration and tech-info
-        """
-        lib_name = self.specs['impl_lib']
-        self.impl_lib = lib_name
-
-        # Extract routing grid information from spec file if provided. If not, default to dummy values
-        if 'routing_grid' in self.specs:
-            grid_specs = self.specs['routing_grid']
-        else:
-            grid_specs = self.photonic_tech_info.photonic_tech_params['default_routing_grid']
-
-        layers = grid_specs['layers']
-        spaces = grid_specs['spaces']
-        widths = grid_specs['widths']
-        bot_dir = grid_specs['bot_dir']
-        self.routing_grid = RoutingGrid(self.tech_info, layers, spaces, widths, bot_dir)
-
-        self.template_plugin = PhotonicTemplateDB('template_libs.def',
-                                                  routing_grid=self.routing_grid,
-                                                  lib_name=lib_name,
-                                                  use_cybagoa=True,
-                                                  gds_lay_file=self.photonic_tech_info.layermap_path,
-                                                  gds_filepath=self.gds_path,
-                                                  photonic_tech_info=self.photonic_tech_info
-                                                  )
-
-        self.gds_plugin = GDSPlugin(grid=self.routing_grid,
-                                    gds_layermap=self.photonic_tech_info.layermap_path,
-                                    gds_filepath=self.gds_path,
-                                    lib_name=self.impl_lib
-                                    )
-
-        self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
-                                          lsf_filepath=self.lsf_path
-                                          )
-
-    def generate_gds(self, layout_params_list=None, cell_name_list=None) -> None:
-        """
-        Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
-        layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
-        new layout
+        Generates a content list from the specified design class, layout params, and cell_name. If not provided,
+        get these variables from the spec file
 
         Parameters
         ----------
-        layout_params_list : List[dict]
-            Optional list of dicts corresponding to layout parameters passed to the generator class
-        cell_name_list : List[str]
-            Optional list of strings corresponding to the names given to each generated layout
+        layout_params : dict
+            dictionary of parameters to be sent to the layout generator class
+        cell_name : str
+            name of the cell to be created from the layout generator
+
+        Returns
+        -------
+        content_list
+            A db of all generated shapes
         """
-        logging.info('---Generating .gds---')
-        # If no list is provided, extract layout params from the provided spec file
-        if layout_params_list is None:
-            layout_params_list = [self.specs['layout_params']]
-        if cell_name_list is None:
-            if len(layout_params_list) > 1:
-                cell_name_list = [self.specs['impl_cell'] + str(count) for count in range(len(layout_params_list))]
-            else:
-                cell_name_list = [self.specs['impl_cell']]
+        logging.info('--- Generating content list ---')
+        if layout_params is None:
+            layout_params = self.specs['layout_params']
+        if cell_name is None:
+            cell_name = self.specs['impl_cell']
 
-        # Save the cell name list and layout param list
-        self.layout_params_list = layout_params_list
-        self.cell_name_list = cell_name_list
-
+        # Import the class listed in the spec file
         cls_package = self.specs['layout_package']
         cls_name = self.specs['layout_class']
-
         lay_module = importlib.import_module(cls_package)
         temp_cls = getattr(lay_module, cls_name)
 
-        temp_list = []
-        for lay_params in layout_params_list:
-            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=False)
-            temp_list.append(template)
+        # Generate the content list
+        template = self.template_plugin.new_template(params=layout_params,
+                                                     temp_cls=temp_cls,
+                                                     debug=False)
+        content_list = self.template_plugin.generate_content_list(master_list=[template],
+                                                                  name_list=[cell_name])
+        return content_list
 
-        content_list = self.template_plugin.generate_content_list(master_list=temp_list, name_list=cell_name_list)
+    def generate_gds(self, layout_params=None, cell_name=None) -> None:
+        """
+        Generates content for the specified layout generator and exports it to GDS format
 
-        # Generate a GDS from the content list
-        gds_plugin = GDSPlugin(grid=self.routing_grid,
-                               gds_layermap=self.photonic_tech_info.layermap_path,
-                               gds_filepath=self.gds_path,
-                               lib_name=self.impl_lib)
-        gds_plugin.export_content_list(content_list=content_list)
-
-    def generate_lsf(self, create_materials=True):
-        """ Converts generated layout to lsf format for lumerical import """
-        logging.info('---Generating the design .lsf file---')
-        if create_materials is True:
-            self.create_materials_file()
-
-        if self.template_plugin.flat_content_list_separate is None:
-            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
-        self.template_plugin.lsf_dataprep()  # Run dataprep to generate BOX and cladding
-
-        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
-        self.lsf_plugin.export_content_list(content_list=content_list)
-
-    def generate_tb(self, generate_gds=False, debug=False):
-        """ Generates the lumerical testbench lsf """
-        logging.info('---Generating the tb .lsf file---')
-        # Grab the parameters to be passed to the TB
-        tb_params = self.specs['tb_params']
-        if tb_params is None:
-            tb_params = {}
-
-        if not isinstance(self.specs['layout_params'], list):
-            self.specs['layout_params'] = [self.specs['layout_params']]
-
-        # Construct the parameter list
-        layout_params_list = []
-        cell_name_list = []
-        for count, params in enumerate(self.specs['layout_params']):
-            temp_params = dict()
-            temp_params['layout_package'] = self.specs['layout_package']
-            temp_params['layout_class'] = self.specs['layout_class']
-            temp_params['layout_params'] = params
-            temp_params['tb_params'] = tb_params
-            layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
-
-        # Try importing the TB package and class
-        cls_package = self.specs['tb_package']
-        cls_name = self.specs['tb_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
-
-        # Create TB lsf file
-        self.template_plugin._prj = self
-        temp_list = []
-        for lay_params in layout_params_list:
-            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
-            temp_list.append(template)
-        self.template_plugin.instantiate_flat_masters(master_list=temp_list,
-                                                      name_list=cell_name_list,
-                                                      lib_name='_tb',
-                                                      rename_dict=None,
-                                                      draw_flat_gds=generate_gds,
-                                                      )
-        # Create the design LSF file
-        if self.template_plugin.flat_content_list_separate is None:
-            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
-
-        # Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
-        self.template_plugin.lsf_dataprep()
-        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
-        # TODO: also export to gds
-        # self.gds_plugin.export_content()
-
-        # Export the actual data to LSF
-        self.lsf_plugin.export_content_list(content_list)
-
-        # Create the sweep LSF file
-        filepath = self.template_plugin.lsf_filepath + '_sweep'
-        lsfwriter = LumericalSweepGenerator(filepath)
-        for script in cell_name_list:
-            lsfwriter.add_sweep_point(script_name=script)
-        lsfwriter.export_to_lsf()
+        Parameters
+        ----------
+        layout_params : dict
+            Optional dict corresponding to layout parameters passed to the generator class
+        cell_name : str
+            Optional string corresponding to the name given to the generated layout
+        """
+        content_list = self.generate_content(layout_params=layout_params, cell_name=cell_name)
+        logging.info('--- Generating .gds ---')
+        self.gds_plugin.export_content_list(content_list=content_list)
 
     def generate_flat_gds(self,
                           generate_gds=True,
@@ -260,14 +149,84 @@ class PhotonicLayoutManager(PhotonicBagProject):
         for lay_params in layout_params_list:
             template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
             temp_list.append(template)
-
-        self.template_plugin._prj = self
         self.template_plugin.instantiate_flat_masters(master_list=temp_list,
                                                       name_list=cell_name_list,
                                                       lib_name='_flat',
                                                       rename_dict=None,
                                                       draw_flat_gds=generate_gds,
                                                       )
+
+    def generate_lsf(self, create_materials=True):
+        """ Converts generated layout to lsf format for lumerical import """
+        logging.info('---Generating the design .lsf file---')
+        if create_materials is True:
+            self.create_materials_file()
+
+        if self.template_plugin.flat_content_list_separate is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+        self.template_plugin.lsf_dataprep()  # Run dataprep to generate BOX and cladding
+        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
+        self.lsf_plugin.export_content_list(content_list=content_list)
+
+    def generate_tb(self, generate_gds=False, debug=False):
+        """ Generates the lumerical testbench lsf """
+        logging.info('---Generating the tb .lsf file---')
+        # Grab the parameters to be passed to the TB
+        tb_params = self.specs['tb_params']
+        if tb_params is None:
+            tb_params = {}
+
+        if not isinstance(self.specs['layout_params'], list):
+            self.specs['layout_params'] = [self.specs['layout_params']]
+
+        # Construct the parameter list
+        layout_params_list = []
+        cell_name_list = []
+        for count, params in enumerate(self.specs['layout_params']):
+            temp_params = dict()
+            temp_params['layout_package'] = self.specs['layout_package']
+            temp_params['layout_class'] = self.specs['layout_class']
+            temp_params['layout_params'] = params
+            temp_params['tb_params'] = tb_params
+            layout_params_list.append(temp_params)
+            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
+
+        # Try importing the TB package and class
+        cls_package = self.specs['tb_package']
+        cls_name = self.specs['tb_class']
+        lay_module = importlib.import_module(cls_package)
+        temp_cls = getattr(lay_module, cls_name)
+
+        # Create TB lsf file
+        temp_list = []
+        for lay_params in layout_params_list:
+            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            temp_list.append(template)
+        self.template_plugin.instantiate_flat_masters(master_list=temp_list,
+                                                      name_list=cell_name_list,
+                                                      lib_name='_tb',
+                                                      rename_dict=None,
+                                                      draw_flat_gds=generate_gds,
+                                                      )
+        # Create the design LSF file
+        if self.template_plugin.flat_content_list_separate is None:
+            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+
+        # Run the lsf_dataprep procedure in lsf_export_config and generate a gds from the content list
+        self.template_plugin.lsf_dataprep()
+        content_list = self.template_plugin.lsf_post_dataprep_flat_content_list
+        # TODO: also export to gds
+        # self.gds_plugin.export_content()
+
+        # Export the actual data to LSF
+        self.lsf_plugin.export_content_list(content_list)
+
+        # Create the sweep LSF file
+        filepath = self.template_plugin.lsf_filepath + '_sweep'
+        lsfwriter = LumericalSweepGenerator(filepath)
+        for script in cell_name_list:
+            lsfwriter.add_sweep_point(script_name=script)
+        lsfwriter.export_to_lsf()
 
     def dataprep(self):
         logging.info('---Running dataprep---')
@@ -276,6 +235,42 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.template_plugin.to_gds_plugin(lib_name='_dataprep',
                                            content_list=self.template_plugin.post_dataprep_flat_content_list,
                                            )
+
+    def init_plugins(self) -> None:
+        """
+        Creates all built-in plugins based on the provided configuration and tech-info
+        """
+        lib_name = self.specs['impl_lib']
+        self.impl_lib = lib_name
+
+        # Extract routing grid information from spec file if provided. If not, default to dummy values
+        if 'routing_grid' in self.specs:
+            grid_specs = self.specs['routing_grid']
+        else:
+            grid_specs = self.photonic_tech_info.photonic_tech_params['default_routing_grid']
+
+        layers = grid_specs['layers']
+        spaces = grid_specs['spaces']
+        widths = grid_specs['widths']
+        bot_dir = grid_specs['bot_dir']
+        routing_grid = RoutingGrid(self.tech_info, layers, spaces, widths, bot_dir)
+
+        self.template_plugin = PhotonicTemplateDB('template_libs.def',
+                                                  routing_grid=routing_grid,
+                                                  lib_name=lib_name,
+                                                  use_cybagoa=True,
+                                                  gds_lay_file=self.photonic_tech_info.layermap_path,
+                                                  gds_filepath=self.gds_path,
+                                                  photonic_tech_info=self.photonic_tech_info)
+        self.template_plugin._prj = self
+
+        self.gds_plugin = GDSPlugin(grid=routing_grid,
+                                    gds_layermap=self.photonic_tech_info.layermap_path,
+                                    gds_filepath=self.gds_path,
+                                    lib_name=self.impl_lib)
+
+        self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
+                                          lsf_filepath=self.lsf_path)
 
     def dataprep_skill(self):
         print('\n---Running dataprep_skill---')
