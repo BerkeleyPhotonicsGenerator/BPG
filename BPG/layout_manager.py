@@ -2,117 +2,56 @@ import yaml
 import importlib
 import os
 import logging
-from pathlib import Path
 
+# BAG imports
 from bag.layout import RoutingGrid
-from bag.io.file import read_yaml
+from BPG.photonic_core import PhotonicBagProject
+
+# Plugin imports
 from .db import PhotonicTemplateDB
 from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
-from .logger import setup_logger
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from BPG.photonic_core import PhotonicBagProject
-
-
-class PhotonicLayoutManager:
+class PhotonicLayoutManager(PhotonicBagProject):
     """
     User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
-
     def __init__(self,
-                 bprj: 'PhotonicBagProject',
                  spec_file: str,
                  verbose: bool = False,
+                 bag_config_path: str = None,
+                 port: int = None,
                  ):
         """
         Parameters
         ----------
-        bprj : PhotonicBagProject
-            The PhotonicBagProject which must be initialized before calling PLM.
         spec_file : str
             The path to the specification file for the layout.
         verbose : bool
-            True to output debug level messages to stdout. False to output info level messages to stdout.
+            If true print info statements to command line
+            TODO: add support for this...
+        bag_config_path : str
+            path to a bag_config.yaml file to use instead of the path in the env var
+        port : int
+            port to communicate with cadence
         """
-        self.prj = bprj
-        self.specs = read_yaml(spec_file)
+        PhotonicBagProject.__init__(self, bag_config_path=bag_config_path, port=port)
+        self.load_paths(spec_file=spec_file)
+        self.photonic_tech_info.load_tech_files()
 
-        self.template_plugin = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
         self.routing_grid = None
 
-        # Setup relevant output files and directories
-        if 'project_dir' in self.specs:
-            self.project_dir = Path(self.specs['project_dir']).expanduser()
-        else:
-            default_path = Path(self.prj.bag_config['database']['default_lib_path'])
-            self.project_dir = default_path / self.specs['project_name']
-        self.scripts_dir = self.project_dir / 'scripts'
-        self.data_dir = self.project_dir / 'data'
-
-        # Make the directories if they do not exists
-        self.project_dir.mkdir(exist_ok=True, parents=True)
-        self.scripts_dir.mkdir(exist_ok=True)
-        self.data_dir.mkdir(exist_ok=True)
-
-        # Get root path for the project
-        bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
-
-        # Enable logging for BPG
-        if 'logfile' in self.specs:
-            # If logfile is specified in specs, dump all logs in that location
-            log_path = bag_work_dir / self.specs['logfile']
-            if log_path.is_dir():
-                self.log_path = log_path
-                self.log_filename = 'output.log'
-            else:
-                self.log_path = log_path.parent
-                self.log_filename = log_path.name
-        else:
-            self.log_path = self.project_dir
-            self.log_filename = 'output.log'
-        setup_logger(log_path=str(self.log_path), log_filename=str(self.log_filename), verbose=verbose)
-
-        # Overwrite tech parameters if specified in the spec file
-        # Setup the abstract tech layermap
-        if 'layermap' in self.specs:
-            self.prj.photonic_tech_info.layermap_path = bag_work_dir / self.specs['layermap']
-        logging.info(f'loading layermap from {self.prj.photonic_tech_info.layermap_path}')
-
-        # Setup the dataprep procedure
-        if 'dataprep' in self.specs:
-            self.prj.photonic_tech_info.dataprep_routine_filepath = bag_work_dir / self.specs['dataprep']
-        logging.info(f'loading dataprep procedure from {self.prj.photonic_tech_info.dataprep_routine_filepath}')
-
-        if 'dataprep_params' in self.specs:
-            self.prj.photonic_tech_info.dataprep_parameters_filepath = bag_work_dir / self.specs['dataprep_params']
-        logging.info(f'loading dataprep and DRC parameters from '
-                     f'{self.prj.photonic_tech_info.dataprep_parameters_filepath}')
-
-        # Setup the lumerical export map
-        if 'lsf_export_map' in self.specs:
-            self.prj.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
-        logging.info(f'loading lumerical export configuration from {self.prj.photonic_tech_info.lsf_export_path}')
-
-        # Now that paths are fully settled, load the tech files
-        self.prj.photonic_tech_info.load_tech_files()
-
-        # Set the paths of the output files
-        self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
-        self.gds_path = str(self.data_dir / self.specs['gds_filename'])
-        logging.info('loaded paths successfully')
-
-        # Plugin storage
+        # Plugin initialization
         self.gds_plugin = None
         self.lsf_plugin = None
-        self.init_plugins()  # Create the default plugins
+        self.template_plugin = None
+        self.init_plugins()
 
     def init_plugins(self) -> None:
         """
@@ -125,30 +64,30 @@ class PhotonicLayoutManager:
         if 'routing_grid' in self.specs:
             grid_specs = self.specs['routing_grid']
         else:
-            grid_specs = self.prj.photonic_tech_info.photonic_tech_params['default_routing_grid']
+            grid_specs = self.photonic_tech_info.photonic_tech_params['default_routing_grid']
 
         layers = grid_specs['layers']
         spaces = grid_specs['spaces']
         widths = grid_specs['widths']
         bot_dir = grid_specs['bot_dir']
-        self.routing_grid = RoutingGrid(self.prj.tech_info, layers, spaces, widths, bot_dir)
+        self.routing_grid = RoutingGrid(self.tech_info, layers, spaces, widths, bot_dir)
 
         self.template_plugin = PhotonicTemplateDB('template_libs.def',
                                                   routing_grid=self.routing_grid,
                                                   lib_name=lib_name,
                                                   use_cybagoa=True,
-                                                  gds_lay_file=self.prj.photonic_tech_info.layermap_path,
+                                                  gds_lay_file=self.photonic_tech_info.layermap_path,
                                                   gds_filepath=self.gds_path,
-                                                  photonic_tech_info=self.prj.photonic_tech_info
+                                                  photonic_tech_info=self.photonic_tech_info
                                                   )
 
         self.gds_plugin = GDSPlugin(grid=self.routing_grid,
-                                    gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                                    gds_layermap=self.photonic_tech_info.layermap_path,
                                     gds_filepath=self.gds_path,
                                     lib_name=self.impl_lib
                                     )
 
-        self.lsf_plugin = LumericalPlugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+        self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
                                           lsf_filepath=self.lsf_path
                                           )
 
@@ -194,7 +133,7 @@ class PhotonicLayoutManager:
 
         # Generate a GDS from the content list
         gds_plugin = GDSPlugin(grid=self.routing_grid,
-                               gds_layermap=self.prj.photonic_tech_info.layermap_path,
+                               gds_layermap=self.photonic_tech_info.layermap_path,
                                gds_filepath=self.gds_path,
                                lib_name=self.impl_lib)
         gds_plugin.export_content_list(content_list=content_list)
@@ -242,7 +181,7 @@ class PhotonicLayoutManager:
         temp_cls = getattr(lay_module, cls_name)
 
         # Create TB lsf file
-        self.template_plugin._prj = self.prj
+        self.template_plugin._prj = self
         temp_list = []
         for lay_params in layout_params_list:
             template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
@@ -322,7 +261,7 @@ class PhotonicLayoutManager:
             template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
             temp_list.append(template)
 
-        self.template_plugin._prj = self.prj
+        self.template_plugin._prj = self
         self.template_plugin.instantiate_flat_masters(master_list=temp_list,
                                                       name_list=cell_name_list,
                                                       lib_name='_flat',
@@ -351,31 +290,31 @@ class PhotonicLayoutManager:
 
         self.template_plugin._prj.impl_db.setup_bpg_skill(
             output_path=lib_path,
-            dataprep_procedure_path=self.prj.photonic_tech_info.dataprep_path,
-            dataprep_parameters_path=self.prj.photonic_tech_info.dataprep_params_path,
-            dataprep_skill_function_path=self.prj.dataprep_skill_path
+            dataprep_procedure_path=self.photonic_tech_info.dataprep_path,
+            dataprep_parameters_path=self.photonic_tech_info.dataprep_params_path,
+            dataprep_skill_function_path=self.dataprep_skill_path
         )
 
         print('\n---Running manh---\n')
         for cell in self.cell_name_list:
-            self.prj.impl_db.manh(lib_name=self.impl_lib,
+            self.impl_db.manh(lib_name=self.impl_lib,
+                              cell_name=cell,
+                              debug=True
+                              )
+
+        print('\n---Running dataprep on non-manh---\n')
+        for cell in self.cell_name_list:
+            self.impl_db.dataprep(lib_name=self.impl_lib,
                                   cell_name=cell,
                                   debug=True
                                   )
 
-        print('\n---Running dataprep on non-manh---\n')
-        for cell in self.cell_name_list:
-            self.prj.impl_db.dataprep(lib_name=self.impl_lib,
-                                      cell_name=cell,
-                                      debug=True
-                                      )
-
         print('\n---Running dataprep on manh---\n')
         for cell in self.cell_name_list:
-            self.prj.impl_db.dataprep(lib_name=self.impl_lib,
-                                      cell_name=cell + '_Manh',
-                                      debug=True
-                                      )
+            self.impl_db.dataprep(lib_name=self.impl_lib,
+                                  cell_name=cell + '_Manh',
+                                  debug=True
+                                  )
 
     def create_materials_file(self):
         """
@@ -383,7 +322,7 @@ class PhotonicLayoutManager:
         materials for use in simulation.
         """
         # 1) load the lumerical map file
-        inpath = self.prj.photonic_tech_info.lsf_export_path
+        inpath = self.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
         with open(inpath, 'r') as f:
             lumerical_map = yaml.load(f)
@@ -397,10 +336,3 @@ class PhotonicLayoutManager:
 
         # 4) Export to LSF
         lmg.export_to_lsf()
-
-    @staticmethod
-    def load_yaml(filepath):
-        """ Setup standardized method for yaml loading """
-        with open(filepath, 'r') as stream:
-            temp = yaml.safe_load(stream)
-        return temp

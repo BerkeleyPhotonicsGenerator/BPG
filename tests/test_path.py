@@ -89,21 +89,8 @@ class Path(BPG.PhotonicTemplateBase):
 
 
 def test_path():
-    """
-    Unit Test
-    """
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('creating BAG project')
-        bprj = BPG.PhotonicBagProject()
-
-    else:
-        print('loading BAG project')
-        bprj = local_dict['bprj']
-
     spec_file = 'BPG/tests/specs/path_test_specs.yaml'
-    plm = BPG.PhotonicLayoutManager(bprj, spec_file)
+    plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_gds()
     plm.generate_flat_gds()
     plm.generate_lsf()

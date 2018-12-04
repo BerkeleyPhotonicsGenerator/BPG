@@ -4,19 +4,23 @@ import bag.io
 import abc
 import yaml
 import logging
-
+from .logger import setup_logger
 from pathlib import Path
-from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
-from decimal import Decimal
-from bag.layout.core import BagLayout
-from .port import PhotonicPort
-from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 from itertools import chain
+from decimal import Decimal
 
+# BAG imports
+from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
+from bag.io.file import read_yaml
+from bag.layout.core import BagLayout
+
+# Typing imports
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 if TYPE_CHECKING:
     from BPG.objects import PhotonicRound
     from bag.layout.objects import InstanceInfo
     from bag.layout.core import TechInfo
+    from .port import PhotonicPort
 
 try:
     import cybagoa
@@ -44,6 +48,16 @@ class PhotonicBagProject(BagProject):
     def __init__(self, bag_config_path=None, port=None):
         BagProject.__init__(self, bag_config_path, port)
 
+        # Init empty path variables to be set by user spec file
+        self.specs = None
+        self.log_path = None
+        self.log_filename = 'output.log'
+        self.scripts_dir = None
+        self.data_dir = None
+        self.project_dir = None
+        self.lsf_path = None
+        self.gds_path = None
+
         # Setup bag config path from env if not provided
         if bag_config_path is None:
             if 'BAG_CONFIG_PATH' not in os.environ:
@@ -51,7 +65,7 @@ class PhotonicBagProject(BagProject):
             else:
                 bag_config_path = os.environ['BAG_CONFIG_PATH']
 
-        # Load core bpg configuration variables from bag_config file
+        # Load core BPG configuration variables from bag_config file
         self.bag_config = self.load_yaml(bag_config_path)
         if 'bpg_config' in self.bag_config:
             self.bpg_config = self.bag_config['bpg_config']
@@ -61,9 +75,73 @@ class PhotonicBagProject(BagProject):
         # Grab technology information
         print('Setting up tech info class')
         self.tech_info = create_tech_info(bag_config_path=bag_config_path)
-
         self.photonic_tech_info = create_photonic_tech_info(bpg_config=self.bpg_config,
                                                             tech_info=self.tech_info)
+
+    def load_paths(self, spec_file):
+        """ Receives a specification file from the user and configures the project paths accordingly """
+        self.specs = read_yaml(spec_file)
+
+        # Setup relevant output files and directories
+        if 'project_dir' in self.specs:
+            self.project_dir = Path(self.specs['project_dir']).expanduser()
+        else:
+            default_path = Path(self.bag_config['database']['default_lib_path'])
+            self.project_dir = default_path / self.specs['project_name']
+        self.scripts_dir = self.project_dir / 'scripts'
+        self.data_dir = self.project_dir / 'data'
+
+        # Make the project directories if they do not exists
+        self.project_dir.mkdir(exist_ok=True, parents=True)
+        self.scripts_dir.mkdir(exist_ok=True)
+        self.data_dir.mkdir(exist_ok=True)
+
+        # Get root path for the project
+        bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+
+        # Enable logging for BPG
+        if 'logfile' in self.specs:
+            # If logfile is specified in specs, dump all logs in that location
+            log_path = bag_work_dir / self.specs['logfile']
+            if log_path.is_dir():
+                self.log_path = log_path
+                self.log_filename = 'output.log'
+            else:
+                self.log_path = log_path.parent
+                self.log_filename = log_path.name
+        else:
+            self.log_path = self.project_dir
+            self.log_filename = 'output.log'
+        setup_logger(log_path=str(self.log_path), log_filename=str(self.log_filename))
+
+        # Overwrite tech parameters if specified in the spec file
+        # Setup the abstract tech layermap
+        if 'layermap' in self.specs:
+            self.photonic_tech_info.layermap_path = bag_work_dir / self.specs['layermap']
+        logging.info(f'loading layermap from {self.photonic_tech_info.layermap_path}')
+
+        # Setup the dataprep procedure
+        if 'dataprep' in self.specs:
+            self.photonic_tech_info.dataprep_routine_filepath = bag_work_dir / self.specs['dataprep']
+        logging.info(f'loading dataprep procedure from {self.photonic_tech_info.dataprep_routine_filepath}')
+
+        if 'dataprep_params' in self.specs:
+            self.photonic_tech_info.dataprep_parameters_filepath = bag_work_dir / self.specs['dataprep_params']
+        logging.info(f'loading dataprep and DRC parameters from '
+                     f'{self.photonic_tech_info.dataprep_parameters_filepath}')
+
+        # Setup the lumerical export map
+        if 'lsf_export_map' in self.specs:
+            self.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
+        logging.info(f'loading lumerical export configuration from {self.photonic_tech_info.lsf_export_path}')
+
+        # Now that paths are fully settled, load the tech files
+        self.photonic_tech_info.load_tech_files()
+
+        # Set the paths of the output files
+        self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
+        self.gds_path = str(self.data_dir / self.specs['gds_filename'])
+        logging.info('loaded paths successfully')
 
     @staticmethod
     def load_yaml(filepath):
