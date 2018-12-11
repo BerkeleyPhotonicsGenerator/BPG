@@ -340,3 +340,30 @@ class PhotonicTechInfoExample(PhotonicTechInfo):
         """
 
         return self.thickness_unit(layer) * self._resolution
+
+    def sheet_resistance(self,
+                         layer  # type: Union[str, Tuple[str, str]]
+                         ):
+        # type: (...) -> float
+        """
+        Returns the sheet resistance of the layer, in Ohm/sq.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        rs : float
+            The sheet resistance of the layer in Ohm/sq
+        """
+        # If a tuple, look only at the layer of the LPP
+        if isinstance(layer, tuple):
+            layer = layer[0]
+
+        rs_values = self.dataprep_parameters['Rs']
+        if layer not in rs_values:
+            raise ValueError('Layer {layer} not present in parameters for sheet resistance (Rs)'.format(layer=layer))
+
+        return rs_values[layer]
