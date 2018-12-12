@@ -688,6 +688,24 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             The thickness of shapes on the layer
         """
 
+    @abc.abstractmethod
+    def sheet_resistance(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
+        # type: (...) -> float
+        """
+        Returns the sheet resistance of the layer, in Ohm/sq.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        rs : float
+            The sheet resistance of the layer in Ohm/sq
+        """
 
 class DummyPhotonicTechInfo(PhotonicTechInfo):
     """
@@ -768,6 +786,11 @@ class DummyPhotonicTechInfo(PhotonicTechInfo):
     def thickness_unit(self,
                        layer,  # type: Union[str, Tuple[str, str]]
                        ):
+        return 0
+
+    def sheet_resistance(self,
+                  layer,  # type: Union[str, Tuple[str, str]]
+                  ):
         return 0
 
 

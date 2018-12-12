@@ -1,0 +1,81 @@
+#!/usr/bin/env python
+"""
+This module provides a command-line interface to using BPG
+"""
+import sys
+import argparse
+
+
+def run(args):
+    """ Sources your bag_startup.py and runs """
+    import BPG
+    prj = BPG.PhotonicBagProject()
+    plm = BPG.PhotonicLayoutManager(prj, spec_file=args.spec, verbose=args.verbose)
+    if args.gds:
+        plm.generate_gds()
+    if args.flat_gds:
+        plm.generate_flat_gds()
+    if args.lsf:
+        plm.generate_lsf()
+
+
+def test(args):
+    print(sys.path)
+
+
+def setup():
+    """ Copy over files """
+    from BPG.workspace_setup.setup import copy_files
+    copy_files()
+
+
+def get_cmd_line_args(arg_list):
+    sys.path = [''] + sys.path
+    parser = argparse.ArgumentParser()
+    # List of possible arguments
+    parser.add_argument('action', help='any basic action like run, newproject, etc.')
+    parser.add_argument('-s', '--spec',
+                        help='the spec file to be used',
+                        )
+    parser.add_argument('-c', '--config',
+                        help='the bag config file to be used',
+                        )
+    parser.add_argument('-v', '--verbose',
+                        help='dump information to the command line',
+                        action='store_true'
+                        )
+    # Output types
+    parser.add_argument('--gds',
+                        help='flag to generate a gds',
+                        action='store_true'
+                        )
+    parser.add_argument('--flat_gds',
+                        help='flag to generate a flat gds',
+                        action='store_true'
+                        )
+    parser.add_argument('--lsf',
+                        help='flag to generate a lsf',
+                        action='store_true'
+                        )
+    args = parser.parse_args(arg_list)
+    return args
+
+
+def main(arg_list):
+    """ Entry point for actions that bpg can take """
+    args = get_cmd_line_args(arg_list)
+    # action switch statement
+    if args.action == 'run':
+        run(args)
+    elif args.action == 'test':
+        test(args)
+    elif args.action == 'setup':
+        setup()
+    else:
+        print('Invalid action')
+        return -1
+
+
+if __name__ == '__main__':
+    # Grab the arguments, but ignore the name of the script that is being run
+    main(sys.argv[1:])
