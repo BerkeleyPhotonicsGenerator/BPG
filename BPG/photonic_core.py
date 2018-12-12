@@ -4,14 +4,17 @@ import bag.io
 import abc
 import yaml
 import logging
-
 from pathlib import Path
-from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
 from decimal import Decimal
-from bag.layout.core import BagLayout
-from .port import PhotonicPort
-from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 from itertools import chain
+
+from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
+from bag.layout.core import BagLayout
+
+from .port import PhotonicPort
+from .content_list import ContentList
+
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Any, Dict
 
 if TYPE_CHECKING:
     from BPG.objects import PhotonicRound
@@ -191,7 +194,7 @@ class PhotonicBagLayout(BagLayout):
                     cell_name,  # type: str
                     rename_fun,  # type: Callable[[str], str]
                     ):
-        # type: (...) -> Union[List[Any], Tuple[str, 'cybagoa.PyOALayout']]
+        # type: (...) -> Union[ContentList, Tuple[str, 'cybagoa.PyOALayout']]
         """
         Returns a list describing geometries in this layout.
 
@@ -252,10 +255,21 @@ class PhotonicBagLayout(BagLayout):
 
             return cell_name, oa_layout
         else:
-            ans = [cell_name, inst_tot_list, rect_list, via_list, pin_list, path_list,
-                   blockage_list, boundary_list, polygon_list, round_list,
-                   sim_list, source_list, monitor_list]
-            return ans
+            return ContentList(
+                cell_name=cell_name,
+                inst_list=inst_tot_list,
+                rect_list=rect_list,
+                via_list=via_list,
+                pin_list=pin_list,
+                path_list=path_list,
+                blockage_list=blockage_list,
+                boundary_list=boundary_list,
+                polygon_list=polygon_list,
+                round_list=round_list,
+                sim_list=sim_list,
+                source_list=source_list,
+                monitor_list=monitor_list,
+            )
 
     def move_all_by(self, dx=0.0, dy=0.0, unit_mode=False):
         # type: (Union[float, int], Union[float, int], bool) -> None

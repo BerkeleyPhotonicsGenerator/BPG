@@ -3,6 +3,7 @@ import time
 import logging
 from collections import OrderedDict
 from memory_profiler import memory_usage
+from copy import deepcopy
 
 # BAG Imports
 from bag.layout.template import TemplateDB
@@ -11,6 +12,7 @@ from bag.util.cache import _get_unique_name
 # BPG Imports
 from .objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
     PhotonicPath, PhotonicPinInfo
+from .content_list import ContentList
 
 # Plugin Imports
 from .lumerical.core import LumericalPlugin
@@ -25,6 +27,7 @@ if TYPE_CHECKING:
     from bag.util.cache import DesignMaster
     from bag.core import RoutingGrid
     from bag.core import BagProject
+    from BPG.template import PhotonicTemplateBase
 
 dim_type = Union[float, int]
 coord_type = Tuple[dim_type, dim_type]
@@ -176,7 +179,7 @@ class PhotonicTemplateDB(TemplateDB):
                               lib_name='',  # type: str
                               debug=False,  # type: bool
                               rename_dict=None,  # type: Optional[Dict[str, str]]
-                              ) -> Sequence[Any]:
+                              ) -> Sequence[ContentList]:
         """
         Create the content list from the provided masters and returns it.
 
@@ -250,7 +253,7 @@ class PhotonicTemplateDB(TemplateDB):
         return content_list
 
     def instantiate_flat_masters(self,
-                                 master_list: Sequence['DesignMaster'],
+                                 master_list: Sequence['PhotonicTemplateBase'],
                                  name_list: Optional[Sequence[Optional[str]]] = None,
                                  lib_name: str = '',
                                  rename_dict: Optional[Dict[str, str]] = None,
@@ -359,7 +362,7 @@ class PhotonicTemplateDB(TemplateDB):
             self.impl_cell = name_list[0]
 
     def _flatten_instantiate_master_helper(self,
-                                           master: 'DesignMaster',
+                                           master: 'PhotonicTemplateBase',
                                            hierarchy_name: Optional[str] = None,
                                            ) -> Tuple:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
@@ -385,16 +388,17 @@ class PhotonicTemplateDB(TemplateDB):
 
         start = time.time()
 
-        master_content = master.get_content(self.lib_name, self.format_cell_name)
+        master_content: ContentList = (master.get_content(self.lib_name, self.format_cell_name)).copy()
 
-        (master_name, master_subinstances, new_rect_list, new_via_list, new_pin_list, new_path_list,
-         new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
-         new_sim_list, new_source_list, new_monitor_list) = master_content
+        # (master_name, master_subinstances, new_rect_list, new_via_list, new_pin_list, new_path_list,
+        #  new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
+        #  new_sim_list, new_source_list, new_monitor_list) = master_content
 
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
             via_info = lay_info['via_info']
 
+        master_content.via_to_polygon_and_delete(via_info)
         for via in new_via_list:
 
             # TODO:
@@ -648,53 +652,7 @@ class PhotonicTemplateDB(TemplateDB):
 
         return new_content_list
 
-    @staticmethod
-    def via_to_polygon_list(via, via_lay_info, x0, y0):
-        blay = via_lay_info['bot_layer']
-        tlay = via_lay_info['top_layer']
-        vlay = via_lay_info['via_layer']
-        cw, ch = via.cut_width, via.cut_height
-        if cw < 0:
-            cw = via_lay_info['cut_width']
-        if ch < 0:
-            ch = via_lay_info['cut_height']
 
-        num_cols, num_rows = via.num_cols, via.num_rows
-        sp_cols, sp_rows = via.sp_cols, via.sp_rows
-        w_arr = num_cols * cw + (num_cols - 1) * sp_cols
-        h_arr = num_rows * ch + (num_rows - 1) * sp_rows
-        x0 -= w_arr / 2
-        y0 -= h_arr / 2
-        bl, br, bt, bb = via.enc1
-        tl, tr, tt, tb = via.enc2
-
-        bot_left, bot_bot, bot_right, bot_top = x0 - bl, y0 - bb, x0 + w_arr + br, y0 + h_arr + bt
-        top_left, top_bot, top_right, top_top = x0 - tl, y0 - tb, x0 + w_arr + tr, y0 + h_arr + tt
-
-        bot_polygon = {
-            'layer': blay,
-            'points': [(bot_left, bot_bot), (bot_left, bot_top), (bot_right, bot_top), (bot_right, bot_bot)]
-        }
-        top_polygon = {
-            'layer': tlay,
-            'points': [(top_left, top_bot), (top_left, top_top), (top_right, top_top), (top_right, top_bot)]
-        }
-
-        polygon_list = [bot_polygon, top_polygon]
-
-        for xidx in range(num_cols):
-            dx = xidx * (cw + sp_cols)
-            via_left, via_right = x0 + dx, x0 + cw + dx
-            for yidx in range(num_rows):
-                dy = yidx * (ch + sp_rows)
-                via_bot, via_top = y0 + dy, y0 + ch + dy
-                via_polygon = {
-                    'layer': vlay,
-                    'points': [(via_left, via_bot), (via_left, via_top), (via_right, via_top), (via_right, via_bot)]
-                }
-                polygon_list.append(via_polygon)
-
-        return polygon_list
 
     def sort_flat_content_by_layers(self):
         """
