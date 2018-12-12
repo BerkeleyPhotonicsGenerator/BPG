@@ -12,4 +12,4 @@ from .photonic_core import PhotonicBagProject
 from . import objects
 
 __version__ = '0.0.1'
-print(f'Successfully imported BPG v{__version__}')
+# print(f'Successfully imported BPG v{__version__}')

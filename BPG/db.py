@@ -362,7 +362,7 @@ class PhotonicTemplateDB(TemplateDB):
             self.impl_cell = name_list[0]
 
     def _flatten_instantiate_master_helper(self,
-                                           master: 'PhotonicTemplateBase',
+                                           master: 'PhotonicTemplateBase', # DesignMaster
                                            hierarchy_name: Optional[str] = None,
                                            ) -> Tuple:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
@@ -388,53 +388,19 @@ class PhotonicTemplateDB(TemplateDB):
 
         start = time.time()
 
-        master_content: ContentList = (master.get_content(self.lib_name, self.format_cell_name)).copy()
-
-        # (master_name, master_subinstances, new_rect_list, new_via_list, new_pin_list, new_path_list,
-        #  new_blockage_list, new_boundary_list, new_polygon_list, new_round_list,
-        #  new_sim_list, new_source_list, new_monitor_list) = master_content
+        master_content: ContentList = master.get_content(self.lib_name, self.format_cell_name).copy()
 
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
             via_info = lay_info['via_info']
 
+        # Convert vias into polygons on the via and enclosure layers
         master_content.via_to_polygon_and_delete(via_info)
-        for via in new_via_list:
 
-            # TODO:
-            via_lay_info = via_info[via.id]
-
-            nx, ny = via.arr_nx, via.arr_ny
-            x0, y0 = via.loc
-            if nx > 1 or ny > 1:
-                spx, spy = via.arr_spx, via.arr_spy
-                for xidx in range(nx):
-                    xc = x0 + xidx * spx
-                    for yidx in range(ny):
-                        yc = y0 + yidx * spy
-                        new_polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, xc, yc))
-
-            else:
-                new_polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, x0, y0))
-
-        # TODO: do we need to clean up the new_via_list here or just keep it?
-        new_via_list = []
-
-        new_content_list = (new_rect_list.copy(),
-                            new_via_list.copy(),
-                            new_pin_list.copy(),
-                            new_path_list.copy(),
-                            new_blockage_list.copy(),
-                            new_boundary_list.copy(),
-                            new_polygon_list.copy(),
-                            new_round_list.copy(),
-                            new_sim_list.copy(),
-                            new_source_list.copy(),
-                            new_monitor_list.copy()
-                            )
+        new_content_list = master_content.copy_layout_shapes()
 
         # For each instance in this level, recurse to get all its content
-        for child_instance_info in master_subinstances:
+        for child_instance_info in master_content.inst_list:
             child_master_key = child_instance_info['master_key']
             child_master = self._master_lookup[child_master_key]
             hierarchy_name_addon = f'{child_master.__class__.__name__}'
@@ -651,8 +617,6 @@ class PhotonicTemplateDB(TemplateDB):
                             new_sim_list, new_source_list, new_monitor_list)
 
         return new_content_list
-
-
 
     def sort_flat_content_by_layers(self):
         """
