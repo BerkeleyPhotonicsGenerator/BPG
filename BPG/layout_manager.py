@@ -11,16 +11,19 @@ from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .logger import setup_logger
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Dict
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
+    from BPG.content_list import ContentList
+    from BPG.bpg_custom_types import lpp_type
 
 
 class PhotonicLayoutManager:
     """
     User-facing class that enables encapsulated dispatch of layout operations such as generating gds, oa, lsf, etc
     """
+
     def __init__(self,
                  bprj: 'PhotonicBagProject',
                  spec_file: str,
@@ -39,10 +42,14 @@ class PhotonicLayoutManager:
         self.prj = bprj
         self.specs = read_yaml(spec_file)
 
-        self.tdb = None
+        self.tdb: "PhotonicTemplateDB" = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
         self.cell_name_list = None  # list of names for each created cell
         self.layout_params_list = None  # list of dicts containing layout design parameters
+
+        self.content_list: List["ContentList"] = []
+        self.flat_content_list: List["ContentList"] = []
+        self.sorted_flat_content_list: List[Dict[lpp_type, "ContentList"]] = []
 
         # Setup relevant output files and directories
         if 'project_dir' in self.specs:
@@ -173,6 +180,7 @@ class PhotonicLayoutManager:
             temp_list.append(template)
 
         content_list = self.tdb.generate_content_list(master_list=temp_list, name_list=cell_name_list)
+        self.content_list = content_list
         self.tdb.to_gds_plugin(lib_name=self.impl_lib, content_list=content_list)
 
     def generate_lsf(self, debug=False, create_materials=True):
@@ -286,12 +294,15 @@ class PhotonicLayoutManager:
             temp_list.append(template)
 
         self.tdb._prj = self.prj
-        self.tdb.instantiate_flat_masters(master_list=temp_list,
-                                          name_list=cell_name_list,
-                                          lib_name='_flat',
-                                          rename_dict=None,
-                                          draw_flat_gds=generate_gds,
-                                          )
+
+        self.flat_content_list, self.sorted_flat_content_list = self.tdb.generate_flat_content_list(
+            master_list=temp_list,
+            name_list=cell_name_list,
+            lib_name='_flat',
+            rename_dict=None,
+            sort_by_layer=True,
+        )
+        self.tdb.to_gds_plugin(lib_name=self.impl_lib + '_flattened', content_list=self.flat_content_list)
 
     def dataprep(self):
         logging.info('---Running dataprep---')
@@ -342,9 +353,9 @@ class PhotonicLayoutManager:
 
     def create_materials_file(self):
         """
-        Takes the custom materials stated in the lumerical_map and generates a Lumerical lsf file that defines the
-        materials for use in simulation.
-        """
+          Takes the custom materials stated in the lumerical_map and generates a Lumerical lsf file that defines the
+          materials for use in simulation.
+          """
         # 1) load the lumerical map file
         inpath = self.prj.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'

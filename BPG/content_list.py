@@ -14,47 +14,76 @@ import logging
 from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
     PhotonicPath, PhotonicPinInfo
 
-from typing import TYPE_CHECKING, Dict, List, Tuple
-from BPG.bpg_custom_types import coord_type, dim_type, layer_type
+from typing import TYPE_CHECKING, Dict, List, Tuple, Any
+from BPG.bpg_custom_types import coord_type, dim_type, layer_or_lpp_type, lpp_type
 
 if TYPE_CHECKING:
-    pass
+    from BPG.objects import PhotonicInstanceInfo, PhotonicViaInfo
 
 
 class ContentList(dict):
-    layout_objects_list = [
+    layout_objects_keys = (
         'rect_list', 'via_list', 'pin_list', 'path_list', 'blockage_list', 'boundary_list',
         'polygon_list', 'round_list', 'sim_list', 'source_list', 'monitor_list'
-    ]
-    all_iterables_list = ['inst_list'] + layout_objects_list
+    )
+    all_iterables_keys = ('inst_list',) + layout_objects_keys
+
     def __init__(self,
                  cell_name: str = '',
-                 inst_list: List = None,
-                 rect_list: List = None,
-                 via_list: List = None,
-                 pin_list: List = None,
-                 path_list: List = None,
-                 blockage_list: List = None,
-                 boundary_list: List = None,
-                 polygon_list: List = None,
-                 round_list: List = None,
-                 sim_list: List = None,
-                 source_list: List = None,
-                 monitor_list: List = None,
+                 **kwargs: Any,
                  ) -> None:
+        # If key is not specified, content list should have an empty list, not None
+        kv_iter = ((key, kwargs.get(key, [])) for key in self.all_iterables_keys)
+        dict.__init__(self, kv_iter)
         self.cell_name = cell_name
-        self.inst_list = [] if inst_list is None else inst_list
-        self.rect_list = [] if rect_list is None else rect_list
-        self.via_list = [] if via_list is None else via_list
-        self.pin_list = [] if pin_list is None else pin_list
-        self.path_list = [] if path_list is None else path_list
-        self.blockage_list = [] if blockage_list is None else blockage_list
-        self.boundary_list = [] if boundary_list is None else boundary_list
-        self.polygon_list = [] if polygon_list is None else polygon_list
-        self.round_list = [] if round_list is None else round_list
-        self.sim_list = [] if sim_list is None else sim_list
-        self.source_list = [] if source_list is None else source_list
-        self.monitor_list = [] if monitor_list is None else monitor_list
+
+    @property
+    def inst_list(self) -> List["PhotonicInstanceInfo"]:
+        return self['inst_list']
+
+    @property
+    def rect_list(self) -> List["PhotonicRect"]:
+        return self['rect_list']
+
+    @property
+    def via_list(self) -> List["PhotonicViaInfo"]:
+        return self['via_list']
+
+    @property
+    def pin_list(self) -> List["PhotonicPinInfo"]:
+        return self['pin_list']
+
+    @property
+    def path_list(self) -> List["PhotonicPath"]:
+        return self['path_list']
+
+    @property
+    def blockage_list(self) -> List["PhotonicBlockage"]:
+        return self['blockage_list']
+
+    @property
+    def boundary_list(self) -> List["PhotonicBoundary"]:
+        return self['boundary_list']
+
+    @property
+    def polygon_list(self) -> List["PhotonicPolygon"]:
+        return self['polygon_list']
+
+    @property
+    def round_list(self) -> List["PhotonicRound"]:
+        return self['round_list']
+
+    @property
+    def sim_list(self) -> List:     # TODO: Fill in type info
+        return self['sim_list']
+
+    @property
+    def source_list(self) -> List:     # TODO: Fill in type info
+        return self['source_list']
+
+    @property
+    def monitor_list(self) -> List:     # TODO: Fill in type info
+        return self['monitor_list']
 
     def copy(self):
         """
@@ -67,31 +96,9 @@ class ContentList(dict):
         """
         return ContentList(
             cell_name=self.cell_name,
-            inst_list=self.inst_list,
-            rect_list=self.rect_list.copy(),
-            via_list=self.via_list.copy(),
-            pin_list=self.pin_list.copy(),
-            path_list=self.path_list.copy(),
-            blockage_list=self.blockage_list.copy(),
-            boundary_list=self.boundary_list.copy(),
-            polygon_list=self.polygon_list.copy(),
-            round_list=self.round_list.copy(),
-            sim_list=self.sim_list.copy(),
-            source_list=self.source_list.copy(),
-            monitor_list=self.monitor_list.copy()
+            inst_list=self.inst_list,   # Do not copy inst list
+            **{key: self[key].copy() for key in self.layout_objects_keys}   # Copy the layout objects
         )
-
-    def copy_layout_shapes(self):
-        """
-        Copies only the shapes, not the instances, of the passed content list.
-
-        Returns
-        -------
-
-        """
-        new_copy = self.copy()
-        new_copy.inst_list = []
-        return new_copy
 
     def to_bag_tuple_format(self) -> Tuple:
         """
@@ -102,16 +109,14 @@ class ContentList(dict):
         content_tuple : Tuple
             The content of the ContentList object in the BAG tuple format
         """
-        return (
-            self.cell_name, self.inst_list, self.rect_list, self.via_list, self.pin_list, self.path_list,
-            self.blockage_list, self.boundary_list, self.polygon_list, self.round_list,
-            self.sim_list, self.source_list, self.monitor_list
-        )
+        return (self.cell_name,) + tuple(self[key] for key in self.all_iterables_keys)
 
     # TODO: Change this to be content based, and change dataprep as well
-    def sort_content_list_by_layers(self) -> Dict[layer_type, "ContentList"]:
+    # TODO: Speed this up using yields or something similar if this is found to be slow
+    def sort_content_list_by_layers(self) -> Dict[lpp_type, "ContentList"]:
         """
         Sorts the given content list into a dictionary of content lists, with keys corresponding to a given lpp
+        ASSUMES: the current content list is flat with no via objects
 
         Notes
         -----
@@ -124,8 +129,47 @@ class ContentList(dict):
         -------
 
         """
-        sorted_content = {}
-        for
+        sorted_content: Dict[lpp_type, "ContentList"] = {}
+
+        # Loop over the layout objects in the ContentList
+        for object_type in self.layout_objects_keys:
+            # Ignore vias
+            if object_type != 'via_list':
+                # For each item, ie each rect, polygon, etc
+                object_list = self[object_type]
+                for content_item in object_list:
+                    layer = tuple(content_item['layer'])
+                    # If the layer has not yet been used
+                    if layer not in sorted_content.keys():
+                        # Make a new ContentList for it
+                        sorted_content[layer] = ContentList()
+
+                    # Add the object to the layer's ContentList
+                    sorted_content[layer].add_item(object_type, content_item)
+        return sorted_content
+
+    def add_item(self,
+                 key: str,
+                 value: Any,
+                 ):
+        """
+        Given a content item and which content type it is, add it to the current ContentList
+
+        Parameters
+        ----------
+        key : str
+            key corresponding to the content type (rect_list, via_list, etc)
+            key must be in ContentList.all_iterable_keys
+        value : Any
+            The content item of the given key type to add to the key list in the current ContentList
+
+        Returns
+        -------
+
+        """
+        if key not in self.all_iterables_keys:
+            raise ValueError(f'Unknown ContentList key: {key}')
+        self[key].append(value)
 
     def extend_content_list(self,
                             new_content: "ContentList",
@@ -142,17 +186,8 @@ class ContentList(dict):
         -------
 
         """
-        self.rect_list.extend(new_content.rect_list)
-        self.via_list.extend(new_content.via_list)
-        self.pin_list.extend(new_content.pin_list)
-        self.path_list.extend(new_content.path_list)
-        self.blockage_list.extend(new_content.blockage_list)
-        self.boundary_list.extend(new_content.boundary_list)
-        self.polygon_list.extend(new_content.polygon_list)
-        self.round_list.extend(new_content.round_list)
-        self.sim_list.extend(new_content.sim_list)
-        self.source_list.extend(new_content.source_list)
-        self.monitor_list.extend(new_content.monitor_list)
+        for key in self.layout_objects_keys:
+            self[key].extend(new_content[key])
 
     def transform_content(self,
                           res: float,
@@ -310,7 +345,8 @@ class ContentList(dict):
         )
 
     def via_to_polygon_and_delete(self,
-                                  via_info):
+                                  via_info: Dict,
+                                  ):
         for via in self.via_list:
             # Keep new via list empty, as we are adding its component rectangles to the polygon list.
             # new_via_list.append(
@@ -337,12 +373,15 @@ class ContentList(dict):
                         self.polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, xc, yc))
             else:
                 self.polygon_list.extend(self.via_to_polygon_list(via, via_lay_info, x0, y0))
-
-        self.via_list = []
-
+        # Delete the current via content objects
+        self['via_list'] = []
 
     @staticmethod
-    def via_to_polygon_list(via, via_lay_info, x0, y0):
+    def via_to_polygon_list(via: "PhotonicViaInfo",
+                            via_lay_info: Dict,
+                            x0: dim_type,
+                            y0: dim_type,
+                            ) -> List:
         blay = via_lay_info['bot_layer']
         tlay = via_lay_info['top_layer']
         vlay = via_lay_info['via_layer']

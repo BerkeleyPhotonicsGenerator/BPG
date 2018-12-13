@@ -14,7 +14,7 @@ from BPG.port import PhotonicPort
 from BPG.content_list import ContentList
 
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict
-from BPG.bpg_custom_types import layer_type
+from BPG.bpg_custom_types import layer_or_lpp_type
 
 if TYPE_CHECKING:
     from BPG.objects import PhotonicRound
@@ -690,7 +690,7 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def sheet_resistance(self,
-                         layer: layer_type,
+                         layer: layer_or_lpp_type,
                          ) -> float:
         """
         Returns the sheet resistance of the layer, in Ohm/sq.
@@ -789,7 +789,7 @@ class DummyPhotonicTechInfo(PhotonicTechInfo):
         return 0
 
     def sheet_resistance(self,
-                         layer: layer_type,
+                         layer: layer_or_lpp_type,
                          ) -> float:
         return 0
 
