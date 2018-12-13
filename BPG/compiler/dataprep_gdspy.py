@@ -8,6 +8,7 @@ import re
 
 from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 from BPG.compiler.point_operations import coords_cleanup
+from BPG.content_list import ContentList
 
 from math import ceil
 from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional, Pattern, Iterable
@@ -15,6 +16,7 @@ from typing import TYPE_CHECKING, Tuple, List, Union, Dict, Optional, Pattern, I
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
     from bag.layout.routing import RoutingGrid
+    from BPG.bpg_custom_types import lpp_type
 
 ################################################################################
 # define parameters for testing
@@ -40,8 +42,7 @@ class Dataprep:
     def __init__(self,
                  photonic_tech_info: "PhotonicTechInfo",
                  grid: "RoutingGrid",
-                 flat_content_list_by_layer,
-                 flat_content_list_separate,
+                 content_list_flat: "ContentList",
                  is_lsf: bool = False,
                  impl_cell=None,
                  ):
@@ -50,9 +51,10 @@ class Dataprep:
         Parameters
         ----------
         photonic_tech_info
-        grid
-        flat_content_list_by_layer
-        flat_content_list_separate
+        grid : RoutingGrid
+            The bag routingGrid object for this layout.
+        content_list_flat : ContentList
+            The flattened content list
         is_lsf : bool = False
             True if the Dataprep object is being used for LSF dataprep flow.
             False if the Dataprep object is being used for standard dataprep.
@@ -60,9 +62,14 @@ class Dataprep:
         """
         self.photonic_tech_info: PhotonicTechInfo = photonic_tech_info
         self.grid = grid
-        self.flat_content_list_by_layer: Dict[Tuple[str, str], Tuple] = flat_content_list_by_layer
-        self.flat_content_list_separate = flat_content_list_separate
+        self.content_list_flat: "ContentList" = content_list_flat
         self.is_lsf = is_lsf
+
+        # Sort the flattened content list into the different layers
+        start = time.time()
+        self.content_list_flat_sorted_by_layer = content_list_flat.sort_content_list_by_layers()
+        end = time.time()
+        logging.info(f'Sorting flat content list by layer took {end - start:.4g}s')
 
         self.global_grid_size = self.photonic_tech_info.global_grid_size
         self.global_rough_grid_size = self.photonic_tech_info.global_rough_grid_size
@@ -94,7 +101,7 @@ class Dataprep:
         # Dictionary of layer-keyed polygon point-lists (lists of points comprising the polygons on the layer)
         self.post_dataprep_polygon_pointlist_by_layer: Dict[Tuple[str, str], List] = {}
         # BAG style content list after dataprep
-        self.post_dataprep_flat_content_list: List[Tuple] = []
+        self.content_list_flat_post_dataprep: "ContentList" = None
 
         # Dataprep custom configuration
         # bypass and ignore lists are lists of LPP pairs in tuple state.
@@ -116,7 +123,7 @@ class Dataprep:
                 self.dataprep_ignore_list.extend(
                     self.regex_search_lpps(
                         regex=self._check_input_lpp_entry_and_convert_to_regex(lpp_entry),
-                        keys=self.flat_content_list_by_layer.keys()
+                        keys=self.content_list_flat_sorted_by_layer.keys()
                     )
                 )
 
@@ -128,7 +135,7 @@ class Dataprep:
                 self.dataprep_bypass_list.extend(
                     self.regex_search_lpps(
                         regex=self._check_input_lpp_entry_and_convert_to_regex(lpp_entry),
-                        keys=self.flat_content_list_by_layer.keys()
+                        keys=self.content_list_flat_sorted_by_layer.keys()
                     )
                 )
 
@@ -1065,8 +1072,7 @@ class Dataprep:
     # content list manipulations
     ################################################################################
     def get_polygon_point_lists_on_layer(self,
-                                         layer: Tuple[str, str],
-                                         debug: bool = False,
+                                         layer: "lpp_type",
                                          ) -> Tuple[List, List]:
         """
         Returns a list of all shapes
@@ -1075,19 +1081,18 @@ class Dataprep:
         ----------
         layer : Tuple[str, str]
             the layer purpose pair on which to get all shapes
-        debug : bool
-            true to print debug info
 
         Returns
         -------
-
+        positive_polygon_pointlist, negative_polygon_pointlist : Tuple[List, List]
+            The lists of positive shape and negative shape (holes) polygon boundaries
         """
-        content = [self.get_content_on_layer(layer)]
-        return self.to_polygon_pointlist_from_content_list(content_list=content, debug=debug)
+        content = self.get_content_on_layer(layer)
+        return self.to_polygon_pointlist_from_content_list(content_list=content)
 
     def get_content_on_layer(self,
                              layer: Tuple[str, str],
-                             ) -> Tuple:
+                             ) -> "ContentList":
         """Returns only the content that exists on a given layer
 
         Parameters
@@ -1097,17 +1102,17 @@ class Dataprep:
 
         Returns
         -------
-        content : Tuple
+        content : ContentList
             the shape content on the provided layer
         """
-        if layer not in self.flat_content_list_by_layer.keys():
-            return ()
+        if layer not in self.content_list_flat_sorted_by_layer.keys():
+            # Return an empty content list
+            return ContentList()
         else:
-            return self.flat_content_list_by_layer[layer]
+            return self.content_list_flat_sorted_by_layer[layer]
 
     def to_polygon_pointlist_from_content_list(self,
-                                               content_list: List,
-                                               debug: bool = False,
+                                               content_list: "ContentList",
                                                ) -> Tuple[List, List]:
         """
         Convert the provided content list into two lists of polygon pointlists.
@@ -1118,113 +1123,114 @@ class Dataprep:
 
         Parameters
         ----------
-        content_list : List
+        content_list : ContentList
             The content list to be converted to a polygon pointlist
-        debug : bool
-            True to print debug information
 
         Returns
         -------
         positive_polygon_pointlist, negative_polygon_pointlist : Tuple[List, List]
             The positive shape and negative shape (holes) polygon boundaries
+
+        Notes
+        -----
+        No need to loop over content_list, as dataprep only handles a single master at a time
+        No need to handle instance looping, as there are no instances in the flattened content list
         """
 
         positive_polygon_pointlist = []
         negative_polygon_pointlist = []
 
         start = time.time()
-        for content in content_list:
-            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list,
-             sim_list, source_list, monitor_list) = content
 
-            # add instances
-            for inst_info in inst_tot_list:
-                pass
-
-            # add rectangles
-            for rect in rect_list:
-                nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
-                if nx > 1 or ny > 1:
-                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
-                        rect['bbox'], nx, ny,
-                        spx=rect['arr_spx'], spy=rect['arr_spy']
-                    )
-                else:
-                    polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
-                        rect['bbox']
-                    )
-
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            # add vias
-            for via in via_list:
-                pass
-
-            # add pins
-            for pin in pin_list:
-                pass
-
-            for path in path_list:
-                # Treat like polygons
-                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            for blockage in blockage_list:
-                pass
-
-            for boundary in boundary_list:
-                pass
-
-            for polygon in polygon_list:
-                polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(polygon['points'])
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
-
-            for round_obj in round_list:
-                polygon_pointlist_pos_neg = PhotonicRound.polygon_pointlist_export(
-                    rout=round_obj['rout'],
-                    rin=round_obj['rin'],
-                    theta0=round_obj['theta0'],
-                    theta1=round_obj['theta1'],
-                    center=round_obj['center'],
-                    nx=round_obj.get('nx', 1),
-                    ny=round_obj.get('ny', 1),
-                    spx=round_obj.get('spx', 0.0),
-                    spy=round_obj.get('spy', 0.0),
-                    resolution=self.grid.resolution,
+        # add rectangles
+        for rect in content_list.rect_list:
+            nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
+            if nx > 1 or ny > 1:
+                polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
+                    rect['bbox'], nx, ny,
+                    spx=rect['arr_spx'], spy=rect['arr_spy']
+                )
+            else:
+                polygon_pointlist_pos_neg = PhotonicRect.polygon_pointlist_export(
+                    rect['bbox']
                 )
 
-                positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
-                negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+            positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+            negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+        # add vias
+        for via in content_list.via_list:
+            pass
+
+        # add pins
+        for pin in content_list.pin_list:
+            pass
+
+        for path in content_list.path_list:
+            # Treat like polygons
+            polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(path['polygon_points'])
+            positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+            negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+        for blockage in content_list.blockage_list:
+            pass
+
+        for boundary in content_list.boundary_list:
+            pass
+
+        for polygon in content_list.polygon_list:
+            polygon_pointlist_pos_neg = PhotonicPolygon.polygon_pointlist_export(polygon['points'])
+            positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+            negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
+
+        for round_obj in content_list.round_list:
+            polygon_pointlist_pos_neg = PhotonicRound.polygon_pointlist_export(
+                rout=round_obj['rout'],
+                rin=round_obj['rin'],
+                theta0=round_obj['theta0'],
+                theta1=round_obj['theta1'],
+                center=round_obj['center'],
+                nx=round_obj.get('nx', 1),
+                ny=round_obj.get('ny', 1),
+                spx=round_obj.get('spx', 0.0),
+                spy=round_obj.get('spy', 0.0),
+                resolution=self.grid.resolution,
+            )
+
+            positive_polygon_pointlist.extend(polygon_pointlist_pos_neg[0])
+            negative_polygon_pointlist.extend(polygon_pointlist_pos_neg[1])
 
         end = time.time()
-        if debug:
-            print('layout instantiation took %.4g seconds' % (end - start))
+        logging.debug(f'Conversion from ContentList to polygon pointlist format took {end-start:.4g}')
 
         return positive_polygon_pointlist, negative_polygon_pointlist
 
     @staticmethod
-    def polygon_list_by_layer_to_flat_content_list(poly_list_by_layer,
-                                                   sim_obj_list,
-                                                   impl_cell='no_name_cell') -> List[Tuple]:
+    def polygon_list_by_layer_to_flat_content_list(poly_list_by_layer: Dict["lpp_type", List],
+                                                   sim_list: List,
+                                                   source_list: List,
+                                                   monitor_list: List,
+                                                   impl_cell: str = 'no_name_cell',         # TODO: get the right name?
+                                                   ) -> "ContentList":
         """
-        Converts a LPP-keyed dictionary of polygon pointlists to a flat content list format
+        Converts a LPP-keyed dictionary of polygon pointlists to a flat ContentList format
 
         Parameters
         ----------
         poly_list_by_layer : Dict[Str, List]
             A dictionary containing lists all dataprepped polygons organized by layername
-        sim_obj_list : Tuple[List, List, List]
-            A tuple of lists containing all simulation objects to be used
+        sim_list : List
+            The list of simulation boundary content
+        source_list : List
+            The list of source object content
+        monitor_list : List
+            The list of monitor object content
         impl_cell : str
             Name of cell in flat gds output
 
         Returns
         -------
-        flat_content_list : List[Tuple]
+        flat_content_list : ContentList
             The data in flat content-list-format.
 
         """
@@ -1238,26 +1244,12 @@ class Dataprep:
                     )
                 )
         # TODO: get the right name?
-        return [(impl_cell, [], [], [], [], [], [], [],
-                 polygon_content_list, [],
-                 sim_obj_list[0], sim_obj_list[1], sim_obj_list[2])]
-
-    @staticmethod
-    def merge_content_lists(main_list: Tuple,
-                            append_list: Tuple,
-                            ) -> None:
-        """
-        Take the content from append list and add them to main list
-
-        Parameters
-        ----------
-        main_list
-        append_list
-        """
-        for main_content, append_content in zip(main_list, append_list):
-            if isinstance(main_content, list):
-                logging.debug(f'extending content list with {append_content}')
-                main_content.extend(append_content)
+        return ContentList(cell_name=impl_cell,
+                           poly_list=polygon_content_list,
+                           sim_list=sim_list,
+                           source_list=source_list,
+                           monitor_list=monitor_list
+                           )
 
     def get_manhattanization_size_on_layer(self,
                                            layer: Union[str, Tuple[str, str]]
@@ -1320,7 +1312,7 @@ class Dataprep:
 
         return matches
 
-    def dataprep(self) -> List:
+    def dataprep(self) -> ContentList:
         """
         Takes the flat content list and performs the specified transformations on the shapes for the purpose
         of cleaning DRC and prepping tech specific functions.
@@ -1340,7 +1332,7 @@ class Dataprep:
         start0 = time.time()
         # 1) Convert layer shapes to gdspy polygon format
         logging.info(f'-------- Converting polygons from content list to gdspy format --------')
-        for layer, gds_shapes in self.flat_content_list_by_layer.items():
+        for layer, gds_shapes in self.content_list_flat_sorted_by_layer.items():
             start = time.time()
             # Don't dataprep port layers, label layers, or any layers in the ignore/bypass list
             if (layer[1] != 'port' and layer[1] != 'label' and layer[1] != 'sim') and (
@@ -1455,6 +1447,7 @@ class Dataprep:
         start0 = time.time()
         logging.info(f'-------- Converting gdspy shapes to content list --------')
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
+        # TODO: IE, implement direct GDS export from dataprep to avoid going back to contentlist land
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
             start = time.time()
             # Convert gdspy polygonset to list of pointlists
@@ -1474,27 +1467,23 @@ class Dataprep:
             logging.info(f'Converting {layer} from gdspy to point list took: {end - start}s')
 
         # Convert per-layer pointlist dictionary into content list format
-        self.post_dataprep_flat_content_list = self.polygon_list_by_layer_to_flat_content_list(
+        self.content_list_flat_post_dataprep = self.polygon_list_by_layer_to_flat_content_list(
             poly_list_by_layer=self.post_dataprep_polygon_pointlist_by_layer,
-            sim_obj_list=[
-                self.flat_content_list_separate[0][10],
-                self.flat_content_list_separate[0][11],
-                self.flat_content_list_separate[0][12],
-            ],
+            sim_list=self.content_list_flat.sim_list,
+            source_list=self.content_list_flat.source_list,
+            monitor_list=self.content_list_flat.monitor_list,
             impl_cell=self.impl_cell
         )
 
         # 6) Add shapes on layers from the bypass list back in
         # TODO: Properly support batch dataprep, i.e. cases where there are mulitple gds cells
         logging.info(f'-------- Adding bypass layer objects back into the content list --------')
-        if len(self.post_dataprep_flat_content_list) != 1:
-            logging.warning('Batch dataprep is currently not supported!')
         # dataprep_bypass_list is the post-regex-search list of lpps
         for layer in self.dataprep_bypass_list:
             logging.info(f'Adding bypass layer {layer} back into post-dataprep content list')
-            self.merge_content_lists(self.post_dataprep_flat_content_list[0], self.get_content_on_layer(layer))
+            self.content_list_flat_post_dataprep.extend_content_list(self.get_content_on_layer(layer))
 
         end0 = time.time()
         logging.info(f'Converting all layers from gdspy to point list took a total of: {end0 - start0}s')
 
-        return self.post_dataprep_flat_content_list
+        return self.content_list_flat_post_dataprep

@@ -4,21 +4,17 @@
 This module defines the content list object that is used in db.
 """
 
-import os
-import abc
-import numpy as np
-import yaml
 import time
 import logging
 
-from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
+from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicBlockage, PhotonicBoundary, \
     PhotonicPath, PhotonicPinInfo
 
 from typing import TYPE_CHECKING, Dict, List, Tuple, Any
-from BPG.bpg_custom_types import coord_type, dim_type, layer_or_lpp_type, lpp_type
+from BPG.bpg_custom_types import coord_type, dim_type, lpp_type
 
 if TYPE_CHECKING:
-    from BPG.objects import PhotonicInstanceInfo, PhotonicViaInfo
+    from BPG.objects import PhotonicViaInfo
 
 
 class ContentList(dict):
@@ -37,52 +33,53 @@ class ContentList(dict):
         dict.__init__(self, kv_iter)
         self.cell_name = cell_name
 
+    # TODO: Fill in type info? This is tough because they are all lists of content info
     @property
-    def inst_list(self) -> List["PhotonicInstanceInfo"]:
+    def inst_list(self) -> List:
         return self['inst_list']
 
     @property
-    def rect_list(self) -> List["PhotonicRect"]:
+    def rect_list(self) -> List:
         return self['rect_list']
 
     @property
-    def via_list(self) -> List["PhotonicViaInfo"]:
+    def via_list(self) -> List:
         return self['via_list']
 
     @property
-    def pin_list(self) -> List["PhotonicPinInfo"]:
+    def pin_list(self) -> List:
         return self['pin_list']
 
     @property
-    def path_list(self) -> List["PhotonicPath"]:
+    def path_list(self) -> List:
         return self['path_list']
 
     @property
-    def blockage_list(self) -> List["PhotonicBlockage"]:
+    def blockage_list(self) -> List:
         return self['blockage_list']
 
     @property
-    def boundary_list(self) -> List["PhotonicBoundary"]:
+    def boundary_list(self) -> List:
         return self['boundary_list']
 
     @property
-    def polygon_list(self) -> List["PhotonicPolygon"]:
+    def polygon_list(self) -> List:
         return self['polygon_list']
 
     @property
-    def round_list(self) -> List["PhotonicRound"]:
+    def round_list(self) -> List:
         return self['round_list']
 
     @property
-    def sim_list(self) -> List:     # TODO: Fill in type info
+    def sim_list(self) -> List:
         return self['sim_list']
 
     @property
-    def source_list(self) -> List:     # TODO: Fill in type info
+    def source_list(self) -> List:
         return self['source_list']
 
     @property
-    def monitor_list(self) -> List:     # TODO: Fill in type info
+    def monitor_list(self) -> List:
         return self['monitor_list']
 
     def copy(self):
