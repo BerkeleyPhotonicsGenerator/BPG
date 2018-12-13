@@ -11,12 +11,11 @@ from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .logger import setup_logger
 
-from typing import TYPE_CHECKING, List, Dict
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
     from BPG.content_list import ContentList
-    from BPG.bpg_custom_types import lpp_type
 
 
 class PhotonicLayoutManager:
@@ -48,8 +47,10 @@ class PhotonicLayoutManager:
         self.layout_params_list = None  # list of dicts containing layout design parameters
 
         self.content_list: List["ContentList"] = []
-        self.flat_content_list: List["ContentList"] = []
-        self.sorted_flat_content_list: List[Dict[lpp_type, "ContentList"]] = []
+        self.content_list_flat: List["ContentList"] = []
+        self.content_list_post_dataprep: "ContentList" = None
+        self.content_list_post_lsf_dataprep: "ContentList" = None
+        self.content_list_lumerical_tb: List["ContentList"] = None
 
         # Setup relevant output files and directories
         if 'project_dir' in self.specs:
@@ -183,67 +184,6 @@ class PhotonicLayoutManager:
         self.content_list = content_list
         self.tdb.to_gds_plugin(lib_name=self.impl_lib, content_list=content_list)
 
-    def generate_lsf(self, debug=False, create_materials=True):
-        """ Converts generated layout to lsf format for lumerical import """
-        logging.info('---Generating the design .lsf file---')
-        if create_materials is True:
-            self.create_materials_file()
-
-        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                                     lsf_filepath=self.lsf_path)
-
-    def generate_tb(self, generate_gds=False, debug=False):
-        """ Generates the lumerical testbench lsf """
-        logging.info('---Generating the tb .lsf file---')
-        # Grab the parameters to be passed to the TB
-        tb_params = self.specs['tb_params']
-        if tb_params is None:
-            tb_params = {}
-
-        if not isinstance(self.specs['layout_params'], list):
-            self.specs['layout_params'] = [self.specs['layout_params']]
-
-        # Construct the parameter list
-        layout_params_list = []
-        cell_name_list = []
-        for count, params in enumerate(self.specs['layout_params']):
-            temp_params = dict()
-            temp_params['layout_package'] = self.specs['layout_package']
-            temp_params['layout_class'] = self.specs['layout_class']
-            temp_params['layout_params'] = params
-            temp_params['tb_params'] = tb_params
-            layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
-
-        # Try importing the TB package and class
-        cls_package = self.specs['tb_package']
-        cls_name = self.specs['tb_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
-
-        # Create TB lsf file
-        self.tdb._prj = self.prj
-        temp_list = []
-        for lay_params in layout_params_list:
-            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
-            temp_list.append(template)
-        self.tdb.instantiate_flat_masters(master_list=temp_list,
-                                          name_list=cell_name_list,
-                                          lib_name='_tb',
-                                          rename_dict=None,
-                                          draw_flat_gds=generate_gds,
-                                          )
-        # Create the design LSF file
-        self.tdb.to_lumerical_plugin(lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
-                                     lsf_filepath=self.lsf_path)
-
-        # Create the sweep LSF file
-        filepath = self.tdb.lsf_filepath + '_sweep'
-        lsfwriter = LumericalSweepGenerator(filepath)
-        for script in cell_name_list:
-            lsfwriter.add_sweep_point(script_name=script)
-        lsfwriter.export_to_lsf()
-
     def generate_flat_gds(self,
                           generate_gds=True,
                           layout_params_list=None,
@@ -251,7 +191,8 @@ class PhotonicLayoutManager:
                           gen_full_gds=False,
                           gen_design_gds=True,
                           gen_physical_gds=True,
-                          debug=False) -> None:
+                          debug=False,
+                          ) -> None:
         """
         Generates a batch of layouts with the layout package/class in the spec file with the parameters set by
         layout_params_list and names them according to cell_name_list. Each dict in the layout_params_list creates a
@@ -295,22 +236,113 @@ class PhotonicLayoutManager:
 
         self.tdb._prj = self.prj
 
-        self.flat_content_list, self.sorted_flat_content_list = self.tdb.generate_flat_content_list(
+        self.content_list_flat = self.tdb.generate_flat_content_list(
             master_list=temp_list,
             name_list=cell_name_list,
             lib_name='_flat',
             rename_dict=None,
-            sort_by_layer=True,
         )
-        self.tdb.to_gds_plugin(lib_name=self.impl_lib + '_flattened', content_list=self.flat_content_list)
+        if generate_gds:
+            self.tdb.to_gds_plugin(lib_name=self.impl_lib + '_flattened', content_list=self.content_list_flat)
 
     def dataprep(self):
         logging.info('---Running dataprep---')
-        self.generate_flat_gds(generate_gds=False)
-        self.tdb.dataprep()
-        self.tdb.to_gds_plugin(lib_name='_dataprep',
-                               content_list=self.tdb.post_dataprep_flat_content_list,
-                               )
+
+        if not self.content_list_flat:
+            logging.info('A flat content list has not yet been created. Creating flat content list now')
+            self.generate_flat_gds(generate_gds=False)
+
+        if len(self.content_list_flat) > 1:
+            raise ValueError('Dataprep on content list created from multiple masters is not yet supported')
+        self.content_list_post_dataprep = self.tdb.dataprep(
+            flat_content_list=self.content_list_flat[0],
+            is_lsf=False
+        )
+
+        self.tdb.to_gds_plugin(
+            lib_name=self.impl_lib + '_dataprep',
+            content_list=[self.content_list_post_dataprep]
+        )
+
+    def generate_lsf(self, debug=False, create_materials=True):
+        """ Converts generated layout to lsf format for lumerical import """
+        logging.info('---Generating the design .lsf file---')
+
+        if create_materials is True:
+            self.create_materials_file()
+
+        if not self.content_list_flat:
+            logging.info('A flat content list has not yet been created. Creating flat content list now')
+            self.generate_flat_gds(generate_gds=False)
+
+        if len(self.content_list_flat) > 1:
+            raise ValueError('Dataprep on content list created from multiple masters is not yet supported')
+        self.content_list_post_lsf_dataprep = self.tdb.dataprep(
+            flat_content_list=self.content_list_flat[0],
+            is_lsf=True
+        )
+
+        self.tdb.to_lumerical_plugin(
+            content_list=[self.content_list_post_lsf_dataprep],
+            lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+            lsf_filepath=self.lsf_path
+        )
+
+    def generate_tb(self, generate_gds=False, debug=False):
+        """ Generates the lumerical testbench lsf """
+        logging.info('---Generating the tb .lsf file---')
+        # Grab the parameters to be passed to the TB
+        tb_params = self.specs['tb_params']
+        if tb_params is None:
+            tb_params = {}
+
+        if not isinstance(self.specs['layout_params'], list):
+            self.specs['layout_params'] = [self.specs['layout_params']]
+
+        # Construct the parameter list
+        layout_params_list = []
+        cell_name_list = []
+        for count, params in enumerate(self.specs['layout_params']):
+            temp_params = dict()
+            temp_params['layout_package'] = self.specs['layout_package']
+            temp_params['layout_class'] = self.specs['layout_class']
+            temp_params['layout_params'] = params
+            temp_params['tb_params'] = tb_params
+            layout_params_list.append(temp_params)
+            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
+
+        # Try importing the TB package and class
+        cls_package = self.specs['tb_package']
+        cls_name = self.specs['tb_class']
+        lay_module = importlib.import_module(cls_package)
+        temp_cls = getattr(lay_module, cls_name)
+
+        # Create TB lsf file
+        self.tdb._prj = self.prj
+        temp_list = []
+        for lay_params in layout_params_list:
+            template = self.tdb.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
+            temp_list.append(template)
+        self.content_list_lumerical_tb = self.tdb.generate_flat_content_list(
+            master_list=temp_list,
+            name_list=cell_name_list,
+            lib_name='_tb',
+            rename_dict=None,
+        )
+
+        # Create the design LSF file
+        self.tdb.to_lumerical_plugin(
+            content_list=self.content_list_lumerical_tb,
+            lsf_export_config=self.prj.photonic_tech_info.lsf_export_path,
+            lsf_filepath=self.lsf_path
+        )
+
+        # Create the sweep LSF file
+        filepath = self.tdb.lsf_filepath + '_sweep'
+        lsfwriter = LumericalSweepGenerator(filepath)
+        for script in cell_name_list:
+            lsfwriter.add_sweep_point(script_name=script)
+        lsfwriter.export_to_lsf()
 
     def dataprep_skill(self):
         print('\n---Running dataprep_skill---')
