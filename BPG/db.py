@@ -21,6 +21,7 @@ from .compiler.dataprep_gdspy import Dataprep
 
 # Typing Imports
 from typing import TYPE_CHECKING, Union, Dict, Any, Optional, Tuple, Sequence
+from BPG.bpg_custom_types import dim_type, coord_type, layer_type
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
@@ -28,9 +29,6 @@ if TYPE_CHECKING:
     from bag.core import RoutingGrid
     from bag.core import BagProject
     from BPG.template import PhotonicTemplateBase
-
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicTemplateDB(TemplateDB):
@@ -320,13 +318,7 @@ class PhotonicTemplateDB(TemplateDB):
         start = time.time()
         for master, top_name in zip(master_list, name_list):
             content_list.append(
-                (
-                    master.cell_name,
-                    [],
-                    *self._flatten_instantiate_master_helper(
-                        master=master,
-                    )
-                )
+                self._flatten_instantiate_master_helper(master)
             )
         end = time.time()
 
@@ -335,18 +327,7 @@ class PhotonicTemplateDB(TemplateDB):
         if not lib_name:
             raise ValueError('master library name is not specified.')
 
-        list_of_contents = ['', [], [], [], [], [], [], [], [], [], [], [], []]
-        for content in content_list:
-            for i, data in enumerate(content):
-                list_of_contents[i] += data
-
-        list_of_contents = [(list_of_contents[0], list_of_contents[1], list_of_contents[2],
-                             list_of_contents[3], list_of_contents[4], list_of_contents[5],
-                             list_of_contents[6], list_of_contents[7], list_of_contents[8],
-                             list_of_contents[9], list_of_contents[10], list_of_contents[11],
-                             list_of_contents[12])]
-
-        self.flat_content_list = list_of_contents
+        self.flat_content_list = content_list
         self.flat_content_list_separate = content_list
 
         if sort_by_layer is True:
@@ -362,9 +343,9 @@ class PhotonicTemplateDB(TemplateDB):
             self.impl_cell = name_list[0]
 
     def _flatten_instantiate_master_helper(self,
-                                           master: 'PhotonicTemplateBase', # DesignMaster
+                                           master: 'PhotonicTemplateBase',  # DesignMaster
                                            hierarchy_name: Optional[str] = None,
-                                           ) -> Tuple:
+                                           ) -> ContentList:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
         elements to create a flat design
 
@@ -377,7 +358,7 @@ class PhotonicTemplateDB(TemplateDB):
             Should only be None when a top level cell is being flattened in PhotonicTemplateDB.instantiate_flat_masters.
         Returns
         -------
-        new_content_list : Tuple
+        new_content_list : ContentList
             The content list of the flattened master
         """
         # If hierarchy_name is not provided, get the name from the master itself. This shoul
@@ -411,16 +392,18 @@ class PhotonicTemplateDB(TemplateDB):
                 master=child_master,
                 hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
             )
-            transformed_child_content = self._transform_child_content(
-                content=child_content,
+            transformed_child_content = child_content.transform_content(
+                res=self.grid.resolution,
                 loc=child_instance_info['loc'],
                 orient=child_instance_info['orient'],
-                child_name=f'{hierarchy_name}.{hierarchy_name_addon}'
+                via_info=via_info,
+                unit_mode=False,
             )
 
+            master_content.extend_content_list(transformed_child_content)
             # We got the children's info. Now append it to polygons within the current master
-            for master_shapes, child_shapes in zip(new_content_list, transformed_child_content):
-                master_shapes.extend(child_shapes)
+            # for master_shapes, child_shapes in zip(new_content_list, transformed_child_content):
+            #     master_shapes.extend(child_shapes)
 
         end = time.time()
 
@@ -429,8 +412,10 @@ class PhotonicTemplateDB(TemplateDB):
                       f'\t\t\t\t\t\t\t\t\t\tflattening took {end - start:.4g}s.\n'
                       f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB')
 
-        return new_content_list
+        return master_content
 
+    # TODO: can get rid of this code
+    '''
     def _transform_child_content(self,
                                  content: Tuple,
                                  loc: coord_type = (0, 0),
@@ -617,6 +602,7 @@ class PhotonicTemplateDB(TemplateDB):
                             new_sim_list, new_source_list, new_monitor_list)
 
         return new_content_list
+    '''
 
     def sort_flat_content_by_layers(self):
         """

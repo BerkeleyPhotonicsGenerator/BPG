@@ -11,17 +11,22 @@ import yaml
 import time
 import logging
 
-from .objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
+from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicVia, PhotonicBlockage, PhotonicBoundary, \
     PhotonicPath, PhotonicPinInfo
 
-from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, \
-    Optional, Tuple, Iterable, Sequence
+from typing import TYPE_CHECKING, Dict, List, Tuple
+from BPG.bpg_custom_types import coord_type, dim_type, layer_type
 
 if TYPE_CHECKING:
     pass
 
 
-class ContentList():
+class ContentList(dict):
+    layout_objects_list = [
+        'rect_list', 'via_list', 'pin_list', 'path_list', 'blockage_list', 'boundary_list',
+        'polygon_list', 'round_list', 'sim_list', 'source_list', 'monitor_list'
+    ]
+    all_iterables_list = ['inst_list'] + layout_objects_list
     def __init__(self,
                  cell_name: str = '',
                  inst_list: List = None,
@@ -52,13 +57,14 @@ class ContentList():
         self.monitor_list = [] if monitor_list is None else monitor_list
 
     def copy(self):
-        '''
-        Copies the shape lists. Does not copy the inst_list (ie the new object will point to the original instance list)
+        """
+        Copies the shape lists.
+        Does not copy the inst_list (ie the new object will point to the original instance list)
 
         Returns
         -------
 
-        '''
+        """
         return ContentList(
             cell_name=self.cell_name,
             inst_list=self.inst_list,
@@ -75,24 +81,85 @@ class ContentList():
             monitor_list=self.monitor_list.copy()
         )
 
-    def layout_objects(self):
-        pass
+    def copy_layout_shapes(self):
+        """
+        Copies only the shapes, not the instances, of the passed content list.
 
-    def to_json(self):
-        pass
+        Returns
+        -------
 
-    def fill_content(self,
-                     cell_name=None,
-                     ):
-        # Do I overwrite
-        pass
+        """
+        new_copy = self.copy()
+        new_copy.inst_list = []
+        return new_copy
+
+    def to_bag_tuple_format(self) -> Tuple:
+        """
+        Returns the BAG tuple format of the ContentList
+
+        Returns
+        -------
+        content_tuple : Tuple
+            The content of the ContentList object in the BAG tuple format
+        """
+        return (
+            self.cell_name, self.inst_list, self.rect_list, self.via_list, self.pin_list, self.path_list,
+            self.blockage_list, self.boundary_list, self.polygon_list, self.round_list,
+            self.sim_list, self.source_list, self.monitor_list
+        )
+
+    # TODO: Change this to be content based, and change dataprep as well
+    def sort_content_list_by_layers(self) -> Dict[layer_type, "ContentList"]:
+        """
+        Sorts the given content list into a dictionary of content lists, with keys corresponding to a given lpp
+
+        Notes
+        -----
+        1) Unpack the content list
+        2) Loop over objects in the content list, ignoring vias
+        3) Create new layer dictionary key if object layer is new, and whose value is a content list style array
+        4) Append object to proper location in the per-layer content list array
+
+        Returns
+        -------
+
+        """
+        sorted_content = {}
+        for
+
+    def extend_content_list(self,
+                            new_content: "ContentList",
+                            ) -> None:
+        """
+        Extends the current ContentList object's layout shapes with those of the passed new_content ContentList.
+        Does not extend the instances.
+
+        Parameters
+        ----------
+        new_content
+
+        Returns
+        -------
+
+        """
+        self.rect_list.extend(new_content.rect_list)
+        self.via_list.extend(new_content.via_list)
+        self.pin_list.extend(new_content.pin_list)
+        self.path_list.extend(new_content.path_list)
+        self.blockage_list.extend(new_content.blockage_list)
+        self.boundary_list.extend(new_content.boundary_list)
+        self.polygon_list.extend(new_content.polygon_list)
+        self.round_list.extend(new_content.round_list)
+        self.sim_list.extend(new_content.sim_list)
+        self.source_list.extend(new_content.source_list)
+        self.monitor_list.extend(new_content.monitor_list)
 
     def transform_content(self,
-                          res,
-                          loc,
-                          orient,
-                          via_info,
-                          unit_mode,
+                          res: float,
+                          loc: coord_type,
+                          orient: str,
+                          via_info: Dict,
+                          unit_mode: bool,
                           ):
         new_rect_list = []
         new_via_list = []  # via list which can not be handled by DataPrep
@@ -122,18 +189,8 @@ class ContentList():
 
         # add vias
         for via in self.via_list:
-            # Keep new via list empty, as we are adding its component rectangles to the polygon list.
-            # new_via_list.append(
-            #     PhotonicVia.from_content(
-            #         content=via,
-            #     ).transform(
-            #         loc=loc,
-            #         orient=orient,
-            #         unit_mode=unit_mode,
-            #         copy=False
-            #     ).content
-            # )
-
+            # Keep new via list empty
+            # Add its component rectangles to the polygon list.
             via_lay_info = via_info[via.id]
 
             nx, ny = via.arr_nx, via.arr_ny
