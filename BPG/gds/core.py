@@ -5,7 +5,12 @@ import gdspy
 from math import pi
 
 from BPG.abstract_plugin import AbstractPlugin
-from BPG.objects import *
+
+from typing import TYPE_CHECKING, List
+
+if TYPE_CHECKING:
+    from BPG.content_list import ContentList
+    from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
 
 class GDSPlugin(AbstractPlugin):
@@ -15,14 +20,16 @@ class GDSPlugin(AbstractPlugin):
         self.gds_filepath = gds_filepath
         self.lib_name = lib_name
 
-    def export_content_list(self, content_list):
+    def export_content_list(self,
+                            content_list: List["ContentList"],
+                            ):
         """
-        Exports the physical design into the lumerical LSF format
+        Exports the physical design to GDS
 
         Parameters
         ----------
-        content_list
-            A flattened content list that has already been run through lumerical dataprep
+        content_list : List[ContentList]
+            A list of ContentList objects that represent the layout.
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
 
@@ -42,14 +49,11 @@ class GDSPlugin(AbstractPlugin):
 
         start = time.time()
         for content in content_list:
-            (cell_name, inst_tot_list, rect_list, via_list, pin_list,
-             path_list, blockage_list, boundary_list, polygon_list, round_list,
-             sim_list, source_list, monitor_list) = content
-            gds_cell = gdspy.Cell(cell_name, exclude_from_current=True)
+            gds_cell = gdspy.Cell(content.cell_name, exclude_from_current=True)
             gds_lib.add(gds_cell)
 
             # add instances
-            for inst_info in inst_tot_list:  # type: InstanceInfo
+            for inst_info in content.inst_list:  # type: InstanceInfo
                 if inst_info.params is not None:
                     raise ValueError('Cannot instantiate PCells in GDS.')
                 num_rows = inst_info.num_rows
@@ -66,7 +70,7 @@ class GDSPlugin(AbstractPlugin):
                 gds_cell.add(cur_inst)
 
             # add rectangles
-            for rect in rect_list:
+            for rect in content.rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 (x0, y0), (x1, y1) = rect['bbox']
                 lay_id, purp_id = lay_map[tuple(rect['layer'])]
@@ -85,7 +89,7 @@ class GDSPlugin(AbstractPlugin):
                     gds_cell.add(cur_rect)
 
             # add vias
-            for via in via_list:  # type: ViaInfo
+            for via in content.via_list:  # type: ViaInfo
                 via_lay_info = via_info[via.id]
 
                 nx, ny = via.arr_nx, via.arr_ny
@@ -101,7 +105,7 @@ class GDSPlugin(AbstractPlugin):
                     self._add_gds_via(gds_cell, via, lay_map, via_lay_info, x0, y0)
 
             # add pins
-            for pin in pin_list:  # type: PinInfo
+            for pin in content.pin_list:  # type: PinInfo
                 lay_id, purp_id = lay_map[pin.layer]
                 bbox = pin.bbox
                 label = pin.label
@@ -114,26 +118,26 @@ class GDSPlugin(AbstractPlugin):
                                       layer=lay_id, texttype=purp_id)
                 gds_cell.add(cur_lbl)
 
-            for path in path_list:
+            for path in content.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
                 cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
                 gds_cell.add(cur_path.fracture(precision=res))
 
-            for blockage in blockage_list:
+            for blockage in content.blockage_list:
                 pass
 
-            for boundary in boundary_list:
+            for boundary in content.boundary_list:
                 pass
 
-            for polygon in polygon_list:
+            for polygon in content.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
                 cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
                 gds_cell.add(cur_poly.fracture(precision=res))
 
-            for round_obj in round_list:
+            for round_obj in content.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
                 lay_id, purp_id = lay_map[tuple(round_obj['layer'])]
                 x0, y0 = round_obj['center']
