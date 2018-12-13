@@ -21,14 +21,14 @@ class GDSPlugin(AbstractPlugin):
         self.lib_name = lib_name
 
     def export_content_list(self,
-                            content_list: List["ContentList"],
+                            content_lists: List["ContentList"],
                             ):
         """
         Exports the physical design to GDS
 
         Parameters
         ----------
-        content_list : List[ContentList]
+        content_lists : List[ContentList]
             A list of ContentList objects that represent the layout.
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
@@ -48,12 +48,12 @@ class GDSPlugin(AbstractPlugin):
         logging.info(f'Instantiating gds layout')
 
         start = time.time()
-        for content in content_list:
-            gds_cell = gdspy.Cell(content.cell_name, exclude_from_current=True)
+        for content_list in content_lists:
+            gds_cell = gdspy.Cell(content_list.cell_name, exclude_from_current=True)
             gds_lib.add(gds_cell)
 
             # add instances
-            for inst_info in content.inst_list:  # type: InstanceInfo
+            for inst_info in content_list.inst_list:  # type: InstanceInfo
                 if inst_info.params is not None:
                     raise ValueError('Cannot instantiate PCells in GDS.')
                 num_rows = inst_info.num_rows
@@ -70,7 +70,7 @@ class GDSPlugin(AbstractPlugin):
                 gds_cell.add(cur_inst)
 
             # add rectangles
-            for rect in content.rect_list:
+            for rect in content_list.rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 (x0, y0), (x1, y1) = rect['bbox']
                 lay_id, purp_id = lay_map[tuple(rect['layer'])]
@@ -89,7 +89,7 @@ class GDSPlugin(AbstractPlugin):
                     gds_cell.add(cur_rect)
 
             # add vias
-            for via in content.via_list:  # type: ViaInfo
+            for via in content_list.via_list:  # type: ViaInfo
                 via_lay_info = via_info[via.id]
 
                 nx, ny = via.arr_nx, via.arr_ny
@@ -105,7 +105,7 @@ class GDSPlugin(AbstractPlugin):
                     self._add_gds_via(gds_cell, via, lay_map, via_lay_info, x0, y0)
 
             # add pins
-            for pin in content.pin_list:  # type: PinInfo
+            for pin in content_list.pin_list:  # type: PinInfo
                 lay_id, purp_id = lay_map[pin.layer]
                 bbox = pin.bbox
                 label = pin.label
@@ -118,26 +118,26 @@ class GDSPlugin(AbstractPlugin):
                                       layer=lay_id, texttype=purp_id)
                 gds_cell.add(cur_lbl)
 
-            for path in content.path_list:
+            for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
                 cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
                 gds_cell.add(cur_path.fracture(precision=res))
 
-            for blockage in content.blockage_list:
+            for blockage in content_list.blockage_list:
                 pass
 
-            for boundary in content.boundary_list:
+            for boundary in content_list.boundary_list:
                 pass
 
-            for polygon in content.polygon_list:
+            for polygon in content_list.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
                 cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
                 gds_cell.add(cur_poly.fracture(precision=res))
 
-            for round_obj in content.round_list:
+            for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
                 lay_id, purp_id = lay_map[tuple(round_obj['layer'])]
                 x0, y0 = round_obj['center']

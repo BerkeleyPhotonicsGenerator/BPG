@@ -8,7 +8,7 @@ list to another representation, setting up simulations and testbench scripts, et
 
 import abc
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from BPG.content_list import ContentList
 
@@ -17,7 +17,7 @@ class AbstractPlugin(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def export_content_list(self,
-                            content_list: "ContentList",
+                            content_lists: List["ContentList"],
                             ):
         """
         This method will take a content list and generate a script that specifies the structure in the desired software
@@ -26,6 +26,6 @@ class AbstractPlugin(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        content_list
+        content_lists
         """
         pass
