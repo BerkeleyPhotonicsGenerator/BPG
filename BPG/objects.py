@@ -21,7 +21,7 @@ from BPG.geometry import CoordBase
 from BPG.compiler.point_operations import coords_cleanup, radius_of_curvature
 
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
-from BPG.bpg_custom_types import dim_type, coord_type, layer_type
+from BPG.bpg_custom_types import dim_type, coord_type, layer_or_lpp_type
 
 if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
@@ -275,7 +275,7 @@ class PhotonicRound(Arrayable):
     """
 
     def __init__(self,
-                 layer: layer_type,
+                 layer: layer_or_lpp_type,
                  resolution: float,
                  rout: dim_type,
                  center: coord_type = (0, 0),
@@ -856,7 +856,7 @@ class PhotonicPath(Figure):
 
     def __init__(self,
                  resolution: float,
-                 layer: layer_type,
+                 layer: layer_or_lpp_type,
                  width: dim_type,
                  points: List[coord_type],
                  end_style: str = 'truncate',
@@ -1215,7 +1215,7 @@ class PhotonicPolygon(Polygon):
 
     def __init__(self,
                  resolution: float,
-                 layer: layer_type,
+                 layer: layer_or_lpp_type,
                  points: List[coord_type],
                  unit_mode: bool = False,
                  ):
@@ -1313,7 +1313,7 @@ class PhotonicAdvancedPolygon(Polygon):
 
     def __init__(self,
                  resolution: float,
-                 layer: layer_type,
+                 layer: layer_or_lpp_type,
                  points: List[coord_type],
                  negative_points: Union[List[coord_type], List[List[coord_type]]],
                  unit_mode: bool = False,
