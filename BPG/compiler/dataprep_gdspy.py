@@ -1243,7 +1243,7 @@ class Dataprep:
                         points=polygon_points,
                     )
                 )
-        
+
         # TODO: get the right name?
         return ContentList(cell_name=impl_cell,
                            polygon_list=polygon_content_list,
@@ -1308,7 +1308,7 @@ class Dataprep:
         """
         matches = []
         for key in keys:
-            if regex[0].search(key[0]) and regex[1].search(key[1]):
+            if regex[0].fullmatch(key[0]) and regex[1].fullmatch(key[1]):
                 matches.append(key)
 
         return matches
