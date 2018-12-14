@@ -28,6 +28,11 @@ class ContentList(dict):
                  cell_name: str = '',
                  **kwargs: Any,
                  ) -> None:
+        # Check that the kwargs are valid. If not, raise an error
+        for key in kwargs:
+            if key not in self.all_iterables_keys:
+                raise ValueError(f'Unknown ContentList key: {key}')
+
         # If key is not specified, content list should have an empty list, not None
         kv_iter = ((key, kwargs.get(key, [])) for key in self.all_iterables_keys)
         dict.__init__(self, kv_iter)

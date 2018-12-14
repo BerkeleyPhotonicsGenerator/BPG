@@ -1243,9 +1243,10 @@ class Dataprep:
                         points=polygon_points,
                     )
                 )
+        
         # TODO: get the right name?
         return ContentList(cell_name=impl_cell,
-                           poly_list=polygon_content_list,
+                           polygon_list=polygon_content_list,
                            sim_list=sim_list,
                            source_list=source_list,
                            monitor_list=monitor_list
