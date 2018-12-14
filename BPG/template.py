@@ -331,7 +331,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
 
             self.add_polygon(
-                layer=layer,
+                layer=port.layer,
                 points=[center,
                         center + orient_vec // 2 + np.flip(orient_vec, 0) // 2,
                         center + 2 * orient_vec,
