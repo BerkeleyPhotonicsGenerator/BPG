@@ -6,6 +6,7 @@ def setup_logger(log_path: str,
                  log_filename: str = 'bpg.log',
                  ) -> None:
     """
+    Configures the root logger so that all other loggers in BPG inherit from its properties.
 
     Parameters
     ----------
@@ -18,8 +19,6 @@ def setup_logger(log_path: str,
     -------
 
     """
-    """ Configures the root logger so that all other loggers in BPG inherit from its properties """
-
     # Set up the initial basic config for the root logger
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
@@ -54,6 +53,9 @@ def setup_logger(log_path: str,
     root_logger.info(str(time))
     root_logger.info('##########################')
 
+    ################################################################################
+    # Dataprep logger
+    ################################################################################
     # Set up a dataprep logger for dumping dataprep debug data
     dataprep_logger = logging.getLogger('dataprep')
     dataprep_logger.setLevel(logging.DEBUG)
@@ -74,3 +76,25 @@ def setup_logger(log_path: str,
     time = datetime.now()
     dataprep_logger.info(str(time))
     dataprep_logger.info('##########################')
+
+    ################################################################################
+    # Timing logger
+    ################################################################################
+    # Set up a time information logger for dumping timing data when generating
+    timing_logger = logging.getLogger('timing')
+    timing_logger.setLevel(logging.DEBUG)
+    timing_logger.propagate = False
+
+    # Add a file stream for the dataprep logger
+    timing_file_handler = logging.FileHandler(log_path + '/' 'timing.log', 'w')
+    timing_file_handler.setLevel(logging.DEBUG)
+    timing_formatter = logging.Formatter('%(message)-15s')
+    timing_file_handler.setFormatter(timing_formatter)
+
+    timing_logger.handlers = []
+    timing_logger.addHandler(timing_file_handler)
+
+    # Print out the current date and time
+    timing_logger.info('################################################################################')
+    timing_logger.info(f'{"Time (s)":>15} | Operation')
+    timing_logger.info('################################################################################')
