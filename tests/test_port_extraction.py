@@ -147,7 +147,9 @@ class PortExtraction(BPG.PhotonicTemplateBase):
 def test_port_extraction():
     spec_file = 'BPG/tests/specs/port_extraction_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
     plm.generate_gds()
+    plm.generate_flat_content()
     plm.generate_flat_gds()
     plm.generate_lsf()
 

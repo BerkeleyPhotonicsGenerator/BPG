@@ -4,6 +4,7 @@ import logging
 
 str_list = ['LOG1UNIQUE', 'LOG2UNIQUE', 'LOG3UNIQUE', 'LOG4UNIQUE']
 
+
 class DummyClass(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
@@ -35,19 +36,21 @@ class DummyClass(BPG.PhotonicTemplateBase):
 
 def test_logger():
     spec_file = 'BPG/tests/specs/logger_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
-    PLM.generate_gds()
-    log_path = PLM.log_path
-    log_name = PLM.log_filename
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    log_path = plm.log_path
+    log_name = plm.log_filename
     evaulate_logs(log_path, log_name)
 
 
 def test_logger_no_logfile():
     spec_file = 'BPG/tests/specs/logger_specs_no_logfile.yaml'
-    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
-    PLM.generate_gds()
-    log_path = PLM.log_path
-    log_name = PLM.log_filename
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    log_path = plm.log_path
+    log_name = plm.log_filename
     evaulate_logs(log_path, log_name)
 
 

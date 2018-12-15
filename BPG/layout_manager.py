@@ -13,8 +13,6 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from .logger import setup_logger
-
 from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
@@ -50,8 +48,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
 
         # Plugin initialization
-        self.gds_plugin = None
-        self.lsf_plugin = None
+        self.gds_plugin: "GDSPlugin" = None
+        self.lsf_plugin: "LumericalPlugin" = None
         self.template_plugin: 'PhotonicTemplateDB' = None
         self.init_plugins()  # Initializes all of the built-in plugins
 
@@ -86,7 +84,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                   lib_name=lib_name,
                                                   use_cybagoa=True,
                                                   gds_lay_file=self.photonic_tech_info.layermap_path,
-                                                  gds_filepath=self.gds_path,
                                                   photonic_tech_info=self.photonic_tech_info)
         self.template_plugin._prj = self
 
@@ -103,29 +100,30 @@ class PhotonicLayoutManager(PhotonicBagProject):
                          cell_name: str = None,
                          ) -> 'ContentList':
         """
-        Generates a content list from the specified design class, layout params, and cell_name. If not provided,
-        get these variables from the spec file
+        Generates a content list.
+        If layout params and cell name are passed, use these parameters.
+        If not provided, get these variables from the spec file
 
         Parameters
         ----------
         layout_params : dict
-            dictionary of parameters to be sent to the layout generator class
+            Optional dictionary of parameters to be sent to the layout generator class.
         cell_name : str
-            name of the cell to be created from the layout generator
+            Optional name of the cell to be created from the layout generator.
 
         Returns
         -------
         content_list : ContentList
             A db of all generated shapes
         """
-        logging.info('--- Generating content list ---')
+        logging.info(f'\n\n{"Generating content list":-^80}')
         if layout_params is None:
             layout_params = self.specs['layout_params']
         if cell_name is None:
             cell_name = self.specs['impl_cell']
 
         if isinstance(layout_params, list):
-            raise ValueError('Dataprep on content list created from multiple masters is not yet supported')
+            raise ValueError('Content generation from multiple masters is not supported in BPG.')
 
         # Import the class listed in the spec file
         cls_package = self.specs['layout_package']
@@ -138,47 +136,50 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                      temp_cls=temp_cls,
                                                      debug=False)
         self.content_list = self.template_plugin.generate_content_list(master_list=[template],
-                                                                       name_list=[cell_name])
+                                                                       name_list=[cell_name])[0]
         return self.content_list
 
-    def generate_gds(self, layout_params=None, cell_name=None) -> None:
+    def generate_gds(self) -> None:
         """
-        Generates content for the specified layout generator and exports it to GDS format
-
-        Parameters
-        ----------
-        layout_params : dict
-            Optional dict corresponding to layout parameters passed to the generator class
-        cell_name : str
-            Optional string corresponding to the name given to the generated layout
+        Exports the content list to gds format
         """
-        self.generate_content(layout_params=layout_params, cell_name=cell_name)
-        logging.info('--- Generating .gds ---')
-        self.gds_plugin.export_content_list(content_list=self.content_list)
+        logging.info(f'\n\n{"Generating .gds":-^80}')
+        if not self.content_list:
+            raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
+        self.gds_plugin.export_content_list(content_lists=[self.content_list])
+
+    # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content(self,
                               layout_params: dict = None,
                               cell_name: str = None,
                               ) -> 'ContentList':
         """
-        Generates a layout with the layout package/class in the spec file with the parameters set by
-        layout_params and names it cell_name.
+        Generates a content list.
+        If layout params and cell name are passed, use these parameters.
+        If not provided, get these variables from the spec file
 
         Parameters
         ----------
         layout_params : dict
-            Optional dict corresponding to layout parameters passed to the generator class
+            Optional dictionary of parameters to be sent to the layout generator class.
         cell_name : str
-            Optional string corresponding to the name given to the layout
+            Optional name of the cell to be created from the layout generator.
+
+        Returns
+        -------
+        content_list : ContentList
+            A db of all generated shapes
         """
-        logging.info('---Generating flat .gds file---')
-        # TODO: Implement the gen_full/gen_design/gen_physical
+        logging.info(f'\n\n{"Generating flat content list":-^80}')
+
         # If no list is provided, extract layout params from the provided spec file
         if layout_params is None:
             layout_params = self.specs['layout_params']
         if cell_name is None:
             cell_name = self.specs['impl_cell']
 
+        # TODO: Remove as we can technically support flattening multiple masters at once?
         if isinstance(layout_params, list):
             raise ValueError('generating flat content list created from multiple masters is not yet supported')
 
@@ -194,46 +195,43 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                                                  name_list=[cell_name],
                                                                                  lib_name='_flat',
                                                                                  rename_dict=None,
-                                                                                 )
+                                                                                 )[0]
         return self.content_list_flat
 
-    def generate_flat_gds(self,
-                          layout_params: dict = None,
-                          cell_name: str = None
-                          ) -> None:
+    def generate_flat_gds(self) -> None:
         """
-        Generates content for the specified layout generator and exports it to GDS format
+        Exports flattened content list of design to gds format
+        """
+        logging.info(f'\n\n{"Generating flat .gds":-^80}')
 
-        Parameters
-        ----------
-        layout_params : dict
-            Optional dict corresponding to layout parameters passed to the generator class
-        cell_name : str
-            Optional string corresponding to the name given to the generated layout
-        """
-        self.generate_flat_content(layout_params=layout_params, cell_name=cell_name)
-        logging.info('--- Generating .gds ---')
-        self.gds_plugin.export_content_list(content_list=self.content_list_flat)
+        if not self.content_list_flat:
+            raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_flat_gds')
+
+        self.gds_plugin.export_content_list(content_lists=[self.content_list_flat])
 
     def generate_lsf(self, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
-        logging.info('---Generating the design .lsf file---')
+        logging.info(f'\n\n{"Generating the design .lsf file":-^80}')
+
         if create_materials is True:
             self.create_materials_file()
 
         if not self.content_list_flat:
-            raise ValueError('Please generate a flat GDS before exporting to Lumerical')
+            raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_lsf')
 
-        if len(self.content_list_flat) > 1:
-            raise ValueError('Dataprep on content list created from multiple masters is not yet supported')
+        if isinstance(self.content_list_flat, list):
+            raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
 
-        self.content_list_post_lsf_dataprep = self.template_plugin.dataprep(flat_content_list=self.content_list_flat,
-                                                                            is_lsf=True)
-        self.lsf_plugin.export_content_list(content_list=self.content_list_post_lsf_dataprep)
+        self.content_list_post_lsf_dataprep = self.template_plugin.dataprep(
+            flat_content_list=self.content_list_flat,
+            is_lsf=True
+        )
+        self.lsf_plugin.export_content_list(content_lists=[self.content_list_post_lsf_dataprep])
 
     def generate_tb(self, debug=False):
         """ Generates the lumerical testbench lsf """
-        logging.info('---Generating the tb .lsf file---')
+        logging.info(f'\n\n{"Generating the tb .lsf file":-^80}')
+
         # Grab the parameters to be passed to the TB
         tb_params = self.specs['tb_params']
         if tb_params is None:
@@ -281,22 +279,36 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.lsf_plugin.export_content_list(tb_content_post_dataprep)
 
         # Create the sweep LSF file
-        filepath = self.template_plugin.lsf_filepath + '_sweep'
+        filepath = self.lsf_plugin.lsf_filepath + '_sweep'
         lsfwriter = LumericalSweepGenerator(filepath)
         for script in cell_name_list:
             lsfwriter.add_sweep_point(script_name=script)
         lsfwriter.export_to_lsf()
 
     def dataprep(self):
-        logging.info('---Running dataprep---')
+        """
+        Performs dataprep on the design
+        """
+        logging.info(f'\n\n{"Running dataprep":-^80}')
+
         if not self.content_list_flat:
-            raise ValueError('Please generate a flat GDS before running dataprep')
+            raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
+
         self.content_list_post_dataprep = self.template_plugin.dataprep(
             flat_content_list=self.content_list_flat,
             is_lsf=False
         )
 
-    # TODO: Define export dataprep GDS
+    def generate_dataprep_gds(self) -> None:
+        """
+        Exports the dataprep content to GDS format
+        """
+        logging.info(f'\n\n{"Generating dataprep .gds":-^80}')
+
+        if not self.content_list_post_dataprep:
+            raise ValueError('Must call PhotonicLayoutManager.dataprep before calling generate_dataprep_gds')
+
+        self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep])
 
     def create_materials_file(self):
         """
