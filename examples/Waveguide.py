@@ -34,14 +34,14 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
         length = self.params['length']
 
         # Add waveguide
-        wg0 = self.add_rect(layer='SI',
-                            bbox=BBox(left=-.5 * width,
-                                      bottom=-.5 * length,
-                                      right=0.5 * width,
-                                      top=.5 * length,
-                                      resolution=self.grid.resolution,
-                                      unit_mode=False)
-                            )
+        self.add_rect(layer='SI',
+                      bbox=BBox(left=-.5 * width,
+                                bottom=-.5 * length,
+                                right=0.5 * width,
+                                top=.5 * length,
+                                resolution=self.grid.resolution,
+                                unit_mode=False)
+                      )
 
         self.add_photonic_port(name='FDEPort',
                                center=(0, 0),
@@ -52,9 +52,12 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
 
 def test_wg():
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
-    PLM = BPG.PhotonicLayoutManager(spec_file, verbose=True)
-    PLM.generate_flat_gds()
-    PLM.generate_lsf()
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    plm.generate_flat_content()
+    plm.generate_flat_gds()
+    plm.generate_lsf()
 
 
 if __name__ == '__main__':

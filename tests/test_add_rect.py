@@ -30,7 +30,7 @@ class AddRect(BPG.PhotonicTemplateBase):
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 
-        r1 = self.add_rect(
+        self.add_rect(
             layer='SI',
             x_span=self.params['x'],
             y_span=self.params['y'],
@@ -38,14 +38,14 @@ class AddRect(BPG.PhotonicTemplateBase):
             unit_mode=False,
         )
 
-        r2 = self.add_rect(
+        self.add_rect(
             layer='SI',
             coord1=self.params['point1'],
             coord2=self.params['point2'],
             unit_mode=False,
         )
 
-        r3 = self.add_rect(
+        self.add_rect(
             layer='SI',
             bbox=BBox(
                 left=1,
@@ -63,23 +63,15 @@ def test_add_rect():
     """
     Unit test definition
     """
-    # # Load a previous BPG Project if it exists, otherwise create a new one
-    # local_dict = locals()
-    # if 'prj' not in local_dict:
-    #     print('Creating BAG project')
-    #     bprj = BPG.PhotonicBagProject()
-    #
-    # else:
-    #     print('Loading BAG project')
-    #     bprj = local_dict['bprj']
-
     spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
-    # PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
-    PLM = BPG.PhotonicLayoutManager(spec_file)
-    PLM.generate_gds()
-    PLM.generate_flat_gds()
-    PLM.dataprep()
-    PLM.generate_lsf()
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    plm.generate_flat_content()
+    plm.generate_flat_gds()
+    plm.dataprep()
+    plm.generate_dataprep_gds()
+    plm.generate_lsf()
 
 
 if __name__ == '__main__':

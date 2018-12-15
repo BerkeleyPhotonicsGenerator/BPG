@@ -12,8 +12,6 @@ from bag.util.cache import _get_unique_name
 from .content_list import ContentList
 
 # Plugin Imports
-from .lumerical.core import LumericalPlugin
-from .gds.core import GDSPlugin
 from .compiler.dataprep_gdspy import Dataprep
 
 # Typing Imports
@@ -35,7 +33,6 @@ class PhotonicTemplateDB(TemplateDB):
                  prj: Optional['BagProject'] = None,
                  use_cybagoa: bool = False,
                  gds_lay_file: str = '',
-                 gds_filepath: str = '',
                  photonic_tech_info: 'PhotonicTechInfo' = None,
                  **kwargs,
                  ):
@@ -48,37 +45,9 @@ class PhotonicTemplateDB(TemplateDB):
                             gds_lay_file=gds_lay_file,
                             **kwargs
                             )
-        # Keys are LPPs and values are BAG content list format
-        self.lsf_post_dataprep_flat_content_list = []
-
-        # Path to output gds and lsf storage
-        self.gds_filepath = gds_filepath
 
         self.photonic_tech_info = photonic_tech_info
-        self.dataprep_routine_filepath = photonic_tech_info.dataprep_routine_filepath
-        self.dataprep_params_filepath = photonic_tech_info.dataprep_parameters_filepath
-        self._export_gds = True
         self.impl_cell = None  # TODO: impl_cell??
-
-    def to_gds_plugin(self,
-                      lib_name: str,
-                      content_list: List["ContentList"],
-                      ) -> None:
-        """
-        Generates a GDS file from the provided content list using the built-in GDS plugin
-
-        Parameters
-        ----------
-        lib_name : str
-            Name of the library to be created in the GDS
-        content_list : List[ContentList]
-            The main db containing all of the physical design information
-        """
-        plugin = GDSPlugin(grid=self.grid,
-                           gds_layermap=self._gds_lay_file,
-                           gds_filepath=self.gds_filepath,
-                           lib_name=lib_name)
-        plugin.export_content_list(content_lists=content_list)
 
     def dataprep(self,
                  flat_content_list: "ContentList",
@@ -100,11 +69,11 @@ class PhotonicTemplateDB(TemplateDB):
         """
         logging.info(f'In PhotonicTemplateDB.dataprep with is_lsf set to {is_lsf}')
         dataprep_object = Dataprep(photonic_tech_info=self.photonic_tech_info,
-                                        grid=self.grid,
-                                        content_list_flat=flat_content_list,
-                                        is_lsf=is_lsf,
-                                        impl_cell=self.impl_cell,  # TODO: impl_cell??
-                                        )
+                                   grid=self.grid,
+                                   content_list_flat=flat_content_list,
+                                   is_lsf=is_lsf,
+                                   impl_cell=self.impl_cell,  # TODO: impl_cell??
+                                   )
         start = time.time()
         post_dataprep_flat_content_list = dataprep_object.dataprep()
         end = time.time()
@@ -190,6 +159,7 @@ class PhotonicTemplateDB(TemplateDB):
                         for master in info_dict.values()]
         return content_list
 
+    # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content_list(self,
                                    master_list: Sequence['PhotonicTemplateBase'],
                                    name_list: Optional[Sequence[Optional[str]]] = None,
@@ -261,7 +231,7 @@ class PhotonicTemplateDB(TemplateDB):
                 self._flatten_instantiate_master_helper(master)
             )
         end = time.time()
-        logging.info(f'Master content flattening took {end-start:.4g}s')
+        logging.info(f'Master content flattening took {end - start:.4g}s')
 
         # TODO: ?? what is going on here
         if not lib_name:

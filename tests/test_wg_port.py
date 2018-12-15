@@ -9,10 +9,10 @@ if TYPE_CHECKING:
 
 class Waveguide(BPG.PhotonicTemplateBase):
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
@@ -66,10 +66,10 @@ class Waveguide(BPG.PhotonicTemplateBase):
 class WaveguideVert(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
@@ -123,10 +123,10 @@ class WaveguideVert(BPG.PhotonicTemplateBase):
 class WaveguideConnectTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
@@ -453,10 +453,10 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
 class PortTest(BPG.PhotonicTemplateBase):
 
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
@@ -492,7 +492,9 @@ class PortTest(BPG.PhotonicTemplateBase):
 def test_wg_port():
     spec_file = 'BPG/tests/specs/waveguide_and_port_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
     plm.generate_gds()
+    plm.generate_flat_content()
     plm.generate_flat_gds()
     plm.generate_lsf()
 

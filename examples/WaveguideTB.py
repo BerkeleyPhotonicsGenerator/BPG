@@ -30,5 +30,7 @@ class WaveguideFDE(LumericalTB):
 if __name__ == '__main__':
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     PLM = BPG.PhotonicLayoutManager(spec_file)
+    PLM.generate_content()
+    PLM.generate_flat_content()
     PLM.generate_flat_gds()
     PLM.generate_tb()

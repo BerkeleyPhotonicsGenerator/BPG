@@ -104,9 +104,13 @@ class SubLevel2(BPG.PhotonicTemplateBase):
 
 def test_dataprep():
     spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
-    plm = BPG.PhotonicLayoutManager(spec_file, verbose=True)
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    plm.generate_flat_content()
     plm.generate_flat_gds()
     plm.dataprep()
+    plm.generate_dataprep_gds()
 
 
 if __name__ == '__main__':

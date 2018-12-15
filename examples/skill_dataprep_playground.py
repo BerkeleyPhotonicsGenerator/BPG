@@ -66,18 +66,7 @@ class SkillClassName(BPG.PhotonicTemplateBase):
 
 
 if __name__ == '__main__':
-    # Load a previous BPG Project if it exists, otherwise create a new one
-    local_dict = locals()
-    if 'prj' not in local_dict:
-        print('Creating BAG project')
-        bprj = BPG.PhotonicBagProject()
-
-    else:
-        print('Loading BAG project')
-        bprj = local_dict['bprj']
-
-
     spec_file = 'BPG/examples/specs/skill_dataprep_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(bprj, spec_file)
+    PLM = BPG.PhotonicLayoutManager(spec_file)
     PLM.generate_gds()
     PLM.dataprep_skill()

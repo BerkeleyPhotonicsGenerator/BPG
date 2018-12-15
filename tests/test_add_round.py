@@ -44,7 +44,7 @@ class AddRound(BPG.PhotonicTemplateBase):
         self.add_round(
             round_obj=circle
         )
-        
+
         self.add_round(
             round_obj=circle.transform((0, 10), 'R90')
         )
@@ -70,10 +70,14 @@ class AddRound(BPG.PhotonicTemplateBase):
 
 def test_add_round():
     spec_file = 'BPG/tests/specs/add_round_specs.yaml'
-    PLM = BPG.PhotonicLayoutManager(spec_file)
-    PLM.generate_gds()
-    PLM.generate_flat_gds()
-    PLM.generate_lsf()
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_content()
+    plm.generate_gds()
+    plm.generate_flat_content()
+    plm.generate_flat_gds()
+    plm.generate_lsf()
+    plm.dataprep()
+    plm.generate_dataprep_gds()
 
 
 if __name__ == '__main__':
