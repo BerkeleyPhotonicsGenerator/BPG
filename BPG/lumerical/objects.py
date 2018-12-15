@@ -14,9 +14,10 @@ from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
-from BPG.photonic_core import CoordBase
+from BPG.geometry import CoordBase
 from copy import deepcopy
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
+from BPG.bpg_custom_types import dim_type, coord_type
 
 # Load logger
 logger = logging.getLogger(__name__)
@@ -25,10 +26,6 @@ if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
     from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
-
-ldim = Union[float, int]
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicInstanceInfo(InstanceInfo):
@@ -91,7 +88,7 @@ class PhotonicInstance(Instance):
                  parent_grid: RoutingGrid,
                  lib_name: str,
                  master,
-                 loc: Tuple[ldim, ldim],
+                 loc: coord_type,
                  orient: str,
                  name: str=None,
                  nx: int=1,
@@ -226,7 +223,7 @@ class PhotonicInstance(Instance):
             )
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+        # type: (coord_type, str, bool, bool) -> Optional[Figure]
         """Transform this figure."""
         if not unit_mode:
             res = self.resolution
@@ -465,7 +462,7 @@ class PhotonicRound(Arrayable):
                                 )
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[PhotonicRound]
+        # type: (coord_type, str, bool, bool) -> Optional[PhotonicRound]
         """Transform this figure."""
 
         if not unit_mode:
@@ -1102,7 +1099,7 @@ class PhotonicPath(Figure):
         return content
 
     def move_by(self, dx=0, dy=0, unit_mode=False):
-        # type: (ldim, ldim, bool) -> None
+        # type: (dim_type, dim_type, bool) -> None
         """Move this path by the given amount.
 
         Parameters
@@ -1122,7 +1119,7 @@ class PhotonicPath(Figure):
         self._lower_unit += np.array([dx, dy])
 
     def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Figure
+        # type: (coord_type, str, bool, bool) -> Figure
         """Transform this figure."""
         res = self.resolution
         if unit_mode:
