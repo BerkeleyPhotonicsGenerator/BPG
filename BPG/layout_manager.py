@@ -207,7 +207,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_flat_gds')
 
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_flat])
+        self.gds_plugin.export_content_list(content_lists=[self.content_list_flat], name_append='_flat')  # TODO:name
 
     def generate_lsf(self, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
@@ -226,7 +226,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             flat_content_list=self.content_list_flat,
             is_lsf=True
         )
-        self.lsf_plugin.export_content_list(content_lists=[self.content_list_post_lsf_dataprep])
+        self.lsf_plugin.export_content_list(content_lists=[self.content_list_post_lsf_dataprep])  # TODO: Fix naming here as well
 
     def generate_tb(self, debug=False):
         """ Generates the lumerical testbench lsf """
@@ -276,7 +276,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             tb_content_post_dataprep.append(self.template_plugin.dataprep(flat_content_list=content_list, is_lsf=True))
 
         # Export the actual data to LSF
-        self.lsf_plugin.export_content_list(tb_content_post_dataprep)
+        self.lsf_plugin.export_content_list(tb_content_post_dataprep)       # TODO : fix naming here as well
 
         # Create the sweep LSF file
         filepath = self.lsf_plugin.lsf_filepath + '_sweep'
@@ -308,7 +308,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_post_dataprep:
             raise ValueError('Must call PhotonicLayoutManager.dataprep before calling generate_dataprep_gds')
 
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep])
+        self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep], name_append='_dataprep')  # TODO:name
 
     def create_materials_file(self):
         """

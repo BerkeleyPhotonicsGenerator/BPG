@@ -18,10 +18,11 @@ class GDSPlugin(AbstractPlugin):
         self.grid = grid
         self.gds_layermap = gds_layermap
         self.gds_filepath = gds_filepath
-        self.lib_name = lib_name
+        self.lib_name = lib_name    # TODO: fix
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
+                            name_append: str = '',
                             ):
         """
         Exports the physical design to GDS
@@ -42,7 +43,8 @@ class GDSPlugin(AbstractPlugin):
             lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
-        out_fname = self.gds_filepath + '%s.gds' % self.lib_name
+        # TODO: fix
+        out_fname = self.gds_filepath + f'{name_append}.gds'
         gds_lib = gdspy.GdsLibrary(name=self.lib_name)
         cell_dict = gds_lib.cell_dict
         logging.info(f'Instantiating gds layout')
