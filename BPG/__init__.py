@@ -11,5 +11,5 @@ from .photonic_core import PhotonicBagProject
 # Expose base shapes that can be drawn
 from . import objects
 
-__version__ = '0.0.1'
-# print(f'Successfully imported BPG v{__version__}')
+__version__ = '0.2.0'
+print(f'Successfully imported BPG v{__version__}')

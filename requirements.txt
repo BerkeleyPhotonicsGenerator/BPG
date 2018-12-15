@@ -33,7 +33,7 @@ pytest==4.0.1
 python-dateutil==2.7.5
 PyYAML==3.13
 pyzmq==17.1.2
-requests==2.19.1
+requests==2.20.0
 Rtree==0.8.3
 ruamel-yaml==0.15.46
 scipy==1.1.0
