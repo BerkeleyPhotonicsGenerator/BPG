@@ -8,11 +8,17 @@ list to another representation, setting up simulations and testbench scripts, et
 
 import abc
 
+from typing import TYPE_CHECKING, List
+if TYPE_CHECKING:
+    from BPG.content_list import ContentList
+
 
 class AbstractPlugin(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def export_content_list(self, content_list):
+    def export_content_list(self,
+                            content_lists: List["ContentList"],
+                            ):
         """
         This method will take a content list and generate a script that specifies the structure in the desired software
         package. Ex: for lumerical, export_content_list will generate an lsf file that tells lumerical how to
@@ -20,6 +26,6 @@ class AbstractPlugin(metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        content_list
+        content_lists
         """
         pass

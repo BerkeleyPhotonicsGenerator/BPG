@@ -4,7 +4,6 @@ from datetime import datetime
 
 def setup_logger(log_path: str,
                  log_filename: str = 'bpg.log',
-                 verbose: bool = False,
                  ) -> None:
     """
 
@@ -14,8 +13,6 @@ def setup_logger(log_path: str,
         The path to save the log files.
     log_filename : str
         The name of the primary output log file.
-    verbose : bool
-        True to output debug level messages to stdout. False to output info level messages to stdout.
 
     Returns
     -------
@@ -31,10 +28,7 @@ def setup_logger(log_path: str,
     # Add a console handler
     out_handler = logging.StreamHandler()
     # If the verbose option is set to False, only display warnings and errors
-    if verbose is False:
-        out_handler.setLevel(logging.INFO)
-    else:
-        out_handler.setLevel(logging.INFO)
+    out_handler.setLevel(logging.INFO)
 
     # Add an output file to the root logger, overwrite the log file if it already exists
     file_handler = logging.FileHandler(log_path + '/' + log_filename, 'w')

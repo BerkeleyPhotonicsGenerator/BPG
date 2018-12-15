@@ -7,6 +7,7 @@ import numpy as np
 import sys
 import math
 import logging
+from copy import deepcopy
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
     ViaInfo, Via, PinInfo, Instance, InstanceInfo, Figure
@@ -14,21 +15,22 @@ from bag.layout.routing import RoutingGrid
 from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
-from .photonic_core import CoordBase
-from copy import deepcopy
-from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
 
-# Load logger
-logger = logging.getLogger(__name__)
+
+from BPG.geometry import CoordBase
+from BPG.compiler.point_operations import coords_cleanup, radius_of_curvature
+
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
+from BPG.bpg_custom_types import dim_type, coord_type, layer_or_lpp_type
 
 if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
     from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
 
-ldim = Union[float, int]
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
+
+# Load logger
+logger = logging.getLogger(__name__)
 
 
 class PhotonicInstanceInfo(InstanceInfo):
@@ -43,8 +45,7 @@ class PhotonicInstanceInfo(InstanceInfo):
             self['master_key'] = kwargs['master_key']
 
     @property
-    def master_key(self):
-        # type: () -> Tuple
+    def master_key(self) -> Tuple:
         return self['master_key']
 
     def copy(self):
@@ -91,19 +92,19 @@ class PhotonicInstance(Instance):
                  parent_grid: RoutingGrid,
                  lib_name: str,
                  master,
-                 loc: Tuple[ldim, ldim],
+                 loc: coord_type,
                  orient: str,
-                 name: str=None,
-                 nx: int=1,
-                 ny: int=1,
-                 spx: int=0,
-                 spy: int=0,
-                 unit_mode: bool=False,
+                 name: str = None,
+                 nx: int = 1,
+                 ny: int = 1,
+                 spx: int = 0,
+                 spy: int = 0,
+                 unit_mode: bool = False,
                  ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
 
-        self._photonic_port_list = {}  # type: Dict[str, PhotonicPort]
+        self._photonic_port_list: Dict[str, "PhotonicPort"] = {}
         self._photonic_port_creator()
 
     def __getitem__(self, item: str):
@@ -142,29 +143,26 @@ class PhotonicInstance(Instance):
             )
 
     def set_port_used(self,
-                      port_name,  # type: str
-                      ):
-        # type: (...) -> None
+                      port_name: str,
+                      ) -> None:
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
 
         self._photonic_port_list[port_name].used(True)
 
     def get_port_used(self,
-                      port_name,  # type: str
-                      ):
-        # type: (...) -> bool
+                      port_name: str,
+                      ) -> bool:
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
 
         return self._photonic_port_list[port_name].used()
 
     def get_photonic_port(self,
-                          name,  # type: str
-                          row=0,  # type: int
-                          col=0,  # type: int
-                          ):
-        # type: (...) -> PhotonicPort
+                          name: str,
+                          row: int = 0,
+                          col: int = 0,
+                          ) -> "PhotonicPort":
         """
         Returns the photonic port object associated with the provided port name
 
@@ -186,12 +184,14 @@ class PhotonicInstance(Instance):
         return self._photonic_port_list[name]
 
     @property
-    def master(self):
-        # type: () -> PhotonicTemplateBase
+    def master(self) -> "PhotonicTemplateBase":
         """The master template of this instance."""
         return self._master
 
-    def get_bound_box_of(self, row=0, col=0):
+    def get_bound_box_of(self,
+                         row: int = 0,
+                         col: int = 0,
+                         ) -> BBox:
         """Returns the bounding box of an instance in this mosaic."""
         dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
         xshift, yshift = self._loc_unit
@@ -199,8 +199,11 @@ class PhotonicInstance(Instance):
         yshift += dy
         return self._master.bound_box.transform((xshift, yshift), self.orientation, unit_mode=True)
 
-    def move_by(self, dx=0, dy=0, unit_mode=False):
-        # type: (Union[float, int], Union[float, int], bool) -> None
+    def move_by(self,
+                dx: dim_type = 0,
+                dy: dim_type = 0,
+                unit_mode: bool = False,
+                ) -> None:
         """Move this instance by the given amount.
 
         Parameters
@@ -225,21 +228,25 @@ class PhotonicInstance(Instance):
                 unit_mode=True
             )
 
-    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[Figure]
+    def transform(self,
+                  loc: coord_type = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool = False,
+                  copy: bool = False,
+                  ) -> Optional[Figure]:
         """Transform this figure."""
         if not unit_mode:
             res = self.resolution
             loc = int(round(loc[0] / res)), int(round(loc[1] / res))
 
         if not copy:
-            self._loc_unit = loc
-            self._orient = orient
-            return self
+            ans = self
         else:
-            return Instance(self._parent_grid, self._lib_name, self._master, self._loc_unit,
-                            self._orient, name=self._inst_name, nx=self.nx, ny=self.ny,
-                            spx=self.spx_unit, spy=self.spy_unit, unit_mode=True)
+            ans = deepcopy(self)
+
+        ans._loc_unit = loc
+        ans._orient = orient
+        return ans
 
 
 class PhotonicRound(Arrayable):
@@ -268,18 +275,18 @@ class PhotonicRound(Arrayable):
     """
 
     def __init__(self,
-                 layer,
-                 resolution,
-                 rout,
-                 center=[0,0],
-                 rin=0,
-                 theta0=0,
-                 theta1=360,
-                 nx=1,
-                 ny=1,
-                 spx=0,
-                 spy=0,
-                 unit_mode=False,
+                 layer: layer_or_lpp_type,
+                 resolution: float,
+                 rout: dim_type,
+                 center: coord_type = (0, 0),
+                 rin: dim_type = 0,
+                 theta0: dim_type = 0,
+                 theta1: dim_type = 360,
+                 nx: int = 1,
+                 ny: int = 1,
+                 spx: dim_type = 0,
+                 spy: dim_type = 0,
+                 unit_mode: bool = False,
                  ):
         # python 2/3 compatibility: convert raw bytes to string.
         layer = bag.io.fix_string(layer)
@@ -333,14 +340,14 @@ class PhotonicRound(Arrayable):
 
     @rout.setter
     def rout(self,
-             val,  # type: Union[float, int]
+             val: dim_type,
              ):
         """Sets the outer radius in layout units"""
         self._rout_unit = int(round(val / self._res))
 
     @rout_unit.setter
     def rout_unit(self,
-                  val,  # type: int
+                  val: int,
                   ):
         """Sets the outer radius in resolution units"""
         self._rout_unit = int(round(val))
@@ -357,14 +364,14 @@ class PhotonicRound(Arrayable):
 
     @center.setter
     def center(self,
-               val,  # type: coord_type
+               val: coord_type,
                ):
         """Sets the center in layout units"""
         self._center_unit = (int(round(val[0] / self._res)), int(round(val[1] / self._res)))
 
     @center_unit.setter
     def center_unit(self,
-                    val,  # type: coord_type
+                    val: Tuple[int, int],
                     ):
         """Sets the center in resolution units"""
         self._center_unit = (int(round(val[0])), int(round(val[1])))
@@ -381,14 +388,14 @@ class PhotonicRound(Arrayable):
 
     @rin.setter
     def rin(self,
-            val,  # type: Union[float, int]
+            val: dim_type,
             ):
         """Sets the inner radius in layout units"""
         self._rin_unit = int(round(val / self._res))
 
     @rin_unit.setter
     def rin_unit(self,
-                 val,  # type: int
+                 val: int,
                  ):
         """Sets the inner radius in resolution units"""
         self._rin_unit = int(round(val))
@@ -400,7 +407,7 @@ class PhotonicRound(Arrayable):
 
     @theta0.setter
     def theta0(self,
-               val,  # type: Union[float, int]
+               val: dim_type,
                ):
         """Sets the start angle in degrees"""
         self._theta0 = val
@@ -412,7 +419,7 @@ class PhotonicRound(Arrayable):
 
     @theta1.setter
     def theta1(self,
-               val,  # type: Union[float, int]
+               val: dim_type,
                ):
         """Sets the start angle in degrees"""
         self._theta1 = val
@@ -452,20 +459,25 @@ class PhotonicRound(Arrayable):
         return content
 
     def move_by(self,
-                dx=0,  # type: dim_type
-                dy=0,  # type: dim_type
-                unit_mode=False,  # type: bool
+                dx: dim_type = 0,
+                dy: dim_type = 0,
+                unit_mode: bool = False,
                 ):
         """Moves the round object"""
         if unit_mode:
             self.center_unit = (self.center_unit[0] + int(round(dx)), self.center_unit[1] + int(round(dy)))
         else:
-            self.center_unit = (self.center_unit[0] + int(round(dx / self._res)),
-                                self.center_unit[1] + int(round(dy / self._res))
-                                )
+            self.center_unit = (
+                self.center_unit[0] + int(round(dx / self._res)),
+                self.center_unit[1] + int(round(dy / self._res))
+            )
 
-    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Optional[PhotonicRound]
+    def transform(self,
+                  loc: coord_type = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool = False,
+                  copy: bool = False,
+                  ) -> Optional["PhotonicRound"]:
         """Transform this figure."""
 
         if not unit_mode:
@@ -499,42 +511,29 @@ class PhotonicRound(Arrayable):
             new_theta0 = 180 - self.theta1 + 90
             new_theta1 = 180 - self.theta0 + 90
 
-        if copy:
-            print("WARNING: USING THIS BREAKS POWER FILL ALGORITHM.")
-            self.center_unit = new_center_unit
-            self.theta0 = new_theta0
-            self.theta1 = new_theta1
-            return self
+        if not copy:
+            ans = self
         else:
-            return PhotonicRound(
-                layer=self.layer,
-                resolution=self.resolution,
-                center=new_center_unit,
-                rout=self.rout_unit,
-                rin=self.rin_unit,
-                theta0=new_theta0,
-                theta1=new_theta1,
-                nx=self.nx,
-                ny=self.ny,
-                spx=self.spx_unit,
-                spy=self.spy_unit,
-                unit_mode=True
-            )
+            ans = deepcopy(self)
+
+        ans.center_unit = new_center_unit
+        ans.theta0 = new_theta0
+        ans.theta1 = new_theta1
+        return ans
 
     @classmethod
     def lsf_export(cls,
-                   rout,  # type: dim_type
-                   rin,  # type: dim_type
-                   theta0,  # type: dim_type
-                   theta1,  # type: dim_type
-                   layer_prop,
-                   center,  # type: coord_type
-                   nx=1,  # type: int
-                   ny=1,  # type: int
-                   spx=0.0,  # type: dim_type
-                   spy=0.0,  # type: dim_type
-                   ):
-        # type: (...) -> List(str)
+                   rout: dim_type,
+                   rin: dim_type,
+                   theta0: dim_type,
+                   theta1: dim_type,
+                   layer_prop: Dict,
+                   center: coord_type,
+                   nx: int = 1,
+                   ny: int = 1,
+                   spx: dim_type = 0.0,
+                   spy: dim_type = 0.0,
+                   ) -> List[str]:
         """
 
         Parameters
@@ -605,24 +604,23 @@ class PhotonicRound(Arrayable):
         return lsf_code
 
     @staticmethod
-    def num_of_sparse_point_round(radius,  # type: float
-                                  res_grid_size,  # type: float
-                                  ):
-        # type: (...) -> int
+    def num_of_sparse_point_round(radius: float,
+                                  res_grid_size: float,
+                                  ) -> int:
         return int(math.ceil(math.pi / math.sqrt(res_grid_size / radius)))
 
     @classmethod
     def polygon_pointlist_export(cls,
-                                 rout,  # type: dim_type
-                                 rin,  # type: dim_type
-                                 theta0,  # type: dim_type
-                                 theta1,  # type: dim_type
-                                 center,  # type: coord_type
-                                 nx=1,  # type: int
-                                 ny=1,  # type: int
-                                 spx=0.0,  # type: dim_type
-                                 spy=0.0,  # type: dim_type
-                                 resolution=0.001  # type: float
+                                 rout: dim_type,
+                                 rin: dim_type,
+                                 theta0: dim_type,
+                                 theta1: dim_type,
+                                 center: coord_type,
+                                 nx: int = 1,
+                                 ny: int = 1,
+                                 spx: dim_type = 0.0,
+                                 spy: dim_type = 0.0,
+                                 resolution: float = 0.001,
                                  ):
         # Get the base polygons
         round_polygons = gdspy.Round(center=center,
@@ -698,6 +696,22 @@ class PhotonicRect(Rect):
             unit_mode=False,
         )
 
+    def transform(self,
+                  loc: coord_type = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool = False,
+                  copy: bool = False,
+                  ) -> Optional[Figure]:
+        """Transform this figure."""
+        if not copy:
+            ans = self
+        else:
+            ans = deepcopy(self)
+
+        ans._bbox = ans._bbox.transform(loc=loc, orient=orient, unit_mode=unit_mode)
+
+        return ans
+
     @classmethod
     def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
         """
@@ -765,13 +779,12 @@ class PhotonicRect(Rect):
 
     @classmethod
     def polygon_pointlist_export(cls,
-                                 bbox,  # type: [[int, int], [int, int]]
-                                 nx=1,  # type: int
-                                 ny=1,  # type: int
-                                 spx=0.0,  # type: int
-                                 spy=0.0,  # type: int
-                                 ):
-        # type: (...) -> Tuple[List, List]
+                                 bbox: [[int, int], [int, int]],
+                                 nx: int = 1,
+                                 ny: int = 1,
+                                 spx: dim_type = 0.0,
+                                 spy: dim_type = 0.0,
+                                 )-> Tuple[List, List]:
         """
         Convert the PhotonicRect geometry to a list of polygon pointlists.
 
@@ -842,15 +855,14 @@ class PhotonicPath(Figure):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 width,  # type: Union[int, float]
-                 points,  # type: List[Tuple[Union[int, float], Union[int, float]]]
-                 end_style='truncate',  # type: str
-                 join_style='extend',  # type: str
-                 unit_mode=False,  # type: bool
-                 ):
-        # type (...) -> None
+                 resolution: float,
+                 layer: layer_or_lpp_type,
+                 width: dim_type,
+                 points: List[coord_type],
+                 end_style: str = 'truncate',
+                 join_style: str = 'extend',
+                 unit_mode: bool = False,
+                 ) -> None:
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Figure.__init__(self, resolution)
@@ -879,13 +891,14 @@ class PhotonicPath(Figure):
         self._lower_unit = np.array(lower_unit, dtype=int)
 
     def process_points(self,
-                       pts,
-                       width,  # type: int
-                       eps=0.00001,  # type: float
-                       unit_mode=False,  # type: bool
-                       ):
+                       pts: Union[np.ndarray, List[coord_type]],
+                       width: int,
+                       eps: float = 0.00001,
+                       unit_mode: bool = False,
+                       ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
-
+        Processes points to clean them.
+        Returns points in the unit mode
 
 
         Parameters
@@ -893,67 +906,41 @@ class PhotonicPath(Figure):
         pts
         width
         eps
-        unit_mode
+        unit_mode : bool
+            True if passed pts are already in unit mode.
 
         Returns
         -------
 
         """
 
-        # TODO: add points at end and beginning to make sure path ends are vertical/horizontal
-        # type: (...) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]
-        pts_center = []
+        # TODO: add points at end and beginning to make sure path ends are vertical/horizontal?
 
-        if unit_mode:
-            pts_unit = ((int(pt[0]), int(pt[1])) for pt in pts)
+        if isinstance(pts, np.ndarray):
+            pts = pts
         else:
-            pts_unit = ((int(round(pt[0] / self.resolution)), int(round(pt[1] / self.resolution))) for pt in pts)
+            pts = np.array(pts)
 
-        # First pass gets rid of collinear and duplicate points.
-        # Also returns an error if radius of curvature is smaller than width / 2
-        for x, y in pts_unit:
-            if len(pts_center) == 0:
-                pts_center.append((x, y))
-            else:
-                x_prev, y_prev = pts_center[-1]
+        # Round points to unit mode
+        if unit_mode:
+            pts_unit = pts
+            eps_unit = eps
+        else:
+            pts_unit = np.round(pts / self.resolution).astype(int)
+            eps_unit = eps / self.resolution
 
-                # Make sure new point is different from previous
-                if x != x_prev or y != y_prev:
-                    # Delete middle point if new segment is collinear with old segment
-                    if len(pts_center) > 2:
-                        # Get new slope and old slope
-                        dx, dy = x - x_prev, y - y_prev
-                        dx_prev, dy_prev = x_prev - pts_center[-2][0], y_prev - pts_center[-2][1]
+        # First pass, get rid of all collinear and duplicate points
+        pts_center = coords_cleanup(pts_unit, eps_unit)
+        # TODO: radius of curvature checking
 
-                        m = dy / dx if abs(dx) > eps else 'v'
-                        m_prev = dy_prev / dx_prev if abs(dx_prev) > eps else 'v'
-
-                        # If slopes are the same, points are collinear, remove the middle one, and add the new
-                        if m == m_prev:
-                            del pts_center[-1]
-                            pts_center.append((x, y))
-                        # If this is a new non-collinear point, make sure it abides by minimum radius of curvature
-                        else:
-                            # radius = self._radius_of_curvature(pts_center[-2], pts_center[-1], (x, y), eps=eps)
-                            # if radius >= self.width / 2:
-                            #     pts_center.append((x, y))
-                            # print(radius)
-                            # TODO: Does this always work properly if input points are super dense and therefore already
-                            # manhattanized?
-                            pts_center.append((x, y))
-                    else:
-                        # This is the second point in the list, so as long as it is different, add it
-                        pts_center.append((x, y))
-
-        print("PhotonicPath.__init__:  length of pts_center: {}".format(
-            len(pts_center)
-        ))
+        logger.debug(f'PhotonicPath.__init__:  length of pts_center: {len(pts_center)}')
 
         # Add the polygon boundary based on the ideal curve
         # Now that center points are clean, create the upper and lower points by finding perpendicular
         pts_upper = []
         pts_lower = []
 
+        # TODO: implement in point_operations.py a parallelized version
         for ind, (x, y) in enumerate(pts):
             prev_point = pts[max(ind - 1, 0)]
             next_point = pts[min(ind + 1, len(pts) - 1)]
@@ -1005,50 +992,24 @@ class PhotonicPath(Figure):
                 new_lower_dp = new_lower_vec[0] * tangent_vec[0] + new_lower_vec[1] * tangent_vec[1]
 
                 # TODO: can we always add, or should we check that the points are far enough away?
-                if new_upper != pts_upper[-1] : # and new_upper_dp > 0.5 :
+                if new_upper != pts_upper[-1]:  # and new_upper_dp > 0.5 :
                     pts_upper.append(new_upper)
-                if new_lower != pts_lower[-1] : # and new_lower_dp > 0.5:
+                if new_lower != pts_lower[-1]:  # and new_lower_dp > 0.5:
                     pts_lower.append(new_lower)
 
-        return pts_center, pts_upper, pts_lower
-
-    @staticmethod
-    def _radius_of_curvature(pt0,  # type: Tuple[int, int]
-                             pt1,  # type: Tuple[int, int]
-                             pt2,  # type: Tuple[int, int]
-                             eps,  # type: float
-                             ):
-        # type: (...) -> float
-
-        ma = -(pt1[0] - pt0[0]) / (pt1[1] - pt0[1]) if abs(pt1[1] - pt0[1]) > eps else 'v'
-        mb = -(pt2[0] - pt1[0]) / (pt2[1] - pt1[1]) if abs(pt2[1] - pt1[1]) > eps else 'v'
-
-        xa, ya = (pt0[0] + pt1[0]) / 2, (pt0[1] + pt1[1]) / 2
-        xb, yb = (pt1[0] + pt2[0]) / 2, (pt1[1] + pt2[1]) / 2
-
-        # First two points form a horizontal line
-        if ma == 'v':
-            center = (xa, mb * (xa - xb) + yb)
-        # Second two points form a horizontal line
-        elif mb == 'v':
-            center = (xb, ma * (xb - xa) + ya)
-        else:
-            center = ((mb * xb - ma * xa - (yb - ya))/(mb - ma), (ma * mb * (xb - xa) - (ma * yb - mb * ya))/(mb - ma))
-
-        point = center[0] - pt1[0], center[1] - pt1[1]
-        radius = math.sqrt(math.pow(point[0], 2) + math.pow(point[1], 2))
-
-        return radius
+        return (
+            np.array(pts_center).astype(int),
+            np.array(pts_upper).astype(int),
+            np.array(pts_lower).astype(int)
+        )
 
     @property
-    def layer(self):
-        # type: () -> Tuple[str, str]
+    def layer(self) -> Tuple[str, str]:
         """The rectangle (layer, purpose) pair."""
         return self._layer
 
     @Figure.valid.getter
-    def valid(self):
-        # type: () -> bool
+    def valid(self) -> bool:
         """Returns True if this instance is valid."""
         return not self.destroyed and len(self._points_unit) >= 2 and self._width > 0
 
@@ -1057,8 +1018,7 @@ class PhotonicPath(Figure):
         return self._width * self._res
 
     @property
-    def width_unit(self):
-        # type: () -> int
+    def width_unit(self) -> int:
         return self._width
 
     @property
@@ -1089,8 +1049,7 @@ class PhotonicPath(Figure):
         return out
 
     @property
-    def content(self):
-        # type: () -> Dict[str, Any]
+    def content(self) -> Dict[str, Any]:
         """A dictionary representation of this path."""
         content = dict(layer=self.layer,
                        width=self._width * self._res,
@@ -1101,8 +1060,11 @@ class PhotonicPath(Figure):
                        )
         return content
 
-    def move_by(self, dx=0, dy=0, unit_mode=False):
-        # type: (ldim, ldim, bool) -> None
+    def move_by(self,
+                dx: dim_type = 0,
+                dy: dim_type = 0,
+                unit_mode: bool = False,
+                ) -> None:
         """Move this path by the given amount.
 
         Parameters
@@ -1121,8 +1083,12 @@ class PhotonicPath(Figure):
         self._upper_unit += np.array([dx, dy])
         self._lower_unit += np.array([dx, dy])
 
-    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
-        # type: (Tuple[ldim, ldim], str, bool, bool) -> Figure
+    def transform(self,
+                  loc: coord_type = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool = False,
+                  copy: bool = False,
+                  ) -> Figure:
         """Transform this figure."""
         res = self.resolution
         if unit_mode:
@@ -1164,9 +1130,8 @@ class PhotonicPath(Figure):
 
     @classmethod
     def polygon_pointlist_export(cls,
-                                 vertices,  # type: List[Tuple[float, float]]
-                                 ):
-        # type: (...) -> Tuple[List, List]
+                                 vertices: List[Tuple[float, float]],
+                                 ) -> Tuple[List, List]:
         """
 
         Parameters
@@ -1249,10 +1214,10 @@ class PhotonicPolygon(Polygon):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
-                 unit_mode=False,  # type: bool
+                 resolution: float,
+                 layer: layer_or_lpp_type,
+                 points: List[coord_type],
+                 unit_mode: bool = False,
                  ):
         if isinstance(layer, str):
             layer = (layer, 'phot')
@@ -1312,9 +1277,8 @@ class PhotonicPolygon(Polygon):
 
     @classmethod
     def polygon_pointlist_export(cls,
-                                 vertices,  # type: List[Tuple[float, float]]
-                                 ):
-        # type: (...) -> Tuple[List, List]
+                                 vertices: List[Tuple[float, float]],
+                                 ) -> Tuple[List, List]:
         """
 
         Parameters
@@ -1348,11 +1312,11 @@ class PhotonicAdvancedPolygon(Polygon):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
-                 negative_points,  # type: Union[List[coord_type], List[List[coord_type]]]
-                 unit_mode=False,  # type: bool
+                 resolution: float,
+                 layer: layer_or_lpp_type,
+                 points: List[coord_type],
+                 negative_points: Union[List[coord_type], List[List[coord_type]]],
+                 unit_mode: bool = False,
                  ):
         if isinstance(layer, str):
             layer = (layer, 'phot')
@@ -1421,8 +1385,12 @@ class PhotonicBoundary(Boundary):
         True if the points are given in resolution units.
     """
 
-    def __init__(self, resolution, boundary_type, points, unit_mode=False):
-        # type: (float, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
+    def __init__(self,
+                 resolution: float,
+                 boundary_type: str,
+                 points: List[coord_type],
+                 unit_mode: bool = False,
+                 ) -> None:
         Boundary.__init__(self, resolution, boundary_type, points, unit_mode)
 
     @classmethod
@@ -1491,8 +1459,8 @@ class PhotonicVia(Via):
 
     @classmethod
     def from_content(cls,
-                     content,
-                     ):
+                     content: Dict,
+                     ) -> "PhotonicVia":
         return PhotonicVia(
             tech=content['tech'],
             bbox=content['bbox'],
@@ -1521,9 +1489,9 @@ class PhotonicPinInfo(PinInfo):
 
     @classmethod
     def from_content(cls,
-                     content,
-                     resolution
-                     ):
+                     content: Dict,
+                     resolution: float,
+                     ) -> "PhotonicPinInfo":
         return PhotonicPinInfo(
             res=resolution,
             net_name=content['net_name'],
@@ -1535,23 +1503,17 @@ class PhotonicPinInfo(PinInfo):
         )
 
     def transform(self,
-                  loc,
-                  orient,
-                  unit_mode,
-                  copy,
+                  loc: coord_type,
+                  orient: str,
+                  unit_mode: bool,
+                  copy: bool,
                   ):
         new_box = self.bbox.transform(loc=loc, orient=orient, unit_mode=unit_mode)
         new_box = [[new_box.left, new_box.bottom], [new_box.right, new_box.top]]
-        if copy:
-            return PhotonicPinInfo(
-                res=self._resolution,
-                net_name=self.net_name,
-                pin_name=self.pin_name,
-                label=self.label,
-                layer=self.layer,
-                bbox=new_box,
-                make_rect=self.make_rect
-            )
+        if not copy:
+            ans = self
         else:
-            self['bbox'] = new_box
-            return self
+            ans = deepcopy(self)
+
+        ans['bbox'] = new_box
+        return ans
