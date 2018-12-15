@@ -54,7 +54,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.init_plugins()  # Initializes all of the built-in plugins
 
         # Content List init
-        self.content_list: "ContentList" = None
+        self.content_list: List["ContentList"] = None
         self.content_list_flat: "ContentList" = None
         self.content_list_post_dataprep: "ContentList" = None
         self.content_list_post_lsf_dataprep: "ContentList" = None
@@ -98,7 +98,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
     def generate_content(self,
                          layout_params: dict = None,
                          cell_name: str = None,
-                         ) -> 'ContentList':
+                         ) -> List['ContentList']:
         """
         Generates a content list.
         If layout params and cell name are passed, use these parameters.
@@ -136,7 +136,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                      temp_cls=temp_cls,
                                                      debug=False)
         self.content_list = self.template_plugin.generate_content_list(master_list=[template],
-                                                                       name_list=[cell_name])[0]
+                                                                       name_list=[cell_name])
         return self.content_list
 
     def generate_gds(self) -> None:
@@ -147,7 +147,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list:
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
-        self.gds_plugin.export_content_list(content_lists=[self.content_list])
+        self.gds_plugin.export_content_list(content_lists=self.content_list)
 
     # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content(self,
