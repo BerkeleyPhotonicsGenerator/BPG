@@ -1,6 +1,7 @@
 import yaml
 import importlib
 import logging
+import time
 
 # BAG imports
 from bag.layout import RoutingGrid
@@ -18,6 +19,8 @@ from typing import TYPE_CHECKING, List
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
     from BPG.content_list import ContentList
+
+timing_logger = logging.getLogger('timing')
 
 
 class PhotonicLayoutManager(PhotonicBagProject):
@@ -132,11 +135,20 @@ class PhotonicLayoutManager(PhotonicBagProject):
         temp_cls = getattr(lay_module, cls_name)
 
         # Generate the content list
+        start_time = time.time()
         template = self.template_plugin.new_template(params=layout_params,
                                                      temp_cls=temp_cls,
                                                      debug=False)
+        end_time_newtemp = time.time()
+
         self.content_list = self.template_plugin.generate_content_list(master_list=[template],
                                                                        name_list=[cell_name])
+        end_time_contentgen = time.time()
+
+        timing_logger.info(f'{end_time_contentgen - start_time:<15.6g} | Content list creation')
+        timing_logger.info(f'  {end_time_newtemp - start_time:<13.6g} | - New template generation')
+        timing_logger.info(f'  {end_time_contentgen - end_time_newtemp:<13.6g} | - Content list generation')
+
         return self.content_list
 
     def generate_gds(self) -> None:
@@ -147,7 +159,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list:
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
+        start = time.time()
         self.gds_plugin.export_content_list(content_lists=self.content_list)
+        end = time.time()
+        timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
     # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content(self,
@@ -189,13 +204,21 @@ class PhotonicLayoutManager(PhotonicBagProject):
         lay_module = importlib.import_module(cls_package)
         temp_cls = getattr(lay_module, cls_name)
 
+        start_time = time.time()
         template = self.template_plugin.new_template(params=layout_params, temp_cls=temp_cls)
+        end_time_newtemp = time.time()
 
         self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=[template],
                                                                                  name_list=[cell_name],
                                                                                  lib_name='_flat',
                                                                                  rename_dict=None,
                                                                                  )[0]
+        end_time_contentgen = time.time()
+
+        timing_logger.info(f'{end_time_contentgen - start_time:<15.6g} | Flat content list creation')
+        timing_logger.info(f'  {end_time_newtemp - start_time:<13.6g} | - New template generation')
+        timing_logger.info(f'  {end_time_contentgen - end_time_newtemp:<13.6g} | - Flat content list generation')
+
         return self.content_list_flat
 
     def generate_flat_gds(self) -> None:
@@ -207,7 +230,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_flat_gds')
 
+        start = time.time()
         self.gds_plugin.export_content_list(content_lists=[self.content_list_flat], name_append='_flat')  # TODO:name
+        end = time.time()
+        timing_logger.info(f'{end - start:<15.6g} | GDS export, flat')
 
     def generate_lsf(self, create_materials=True):
         """ Converts generated layout to lsf format for lumerical import """
@@ -294,10 +320,13 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
 
+        start = time.time()
         self.content_list_post_dataprep = self.template_plugin.dataprep(
             flat_content_list=self.content_list_flat,
             is_lsf=False
         )
+        end = time.time()
+        timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
     def generate_dataprep_gds(self) -> None:
         """
@@ -308,7 +337,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_post_dataprep:
             raise ValueError('Must call PhotonicLayoutManager.dataprep before calling generate_dataprep_gds')
 
+        start = time.time()
         self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep], name_append='_dataprep')  # TODO:name
+        end = time.time()
+        timing_logger.info(f'{end - start:<15.6g} | GDS export, dataprep')
 
     def create_materials_file(self):
         """
