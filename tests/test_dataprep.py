@@ -61,20 +61,22 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             layer='SI',
             points=[(30, 0), (40, 10), (50, 0), (40, -10)]
         )
-
+        ll = (40, -10)
+        ur = (ll[0] + self.photonic_tech_info.max_width('SI'), ll[1] + self.photonic_tech_info.min_width('SI'))
         # This rectangle should disappear as it is minimum width
         self.add_rect(
             layer='SI',
-            x_span=self.photonic_tech_info.max_width('SI'),
-            y_span=self.photonic_tech_info.min_width('SI'),
-            center=(40, -10)
+            coord1=ll,
+            coord2=ur
         )
+        ll = (40, -20)
+        ur = (ll[0] + self.photonic_tech_info.max_width('SI'),
+              ll[1] + self.photonic_tech_info.min_width('SI') + self.grid.resolution)
         # This rectangle should NOT disappear as it is minimum width + eps
         self.add_rect(
             layer='SI',
-            x_span=self.photonic_tech_info.max_width('SI'),
-            y_span=self.photonic_tech_info.min_width('SI') + self.grid.resolution,
-            center=(40, -20)
+            coord1=ll,
+            coord2=ur
         )
 
         self.add_photonic_port(
