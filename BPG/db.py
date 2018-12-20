@@ -284,6 +284,9 @@ class PhotonicTemplateDB(TemplateDB):
 
         # For each instance in this level, recurse to get all its content
         for child_instance_info in master_content.inst_list:
+            if child_instance_info['num_rows'] > 1 or child_instance_info['num_cols'] > 1:
+                raise ValueError(f'Flattening with arrayed instances is not currently supported.')
+
             child_master_key = child_instance_info['master_key']
             child_master = self._master_lookup[child_master_key]
             hierarchy_name_addon = f'{child_master.__class__.__name__}'
