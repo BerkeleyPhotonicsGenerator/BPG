@@ -1,0 +1,24 @@
+via_info:
+
+
+
+layer_map:
+  !!python/tuple ['text', 'drawing']: [100, 0]
+  !!python/tuple ['layerA', 'drawing']: [10, 0]
+  !!python/tuple ['layerA_add', 'drawing']: [10, 1]
+  !!python/tuple ['layerA_sub', 'drawing']: [10, 2]
+  !!python/tuple ['layerA_xor', 'drawing']: [10, 3]
+  !!python/tuple ['layerA_and', 'drawing']: [10, 4]
+  !!python/tuple ['layerA_rad', 'drawing']: [10, 5]
+  !!python/tuple ['layerB', 'drawing']: [11, 0]
+  !!python/tuple ['layerB_add', 'drawing']: [11, 1]
+  !!python/tuple ['layerB_sub', 'drawing']: [11, 2]
+  !!python/tuple ['layerB_xor', 'drawing']: [11, 3]
+  !!python/tuple ['layerB_and', 'drawing']: [11, 4]
+  !!python/tuple ['layerB_rad', 'drawing']: [11, 5]
+
+  !!python/tuple ['add', 'drawing']: [1, 0]
+  !!python/tuple ['sub', 'drawing']: [2, 0]
+  !!python/tuple ['xor', 'drawing']: [3, 0]
+  !!python/tuple ['and', 'drawing']: [4, 0]
+  !!python/tuple ['rad', 'drawing']: [5, 0]

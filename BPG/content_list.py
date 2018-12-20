@@ -150,6 +150,34 @@ class ContentList(dict):
                     sorted_content[layer].add_item(object_type, content_item)
         return sorted_content
 
+    def get_content_by_layer(self,
+                             layer: lpp_type,
+                             ) -> "ContentList":
+        """
+        Return all the shapes in this content list that are on the passed layer.
+        Does not look at instances. Does not via objects.
+
+        Parameters
+        ----------
+        layer : Tuple[str, str]
+            The layer purpose pair on which the content of this ContentList will be returned.
+
+        Returns
+        -------
+        layer_content : ContentList
+            The content of this ContentList that is on the passed layer.
+        """
+        layer_content = ContentList()
+        for object_type in self.layout_objects_keys:
+            # Ignore vias
+            if object_type != 'via_list':
+                # For each item, ie each rect, polygon, etc
+                object_list = self[object_type]
+                for content_item in object_list:
+                    if tuple(content_item['layer']) == layer:
+                        layer_content.add_item(object_type, content_item)
+        return layer_content
+
     def add_item(self,
                  key: str,
                  value: Any,
