@@ -135,20 +135,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return rect
 
     def add_polygon(self,
-                    polygon: Optional[PhotonicPolygon] = None,
                     layer: layer_or_lpp_type = None,
                     points: List[coord_type] = None,
                     resolution: float = None,
                     unit_mode: bool = False,
                     ) -> PhotonicPolygon:
         """
-        Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
-        create a new photonic polygon.
+        Creates a new polygon from the user provided points and adds it to the db
 
         Parameters
         ----------
-        polygon : Optional[PhotonicPolygon]
-            the polygon to add
         layer : Union[str, Tuple[str, str]]
             the layer of the polygon
         resolution : float
@@ -163,65 +159,20 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         polygon : PhotonicPolygon
             the added polygon object
         """
-        # If user passes points and layer instead of polygon object, define the new polygon
-        if polygon is None:
-            # Ensure proper arguments are passed
-            if layer is None or points is None:
-                raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
+        # Ensure proper arguments are passed
+        if layer is None or points is None:
+            raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
 
-            if resolution is None:
-                resolution = self.grid.resolution
+        if resolution is None:
+            resolution = self.grid.resolution
 
-            polygon = PhotonicPolygon(
-                resolution=resolution,
-                layer=layer,
-                points=points,
-                unit_mode=unit_mode,
-            )
+        polygon = PhotonicPolygon(
+            resolution=resolution,
+            layer=layer,
+            points=points,
+            unit_mode=unit_mode,
+        )
 
-        self._layout.add_polygon(polygon)
-        return polygon
-
-    def add_round(self,
-                  round_obj: PhotonicRound,
-                  ) -> PhotonicRound:
-        """
-
-        Parameters
-        ----------
-        round_obj : PhotonicRound
-            the polygon to add
-
-        Returns
-        -------
-        polygon : PhotonicRound
-            the added round object
-        """
-
-        self._layout.add_round(round_obj)
-        return round_obj
-
-    def add_path(self,
-                 path: PhotonicPath,
-                 ) -> PhotonicPath:
-        """
-        Adds a PhotonicPath to the layout object
-
-        Parameters
-        ----------
-        path : PhotonicPath
-
-        Returns
-        -------
-        path : PhotonicPath
-        """
-        self._layout.add_path(path)
-        return path
-
-    def add_advancedpolygon(self,
-                            polygon: PhotonicAdvancedPolygon,
-                            ):
-        # Maybe have an ordered list of operations like add polygon 1, subtract polygon 2, etc
         self._layout.add_polygon(polygon)
         return polygon
 
@@ -245,8 +196,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           overwrite: bool = False,
                           show: bool = True
                           ) -> PhotonicPort:
-        """Adds a photonic port to the current hierarchy.
-        A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
+        """
+        Adds a photonic port to the current hierarchy. A PhotonicPort object can be passed, or will be constructed
+        if the proper arguments are passed to this function.
 
         Parameters
         ----------

@@ -27,7 +27,7 @@ class DataprepShapes(BPG.PhotonicTemplateBase):
         )
 
     def draw_layout(self):
-        self.add_round(
+        self.add_obj(
             PhotonicRound(
                 layer=self.params['layerA'],
                 resolution=self.grid.resolution,
