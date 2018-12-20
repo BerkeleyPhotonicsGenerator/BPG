@@ -1,7 +1,6 @@
 import BPG
 from BPG.objects import PhotonicRound
 from bag.layout.objects import BBox
-import numpy as np
 
 from typing import Tuple, Union
 
@@ -178,56 +177,61 @@ class MinWidthSpace(BPG.PhotonicTemplateBase):
         min_width_unit = int(round(min_width / res))
         min_space_unit = int(round(min_space / res))
 
-        min_width_label_loc = 0
+        # horizontal span of rectangle. Just needs to be larger than min width
+        horz_rect_span_unit = 2000
+        # offset of label from the structure
+        vert_label_offset_unit = 500
 
-        self.make_label(loc=(min_width_label_loc, 100),
+        y_start_unit = 90 / res
+        delta_y_unit = - (10 / res)
+
+        min_width_label_loc_unit = 0
+        self.make_label(loc=(min_width_label_loc_unit, 100000),
                         string=f'Min width tests. min_width = {min_width}',
+                        unit_mode=True,
                         )
 
         min_width_unit_list = range(min_width_unit - 2, min_width_unit + 3)
 
-        y_start = 90
-        delta_y = -10
-
         for ind, width in enumerate(min_width_unit_list):
-            y = (y_start + ind * delta_y) / res
+            y = (y_start_unit + ind * delta_y_unit)
             self.add_rect(
-                layer=('M1', 'drawing'),
-                x_span=1000,
-                y_span=width,
-                center=(min_width_label_loc / res, y),
+                layer=('M1', 'width_should_pass' if width >= min_width_unit else 'width_should_fail'),
+                coord1=(min_width_label_loc_unit, y),
+                coord2=(min_width_label_loc_unit + horz_rect_span_unit, y + width),
                 unit_mode=True
             )
             self.make_label(
-                loc=(min_width_label_loc / res, y + 300),
+                loc=(min_width_label_loc_unit, y + vert_label_offset_unit),
                 string=f'width = {width}. rectangle {"SHOULD" if width >= min_width_unit else "SHOULD NOT"} be here',
                 unit_mode=True
             )
 
-        min_space_label_loc = 30
-        self.make_label(loc=(min_space_label_loc, 100),
+        min_space_label_loc_unit = 30 / res
+        self.make_label(loc=(min_space_label_loc_unit, 100000),
                         string=f'Min space tests. min_space = {min_space}',
+                        unit_mode=True,
                         )
 
         min_space_unit_list = range(min_space_unit - 2, min_space_unit + 3)
 
         for ind, space in enumerate(min_space_unit_list):
-            y = (y_start + ind * delta_y) / res
+            y = y_start_unit + ind * delta_y_unit
             self.add_rect(
-                layer=('M1', 'drawing'),
-                coord1=(min_space_label_loc / res, y),
-                coord2=((min_space_label_loc + 1) / res, y + min_width_unit + 10),
+                layer=('M1', 'space_should_pass' if space >= min_space_unit else 'space_should_fail'),
+                coord1=(min_space_label_loc_unit, y),
+                coord2=(min_space_label_loc_unit + horz_rect_span_unit, y + min_width_unit * 2),
                 unit_mode=True
             )
             self.add_rect(
-                layer=('M1', 'drawing'),
-                coord1=(min_space_label_loc / res, y - space),
-                coord2=((min_space_label_loc + 1) / res, y - space - (min_width_unit + 10)),
+                layer=('M1', 'space_should_pass' if space >= min_space_unit else 'space_should_fail'),
+                coord1=(min_space_label_loc_unit, y - space),
+                coord2=(min_space_label_loc_unit + horz_rect_span_unit, y - space - (min_width_unit * 2)),
                 unit_mode=True
             )
 
             self.make_label(
-                loc=(min_space_label_loc / res, y + 300),
+                loc=(min_space_label_loc_unit, y + vert_label_offset_unit),
                 string=f'space = {space}. rectangle {"SHOULD" if space < min_space_unit else "SHOULD NOT"} be merged',
                 unit_mode=True
             )
@@ -245,10 +249,20 @@ def test_dataprep():
     plm.dataprep()
     plm.generate_dataprep_gds()
 
+    assert(
+        len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'width_should_pass')).polygon_list) == 3
+    )
+    assert (
+            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'width_should_fail')).polygon_list) == 0
+    )
+
+    assert (
+            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'space_should_pass')).polygon_list) == 6
+    )
+    assert (
+            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'space_should_fail')).polygon_list) == 2
+    )
+
 
 if __name__ == '__main__':
     test_dataprep()
-
-
-
-

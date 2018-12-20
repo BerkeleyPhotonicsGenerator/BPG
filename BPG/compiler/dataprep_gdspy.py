@@ -800,6 +800,7 @@ class Dataprep:
     def dataprep_oversize_gdspy(self,
                                 polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
                                 offset: float,
+                                do_cleanup: bool = None,
                                 ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Grow a polygon by an offset. Perform cleanup to ensure proper polygon shape.
@@ -810,6 +811,8 @@ class Dataprep:
             The polygon to size, in gdspy representation
         offset : float
             The amount to grow the polygon
+        do_cleanup : bool
+            Optional parameter to force whether point cleanup should occur.
 
         Returns
         -------
@@ -825,13 +828,17 @@ class Dataprep:
                                              join='miter',
                                              tolerance=self.offset_tolerance,
                                              precision=self.global_operation_precision)
-            polygon_oversized = self.dataprep_cleanup_gdspy(polygon_oversized, do_cleanup=self.do_cleanup)
+            polygon_oversized = self.dataprep_cleanup_gdspy(
+                polygon_oversized,
+                do_cleanup=do_cleanup if do_cleanup is not None else self.do_cleanup
+            )
 
             return polygon_oversized
 
     def dataprep_undersize_gdspy(self,
                                  polygon: Union[gdspy.Polygon, gdspy.PolygonSet, None],
                                  offset: float,
+                                 do_cleanup: bool = None,
                                  ) -> Union[gdspy.Polygon, gdspy.PolygonSet, None]:
         """
         Shrink a polygon by an offset. Perform cleanup to ensure proper polygon shape.
@@ -842,6 +849,8 @@ class Dataprep:
             The polygon to size, in gdspy representation
         offset : float
             The amount to shrink the polygon
+        do_cleanup : bool
+            Optional parameter to force whether point cleanup should occur.
 
         Returns
         -------
@@ -858,7 +867,10 @@ class Dataprep:
                                               join='miter',
                                               tolerance=self.offset_tolerance,
                                               precision=self.global_operation_precision)
-            polygon_undersized = self.dataprep_cleanup_gdspy(polygon_undersized, do_cleanup=self.do_cleanup)
+            polygon_undersized = self.dataprep_cleanup_gdspy(
+                polygon_undersized,
+                do_cleanup=do_cleanup if do_cleanup is not None else self.do_cleanup
+            )
 
             return polygon_undersized
 
@@ -1063,17 +1075,21 @@ class Dataprep:
             elif operation == 'ouo':
                 # Perform an over of under of under of over on the shapes
 
-                min_space = self.photonic_tech_info.min_space(lpp_out)
-                min_width = self.photonic_tech_info.min_width(lpp_out)
-                underofover_size = self.global_grid_size * ceil(0.5 * min_space / self.global_grid_size)
-                overofunder_size = self.global_grid_size * ceil(0.5 * min_width / self.global_grid_size)
+                min_space_unit = self.photonic_tech_info.min_space_unit(lpp_out)
+                min_width_unit = self.photonic_tech_info.min_width_unit(lpp_out)
+                # Subtract half a grid size to prevent min width shapes from disappearing and min space gaps from
+                # getting merged
+                underofover_size = self.global_grid_size * (0.5 * min_space_unit) - (0.5 * self.global_grid_size)
+                overofunder_size = self.global_grid_size * (0.5 * min_width_unit) - (0.5 * self.global_grid_size)
 
                 logging.info(f'OUO on layer {lpp_out} performed with underofover_size = {underofover_size} and'
                              f'overofunder_size = {overofunder_size}')
 
-                polygon_o = self.dataprep_oversize_gdspy(polygon2, underofover_size)
+                # Do not do cleanup in the temporary steps between the under of the over and the over of the under
+                # This will prevent min width shapes and min space gaps from disappearing
+                polygon_o = self.dataprep_oversize_gdspy(polygon2, underofover_size, do_cleanup=False)
                 polygon_ou = self.dataprep_undersize_gdspy(polygon_o, underofover_size)
-                polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size)
+                polygon_ouu = self.dataprep_undersize_gdspy(polygon_ou, overofunder_size, do_cleanup=False)
                 polygon_out = self.dataprep_oversize_gdspy(polygon_ouu, overofunder_size)
 
             elif operation == 'del':
