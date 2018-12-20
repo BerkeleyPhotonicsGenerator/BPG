@@ -15,9 +15,6 @@ class AddRect(BPG.PhotonicTemplateBase):
     @classmethod
     def get_params_info(cls):
         return dict(
-            x='Rectangle x span in microns',
-            y='Rectangle y span in microns',
-            center='Rectangle center coord',
             point1='Rectangle corner 1',
             point2='Rectangle corner 2',
         )
@@ -29,14 +26,6 @@ class AddRect(BPG.PhotonicTemplateBase):
 
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
-
-        self.add_rect(
-            layer='SI',
-            x_span=self.params['x'],
-            y_span=self.params['y'],
-            center=self.params['center'],
-            unit_mode=False,
-        )
 
         self.add_rect(
             layer='SI',

@@ -1,9 +1,6 @@
 # general imports
 import abc
 import numpy as np
-import yaml
-import time
-import logging
 
 # bag imports
 import bag.io
@@ -14,19 +11,16 @@ from BPG.photonic_core import PhotonicBagLayout
 # Photonic object imports
 from .port import PhotonicPort
 from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
+    PhotonicPath
 
 # Typing imports
 from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
+from BPG.bpg_custom_types import *
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo
     from bag.layout.objects import InstanceInfo, Instance
     from BPG.photonic_core import PhotonicTechInfo
     from BPG.db import PhotonicTemplateDB
-
-layer_type = Union[str, Tuple[str, str]]
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
@@ -44,7 +38,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
-
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
     @abc.abstractmethod
@@ -54,11 +47,28 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def photonic_ports_names_iter(self) -> Iterable[str]:
         return self._photonic_ports.keys()
 
+    def add_obj(self, obj):
+        """
+        Takes a provided layout object and adds it to the db. Automatically detects what type of object is
+        being added, and sends it to the appropriate category in the layoutDB.
+
+        TODO: Provide support for directly adding photonic ports and simulation objects
+        """
+        if isinstance(obj, PhotonicRect):
+            self._layout.add_rect(obj)
+        elif isinstance(obj, PhotonicPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicRound):
+            self._layout.add_round(obj)
+        elif isinstance(obj, PhotonicPath):
+            self._layout.add_path(obj)
+        elif isinstance(obj, PhotonicAdvancedPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicInstance):
+            self._layout.add_instance(obj)
+
     def add_rect(self,
-                 layer: layer_type,
-                 x_span: dim_type = None,
-                 y_span: dim_type = None,
-                 center: coord_type = None,
+                 layer: layer_or_lpp_type,
                  coord1: coord_type = None,
                  coord2: coord_type = None,
                  bbox: Union[BBox, BBoxArray] = None,
@@ -69,18 +79,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  unit_mode: bool = False,
                  ) -> PhotonicRect:
         """
-        Add a new (arrayed) rectangle.
+        Creates a new rectangle based on the user provided arguments and adds it to the db. User can either provide a
+        pair of coordinates representing opposite corners of the rectangle, or a BBox/BBoxArray. This rectangle can
+        also be arrayed with the number and spacing parameters.
 
         Parameters
         ----------
         layer : Union[str, Tuple[str, str]]
             the layer name, or the (layer, purpose) pair.
-        x_span : Union[int, float]
-            horizontal span of the rectangle.
-        y_span : Union[int, float]
-            vertical span of the rectangle.
-        center : Union[int, float]
-            coordinate defining center point of the rectangle.
         coord1 : Tuple[Union[int, float], Union[int, float]]
             point defining one corner of rectangle boundary.
         coord2 : Tuple[Union[int, float], Union[int, float]]
@@ -103,25 +109,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
         rect : PhotonicRect
             the added rectangle.
+
         """
-        # Define by center, x_span, and y_span
-        if x_span is not None or y_span is not None or center is not None:
-            # Ensure all three are defined
-            if x_span is None or y_span is None or center is None:
-                raise ValueError("If defining by x_span, y_span, and center, all three parameters must be specified.")
-
-            # Define the BBox
-            bbox = BBox(
-                left=center[0] - x_span / 2,
-                right=center[0] + x_span / 2,
-                bottom=center[1] - y_span / 2,
-                top=center[1] + y_span / 2,
-                resolution=self.grid.resolution,
-                unit_mode=unit_mode
-            )
-
-        # Define by two coordinate points
-        elif coord1 is not None or coord2 is not None:
+        # If coordinates are provided, use them to define a BBox for the rectangle
+        if coord1 is not None or coord2 is not None:
             # Ensure both points are defined
             if coord1 is None or coord2 is None:
                 raise ValueError("If defining by two points, both must be specified.")
@@ -147,9 +138,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     points=None,  # type: List[coord_type]
                     resolution=None,  # type: float
                     unit_mode=False,  # type: bool
-                    ):
-        # type: (...) -> PhotonicPolygon
-        """Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
+                    ) -> PhotonicPolygon:
+        """
+        Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
         create a new photonic polygon.
 
         Parameters
