@@ -8,7 +8,7 @@ dataprep_groups:
   # No dataprep ops
 
 over_under_under_over:
-  - {lpp: ['M1', 'drawing']}
+  - {lpp: ['M1', '.*']}
 
 dataprep_bypass_list:
   - # Let all port objects skip dataprep and be drawn on the final GDS
