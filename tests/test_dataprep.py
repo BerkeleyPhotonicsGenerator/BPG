@@ -33,7 +33,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             # theta1=60,
             unit_mode=False
         )
-        self.add_round(circ)
+        self.add_obj(circ)
 
         self.add_rect(
             layer='SI',
