@@ -16,9 +16,9 @@ from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, Pho
 # Typing imports
 from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
 from BPG.bpg_custom_types import *
+
 if TYPE_CHECKING:
-    from bag.layout.objects import ViaInfo, PinInfo
-    from bag.layout.objects import InstanceInfo, Instance
+    from bag.layout.objects import Instance
     from BPG.photonic_core import PhotonicTechInfo
     from BPG.db import PhotonicTemplateDB
 
@@ -175,6 +175,56 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         self._layout.add_polygon(polygon)
         return polygon
+
+    def add_round(self,
+                  layer: layer_or_lpp_type,
+                  resolution: float,
+                  rout: dim_type,
+                  center: coord_type = (0, 0),
+                  rin: dim_type = 0,
+                  theta0: dim_type = 0,
+                  theta1: dim_type = 360,
+                  nx: int = 1,
+                  ny: int = 1,
+                  spx: dim_type = 0,
+                  spy: dim_type = 0,
+                  unit_mode: bool = False
+                  ):
+        """ Creates a PhotonicRound object based on the provided arguments and adds it to the db """
+        new_round = PhotonicRound(layer=layer,
+                                  resolution=resolution,
+                                  rout=rout,
+                                  center=center,
+                                  rin=rin,
+                                  theta0=theta0,
+                                  theta1=theta1,
+                                  nx=nx,
+                                  ny=ny,
+                                  spx=spx,
+                                  spy=spy,
+                                  unit_mode=unit_mode)
+        self._layout.add_round(new_round)
+        return new_round
+
+    def add_path(self,
+                 layer: layer_or_lpp_type,
+                 width: dim_type,
+                 points: List[coord_type],
+                 resolution: float,
+                 end_style: str = 'truncate',
+                 join_style: str = 'extend',
+                 unit_mode: bool = False,
+                 ) -> PhotonicPath:
+        """ Creates a PhotonicPath object based on the provided arguments and adds it to the db """
+        new_path = PhotonicPath(layer=layer,
+                                width=width,
+                                points=points,
+                                resolution=resolution,
+                                end_style=end_style,
+                                join_style=join_style,
+                                unit_mode=unit_mode)
+        self._layout.add_path(new_path)
+        return new_path
 
     def finalize(self):
         # TODO: Implement port polygon adding here?
