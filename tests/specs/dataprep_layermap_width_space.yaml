@@ -1,0 +1,7 @@
+via_info:
+
+
+
+layer_map:
+  !!python/tuple ['text', 'drawing']: [100, 0]
+  !!python/tuple ['M1', 'drawing']: [101, 0]

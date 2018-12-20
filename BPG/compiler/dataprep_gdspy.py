@@ -35,7 +35,7 @@ warnings.filterwarnings(
 )
 
 # List of
-IMPLEMENTED_DATAPREP_OPERATIONS = ['rad', 'add', 'manh', 'ouo', 'sub', 'ext']
+IMPLEMENTED_DATAPREP_OPERATIONS = ['rad', 'add', 'manh', 'ouo', 'sub', 'ext', 'and', 'xor']
 
 
 class Dataprep:
@@ -931,12 +931,14 @@ class Dataprep:
         lpp_out : Union[str, Tuple[str, str]]
             The destination layer on which the shapes are being added to / subtracted from
         polygon1 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
-            The shapes currently on the output layer
+            The shapes currently on the output layer.
+            If operation is manh, polygon1 is the shapes to be Manhattanized
         polygon2 : Union[gdspy.Polygon, gdspy.PolygonSet, None]
             The shapes on the input layer that will be added/subtracted to/from the output layer
+            (ie 'sub' returns (polygon1 - polygon2) on layer lpp_out)
         operation : str
-            The operation to perform:  'manh', 'rad', 'add', 'sub', 'ext', 'ouo'. The implemented functions must match
-            the variable IMPLEMENTED_DATAPREP_OPERATIONS.
+            The operation to perform:  'manh', 'rad', 'add', 'sub', 'and', 'xor', 'ext', 'ouo'.
+            The implemented functions must match the variable IMPLEMENTED_DATAPREP_OPERATIONS.
         size_amount : Union[float, Tuple[Float, Float]]
             The amount to over/undersize the shapes to be added/subtracted.
             For ouo, the 0.5*minWidth related over and under size amount
@@ -950,7 +952,8 @@ class Dataprep:
         """
 
         # If there are no shapes to operate on, return the shapes currently on the output layer
-        if polygon2 is None:
+        # This is not the case if the operation is 'and'
+        if polygon2 is None and operation != 'and':
             return polygon1
         else:
             # Create the key for the polygon cache
@@ -1000,10 +1003,30 @@ class Dataprep:
                 if polygon1 is None:
                     polygon_out = None
                 else:
+                    # returns polygon1 - polygon2
                     polygon_out = gdspy.fast_boolean(polygon1,
                                                      self.dataprep_oversize_gdspy(polygon2, size_amount),
                                                      'not')
                     polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
+
+            elif operation == 'and':
+                # If either operand is None, output layer will have no shapes on it
+                if polygon1 is None or polygon2 is None:
+                    polygon_out = None
+                else:
+                    polygon_out = gdspy.fast_boolean(polygon1,
+                                                     self.dataprep_oversize_gdspy(polygon2, size_amount),
+                                                     'and')
+                    polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
+
+            elif operation == 'xor':
+                if polygon1 is None:
+                    polygon_out = self.dataprep_oversize_gdspy(polygon2, size_amount)
+                else:
+                    polygon_out =gdspy.fast_boolean(polygon1,
+                                                    self.dataprep_oversize_gdspy(polygon2, size_amount),
+                                                    'xor')
+                polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
 
             elif operation == 'ext':
                 polygon_toextend = polygon1
@@ -1056,7 +1079,7 @@ class Dataprep:
             elif operation == 'del':
                 # TODO
                 polygon_out = None
-                pass
+
             else:
                 raise ValueError(f'Operation {operation} specified in dataprep algorithm, but is not implemented.')
 
