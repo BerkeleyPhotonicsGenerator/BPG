@@ -66,6 +66,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             self._layout.add_polygon(obj)
         elif isinstance(obj, PhotonicInstance):
             self._layout.add_instance(obj)
+        else:
+            raise ValueError("{} is not a valid layout object type, and cannot be added to the db".format(type(obj)))
 
     def add_rect(self,
                  layer: layer_or_lpp_type,
@@ -133,11 +135,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return rect
 
     def add_polygon(self,
-                    polygon=None,  # type: Optional[PhotonicPolygon]
-                    layer=None,  # type: Union[str, Tuple[str, str]]
-                    points=None,  # type: List[coord_type]
-                    resolution=None,  # type: float
-                    unit_mode=False,  # type: bool
+                    polygon: Optional[PhotonicPolygon] = None,
+                    layer: layer_or_lpp_type = None,
+                    points: List[coord_type] = None,
+                    resolution: float = None,
+                    unit_mode: bool = False,
                     ) -> PhotonicPolygon:
         """
         Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
@@ -181,14 +183,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return polygon
 
     def add_round(self,
-                  round_obj,  # type: PhotonicRound
-                  ):
-        # type: (...) -> PhotonicRound
+                  round_obj: PhotonicRound,
+                  ) -> PhotonicRound:
         """
 
         Parameters
         ----------
-        round_obj : Optional[PhotonicRound]
+        round_obj : PhotonicRound
             the polygon to add
 
         Returns
@@ -201,9 +202,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return round_obj
 
     def add_path(self,
-                 path,  # type: PhotonicPath
-                 ):
-        # type: (...) -> PhotonicPath
+                 path: PhotonicPath,
+                 ) -> PhotonicPath:
         """
         Adds a PhotonicPath to the layout object
 
@@ -219,7 +219,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return path
 
     def add_advancedpolygon(self,
-                            polygon,  # type: PhotonicAdvancedPolygon
+                            polygon: PhotonicAdvancedPolygon,
                             ):
         # Maybe have an ordered list of operations like add polygon 1, subtract polygon 2, etc
         self._layout.add_polygon(polygon)
@@ -234,18 +234,17 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         TemplateBase.finalize(self)
 
     def add_photonic_port(self,
-                          name=None,  # type: str
-                          center=None,  # type: coord_type
-                          orient=None,  # type: str
-                          width=None,  # type: dim_type
-                          layer=None,  # type: Union[str, Tuple[str, str]]
-                          resolution=None,  # type: Union[float, int]
-                          unit_mode=False,  # type: bool
-                          port=None,  # type: PhotonicPort
-                          overwrite=False,  # type: bool
-                          show=True  # type: bool
-                          ):
-        # type: (...) -> PhotonicPort
+                          name: str = None,
+                          center: coord_type = None,
+                          orient: str = None,
+                          width: dim_type = None,
+                          layer: layer_or_lpp_type = None,
+                          resolution: float = None,
+                          unit_mode: bool = False,
+                          port: PhotonicPort = None,
+                          overwrite: bool = False,
+                          show: bool = True
+                          ) -> PhotonicPort:
         """Adds a photonic port to the current hierarchy.
         A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
 
