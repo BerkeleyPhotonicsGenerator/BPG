@@ -29,7 +29,7 @@ class DataprepShapes(BPG.PhotonicTemplateBase):
         )
 
     def draw_layout(self):
-        self.add_round(
+        self.add_obj(
             PhotonicRound(
                 layer=self.params['layerA'],
                 resolution=self.grid.resolution,
@@ -115,7 +115,6 @@ class DataprepOpsTest(BPG.PhotonicTemplateBase):
         )
 
 
-
 class SubLevel2(BPG.PhotonicTemplateBase):
     def __init__(self, temp_db,
                  lib_name,
@@ -148,7 +147,7 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             # theta1=60,
             unit_mode=False
         )
-        self.add_round(circ)
+        self.add_obj(circ)
 
         self.add_rect(
             layer='SI',
@@ -177,20 +176,21 @@ class SubLevel2(BPG.PhotonicTemplateBase):
             points=[(30, 0), (40, 10), (50, 0), (40, -10)]
         )
 
-        # This rectangle should disappear as it is minimum width
-        self.add_rect(
-            layer='SI',
-            x_span=self.photonic_tech_info.max_width('SI'),
-            y_span=self.photonic_tech_info.min_width('SI'),
-            center=(40, -10)
-        )
-        # This rectangle should NOT disappear as it is minimum width + eps
-        self.add_rect(
-            layer='SI',
-            x_span=self.photonic_tech_info.max_width('SI'),
-            y_span=self.photonic_tech_info.min_width('SI') + self.grid.resolution,
-            center=(40, -20)
-        )
+        # TODO: rectangles no longer have x_span, y_span syntax
+        # # This rectangle should disappear as it is minimum width
+        # self.add_rect(
+        #     layer='SI',
+        #     x_span=self.photonic_tech_info.max_width('SI'),
+        #     y_span=self.photonic_tech_info.min_width('SI'),
+        #     center=(40, -10)
+        # )
+        # # This rectangle should NOT disappear as it is minimum width + eps
+        # self.add_rect(
+        #     layer='SI',
+        #     x_span=self.photonic_tech_info.max_width('SI'),
+        #     y_span=self.photonic_tech_info.min_width('SI') + self.grid.resolution,
+        #     center=(40, -20)
+        # )
 
         self.add_photonic_port(
             name='Port1',
