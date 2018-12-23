@@ -21,7 +21,7 @@ from BPG.bpg_custom_types import layer_or_lpp_type
 
 # Typing imports
 if TYPE_CHECKING:
-    from BPG.objects import PhotonicRound
+    from BPG.objects import PhotonicRound, PhotonicPath
     from bag.layout.objects import InstanceInfo
     from bag.layout.core import TechInfo
 
@@ -386,6 +386,9 @@ class PhotonicBagLayout(BagLayout):
             raise Exception('Layout is already finalized.')
 
         self._round_list.append(round_obj)
+
+    def add_path(self, path: 'PhotonicPath'):
+        BagLayout.add_path(self, path)
 
     def add_sim_obj(self, sim_obj):
         """ Add a new Lumerical simulation object to the db """

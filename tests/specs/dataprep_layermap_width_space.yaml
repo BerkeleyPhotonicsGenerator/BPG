@@ -1,0 +1,10 @@
+via_info:
+
+
+
+layer_map:
+  !!python/tuple ['text', 'drawing']: [100, 0]
+  !!python/tuple ['M1', 'width_should_pass']: [10, 0]
+  !!python/tuple ['M1', 'width_should_fail']: [20, 0]
+  !!python/tuple ['M1', 'space_should_pass']: [30, 0]
+  !!python/tuple ['M1', 'space_should_fail']: [40, 0]

@@ -64,6 +64,9 @@ over_under_under_over:
 dataprep_bypass_list:
   - # Let all port objects skip dataprep and be drawn on the final GDS
     {lpp: ['.*', 'port']}
+  - # Let all labels bypass dataprep
+    {lpp: ['.*', 'label']}
+  - {lpp: ['text', 'drawing']}
 
 manh_size_per_layer:
   V2: 0.05
