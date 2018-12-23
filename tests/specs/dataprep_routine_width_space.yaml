@@ -1,0 +1,21 @@
+# Example dataprep specification
+
+GlobalDataprepSizeAmount: 1
+GlobalGridSize: 0.001
+GlobalRoughGridSize: 0.1
+
+dataprep_groups:
+  # No dataprep ops
+
+over_under_under_over:
+  - {lpp: ['M1', '.*']}
+
+dataprep_bypass_list:
+  - # Let all port objects skip dataprep and be drawn on the final GDS
+    {lpp: ['.*', 'port']}
+  - # Let all labels bypass dataprep
+    {lpp: ['.*', 'label']}
+  - {lpp: ['text', 'drawing']}
+
+manh_size_per_layer:
+

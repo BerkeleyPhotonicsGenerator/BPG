@@ -1,9 +1,6 @@
 # general imports
 import abc
 import numpy as np
-import yaml
-import time
-import logging
 
 # bag imports
 import bag.io
@@ -18,6 +15,8 @@ from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, Pho
 
 # Typing imports
 from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
+from BPG.bpg_custom_types import *
+
 if TYPE_CHECKING:
     from BPG.bpg_custom_types import layer_or_lpp_type, lpp_type, coord_type, dim_type
     from bag.layout.objects import Instance
@@ -40,7 +39,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
-
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
     @abc.abstractmethod
@@ -50,11 +48,30 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def photonic_ports_names_iter(self) -> Iterable[str]:
         return self._photonic_ports.keys()
 
+    def add_obj(self, obj):
+        """
+        Takes a provided layout object and adds it to the db. Automatically detects what type of object is
+        being added, and sends it to the appropriate category in the layoutDB.
+
+        TODO: Provide support for directly adding photonic ports and simulation objects
+        """
+        if isinstance(obj, PhotonicRect):
+            self._layout.add_rect(obj)
+        elif isinstance(obj, PhotonicPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicRound):
+            self._layout.add_round(obj)
+        elif isinstance(obj, PhotonicPath):
+            self._layout.add_path(obj)
+        elif isinstance(obj, PhotonicAdvancedPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicInstance):
+            self._layout.add_instance(obj)
+        else:
+            raise ValueError("{} is not a valid layout object type, and cannot be added to the db".format(type(obj)))
+
     def add_rect(self,
                  layer: layer_or_lpp_type,
-                 x_span: dim_type = None,
-                 y_span: dim_type = None,
-                 center: coord_type = None,
                  coord1: coord_type = None,
                  coord2: coord_type = None,
                  bbox: Union[BBox, BBoxArray] = None,
@@ -65,18 +82,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  unit_mode: bool = False,
                  ) -> PhotonicRect:
         """
-        Add a new (arrayed) rectangle.
+        Creates a new rectangle based on the user provided arguments and adds it to the db. User can either provide a
+        pair of coordinates representing opposite corners of the rectangle, or a BBox/BBoxArray. This rectangle can
+        also be arrayed with the number and spacing parameters.
 
         Parameters
         ----------
         layer : Union[str, Tuple[str, str]]
             the layer name, or the (layer, purpose) pair.
-        x_span : Union[int, float]
-            horizontal span of the rectangle.
-        y_span : Union[int, float]
-            vertical span of the rectangle.
-        center : Union[int, float]
-            coordinate defining center point of the rectangle.
         coord1 : Tuple[Union[int, float], Union[int, float]]
             point defining one corner of rectangle boundary.
         coord2 : Tuple[Union[int, float], Union[int, float]]
@@ -99,25 +112,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
         rect : PhotonicRect
             the added rectangle.
+
         """
-        # Define by center, x_span, and y_span
-        if x_span is not None or y_span is not None or center is not None:
-            # Ensure all three are defined
-            if x_span is None or y_span is None or center is None:
-                raise ValueError("If defining by x_span, y_span, and center, all three parameters must be specified.")
-
-            # Define the BBox
-            bbox = BBox(
-                left=center[0] - x_span / 2,
-                right=center[0] + x_span / 2,
-                bottom=center[1] - y_span / 2,
-                top=center[1] + y_span / 2,
-                resolution=self.grid.resolution,
-                unit_mode=unit_mode
-            )
-
-        # Define by two coordinate points
-        elif coord1 is not None or coord2 is not None:
+        # If coordinates are provided, use them to define a BBox for the rectangle
+        if coord1 is not None or coord2 is not None:
             # Ensure both points are defined
             if coord1 is None or coord2 is None:
                 raise ValueError("If defining by two points, both must be specified.")
@@ -138,20 +136,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return rect
 
     def add_polygon(self,
-                    polygon=None,  # type: Optional[PhotonicPolygon]
-                    layer=None,  # type: Union[str, Tuple[str, str]]
-                    points=None,  # type: List[coord_type]
-                    resolution=None,  # type: float
-                    unit_mode=False,  # type: bool
-                    ):
-        # type: (...) -> PhotonicPolygon
-        """Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
-        create a new photonic polygon.
+                    layer: layer_or_lpp_type = None,
+                    points: List[coord_type] = None,
+                    resolution: float = None,
+                    unit_mode: bool = False,
+                    ) -> PhotonicPolygon:
+        """
+        Creates a new polygon from the user provided points and adds it to the db
 
         Parameters
         ----------
-        polygon : Optional[PhotonicPolygon]
-            the polygon to add
         layer : Union[str, Tuple[str, str]]
             the layer of the polygon
         resolution : float
@@ -166,69 +160,72 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         polygon : PhotonicPolygon
             the added polygon object
         """
-        # If user passes points and layer instead of polygon object, define the new polygon
-        if polygon is None:
-            # Ensure proper arguments are passed
-            if layer is None or points is None:
-                raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
+        # Ensure proper arguments are passed
+        if layer is None or points is None:
+            raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
 
-            if resolution is None:
-                resolution = self.grid.resolution
+        if resolution is None:
+            resolution = self.grid.resolution
 
-            polygon = PhotonicPolygon(
-                resolution=resolution,
-                layer=layer,
-                points=points,
-                unit_mode=unit_mode,
-            )
+        polygon = PhotonicPolygon(
+            resolution=resolution,
+            layer=layer,
+            points=points,
+            unit_mode=unit_mode,
+        )
 
         self._layout.add_polygon(polygon)
         return polygon
 
     def add_round(self,
-                  round_obj,  # type: PhotonicRound
+                  layer: layer_or_lpp_type,
+                  resolution: float,
+                  rout: dim_type,
+                  center: coord_type = (0, 0),
+                  rin: dim_type = 0,
+                  theta0: dim_type = 0,
+                  theta1: dim_type = 360,
+                  nx: int = 1,
+                  ny: int = 1,
+                  spx: dim_type = 0,
+                  spy: dim_type = 0,
+                  unit_mode: bool = False
                   ):
-        # type: (...) -> PhotonicRound
-        """
-
-        Parameters
-        ----------
-        round_obj : Optional[PhotonicRound]
-            the polygon to add
-
-        Returns
-        -------
-        polygon : PhotonicRound
-            the added round object
-        """
-
-        self._layout.add_round(round_obj)
-        return round_obj
+        """ Creates a PhotonicRound object based on the provided arguments and adds it to the db """
+        new_round = PhotonicRound(layer=layer,
+                                  resolution=resolution,
+                                  rout=rout,
+                                  center=center,
+                                  rin=rin,
+                                  theta0=theta0,
+                                  theta1=theta1,
+                                  nx=nx,
+                                  ny=ny,
+                                  spx=spx,
+                                  spy=spy,
+                                  unit_mode=unit_mode)
+        self._layout.add_round(new_round)
+        return new_round
 
     def add_path(self,
-                 path,  # type: PhotonicPath
-                 ):
-        # type: (...) -> PhotonicPath
-        """
-        Adds a PhotonicPath to the layout object
-
-        Parameters
-        ----------
-        path : PhotonicPath
-
-        Returns
-        -------
-        path : PhotonicPath
-        """
-        self._layout.add_path(path)
-        return path
-
-    def add_advancedpolygon(self,
-                            polygon,  # type: PhotonicAdvancedPolygon
-                            ):
-        # Maybe have an ordered list of operations like add polygon 1, subtract polygon 2, etc
-        self._layout.add_polygon(polygon)
-        return polygon
+                 layer: layer_or_lpp_type,
+                 width: dim_type,
+                 points: List[coord_type],
+                 resolution: float,
+                 end_style: str = 'truncate',
+                 join_style: str = 'extend',
+                 unit_mode: bool = False,
+                 ) -> PhotonicPath:
+        """ Creates a PhotonicPath object based on the provided arguments and adds it to the db """
+        new_path = PhotonicPath(layer=layer,
+                                width=width,
+                                points=points,
+                                resolution=resolution,
+                                end_style=end_style,
+                                join_style=join_style,
+                                unit_mode=unit_mode)
+        self._layout.add_path(new_path)
+        return new_path
 
     def finalize(self):
         # TODO: Implement port polygon adding here?
@@ -239,20 +236,20 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         TemplateBase.finalize(self)
 
     def add_photonic_port(self,
-                          name=None,  # type: str
-                          center=None,  # type: coord_type
-                          orient=None,  # type: str
-                          width=None,  # type: dim_type
-                          layer=None,  # type: Union[str, Tuple[str, str]]
-                          resolution=None,  # type: Union[float, int]
-                          unit_mode=False,  # type: bool
-                          port=None,  # type: PhotonicPort
-                          overwrite=False,  # type: bool
-                          show=True  # type: bool
-                          ):
-        # type: (...) -> PhotonicPort
-        """Adds a photonic port to the current hierarchy.
-        A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
+                          name: str = None,
+                          center: coord_type = None,
+                          orient: str = None,
+                          width: dim_type = None,
+                          layer: layer_or_lpp_type = None,
+                          resolution: float = None,
+                          unit_mode: bool = False,
+                          port: PhotonicPort = None,
+                          overwrite: bool = False,
+                          show: bool = True
+                          ) -> PhotonicPort:
+        """
+        Adds a photonic port to the current hierarchy. A PhotonicPort object can be passed, or will be constructed
+        if the proper arguments are passed to this function.
 
         Parameters
         ----------
