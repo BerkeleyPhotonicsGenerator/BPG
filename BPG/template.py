@@ -1,9 +1,6 @@
 # general imports
 import abc
 import numpy as np
-import yaml
-import time
-import logging
 
 # bag imports
 import bag.io
@@ -12,29 +9,27 @@ from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orie
 from BPG.photonic_core import PhotonicBagLayout
 
 # Photonic object imports
-from .port import PhotonicPort
-from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
+from BPG.port import PhotonicPort
+from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
+    PhotonicPath
 
 # Typing imports
-from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
+from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable
+from BPG.bpg_custom_types import *
+
 if TYPE_CHECKING:
-    from bag.layout.objects import ViaInfo, PinInfo
-    from bag.layout.objects import InstanceInfo, Instance
+    from BPG.bpg_custom_types import layer_or_lpp_type, lpp_type, coord_type, dim_type
+    from bag.layout.objects import Instance
     from BPG.photonic_core import PhotonicTechInfo
     from BPG.db import PhotonicTemplateDB
-
-layer_type = Union[str, Tuple[str, str]]
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
 
@@ -44,7 +39,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
-
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
     @abc.abstractmethod
@@ -54,11 +48,30 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def photonic_ports_names_iter(self) -> Iterable[str]:
         return self._photonic_ports.keys()
 
+    def add_obj(self, obj):
+        """
+        Takes a provided layout object and adds it to the db. Automatically detects what type of object is
+        being added, and sends it to the appropriate category in the layoutDB.
+
+        TODO: Provide support for directly adding photonic ports and simulation objects
+        """
+        if isinstance(obj, PhotonicRect):
+            self._layout.add_rect(obj)
+        elif isinstance(obj, PhotonicPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicRound):
+            self._layout.add_round(obj)
+        elif isinstance(obj, PhotonicPath):
+            self._layout.add_path(obj)
+        elif isinstance(obj, PhotonicAdvancedPolygon):
+            self._layout.add_polygon(obj)
+        elif isinstance(obj, PhotonicInstance):
+            self._layout.add_instance(obj)
+        else:
+            raise ValueError("{} is not a valid layout object type, and cannot be added to the db".format(type(obj)))
+
     def add_rect(self,
-                 layer: layer_type,
-                 x_span: dim_type = None,
-                 y_span: dim_type = None,
-                 center: coord_type = None,
+                 layer: layer_or_lpp_type,
                  coord1: coord_type = None,
                  coord2: coord_type = None,
                  bbox: Union[BBox, BBoxArray] = None,
@@ -69,18 +82,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  unit_mode: bool = False,
                  ) -> PhotonicRect:
         """
-        Add a new (arrayed) rectangle.
+        Creates a new rectangle based on the user provided arguments and adds it to the db. User can either provide a
+        pair of coordinates representing opposite corners of the rectangle, or a BBox/BBoxArray. This rectangle can
+        also be arrayed with the number and spacing parameters.
 
         Parameters
         ----------
         layer : Union[str, Tuple[str, str]]
             the layer name, or the (layer, purpose) pair.
-        x_span : Union[int, float]
-            horizontal span of the rectangle.
-        y_span : Union[int, float]
-            vertical span of the rectangle.
-        center : Union[int, float]
-            coordinate defining center point of the rectangle.
         coord1 : Tuple[Union[int, float], Union[int, float]]
             point defining one corner of rectangle boundary.
         coord2 : Tuple[Union[int, float], Union[int, float]]
@@ -103,25 +112,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
         rect : PhotonicRect
             the added rectangle.
+
         """
-        # Define by center, x_span, and y_span
-        if x_span is not None or y_span is not None or center is not None:
-            # Ensure all three are defined
-            if x_span is None or y_span is None or center is None:
-                raise ValueError("If defining by x_span, y_span, and center, all three parameters must be specified.")
-
-            # Define the BBox
-            bbox = BBox(
-                left=center[0] - x_span / 2,
-                right=center[0] + x_span / 2,
-                bottom=center[1] - y_span / 2,
-                top=center[1] + y_span / 2,
-                resolution=self.grid.resolution,
-                unit_mode=unit_mode
-            )
-
-        # Define by two coordinate points
-        elif coord1 is not None or coord2 is not None:
+        # If coordinates are provided, use them to define a BBox for the rectangle
+        if coord1 is not None or coord2 is not None:
             # Ensure both points are defined
             if coord1 is None or coord2 is None:
                 raise ValueError("If defining by two points, both must be specified.")
@@ -142,20 +136,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return rect
 
     def add_polygon(self,
-                    polygon=None,  # type: Optional[PhotonicPolygon]
-                    layer=None,  # type: Union[str, Tuple[str, str]]
-                    points=None,  # type: List[coord_type]
-                    resolution=None,  # type: float
-                    unit_mode=False,  # type: bool
-                    ):
-        # type: (...) -> PhotonicPolygon
-        """Add a polygon to the layout. If photonic polygon object is passed, use it. User can also pass information to
-        create a new photonic polygon.
+                    layer: layer_or_lpp_type = None,
+                    points: List[coord_type] = None,
+                    resolution: float = None,
+                    unit_mode: bool = False,
+                    ) -> PhotonicPolygon:
+        """
+        Creates a new polygon from the user provided points and adds it to the db
 
         Parameters
         ----------
-        polygon : Optional[PhotonicPolygon]
-            the polygon to add
         layer : Union[str, Tuple[str, str]]
             the layer of the polygon
         resolution : float
@@ -170,69 +160,72 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         polygon : PhotonicPolygon
             the added polygon object
         """
-        # If user passes points and layer instead of polygon object, define the new polygon
-        if polygon is None:
-            # Ensure proper arguments are passed
-            if layer is None or points is None:
-                raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
+        # Ensure proper arguments are passed
+        if layer is None or points is None:
+            raise ValueError("If adding polygon by layer and points, both layer and points list must be defined.")
 
-            if resolution is None:
-                resolution = self.grid.resolution
+        if resolution is None:
+            resolution = self.grid.resolution
 
-            polygon = PhotonicPolygon(
-                resolution=resolution,
-                layer=layer,
-                points=points,
-                unit_mode=unit_mode,
-            )
+        polygon = PhotonicPolygon(
+            resolution=resolution,
+            layer=layer,
+            points=points,
+            unit_mode=unit_mode,
+        )
 
         self._layout.add_polygon(polygon)
         return polygon
 
     def add_round(self,
-                  round_obj,  # type: PhotonicRound
+                  layer: layer_or_lpp_type,
+                  resolution: float,
+                  rout: dim_type,
+                  center: coord_type = (0, 0),
+                  rin: dim_type = 0,
+                  theta0: dim_type = 0,
+                  theta1: dim_type = 360,
+                  nx: int = 1,
+                  ny: int = 1,
+                  spx: dim_type = 0,
+                  spy: dim_type = 0,
+                  unit_mode: bool = False
                   ):
-        # type: (...) -> PhotonicRound
-        """
-
-        Parameters
-        ----------
-        round_obj : Optional[PhotonicRound]
-            the polygon to add
-
-        Returns
-        -------
-        polygon : PhotonicRound
-            the added round object
-        """
-
-        self._layout.add_round(round_obj)
-        return round_obj
+        """ Creates a PhotonicRound object based on the provided arguments and adds it to the db """
+        new_round = PhotonicRound(layer=layer,
+                                  resolution=resolution,
+                                  rout=rout,
+                                  center=center,
+                                  rin=rin,
+                                  theta0=theta0,
+                                  theta1=theta1,
+                                  nx=nx,
+                                  ny=ny,
+                                  spx=spx,
+                                  spy=spy,
+                                  unit_mode=unit_mode)
+        self._layout.add_round(new_round)
+        return new_round
 
     def add_path(self,
-                 path,  # type: PhotonicPath
-                 ):
-        # type: (...) -> PhotonicPath
-        """
-        Adds a PhotonicPath to the layout object
-
-        Parameters
-        ----------
-        path : PhotonicPath
-
-        Returns
-        -------
-        path : PhotonicPath
-        """
-        self._layout.add_path(path)
-        return path
-
-    def add_advancedpolygon(self,
-                            polygon,  # type: PhotonicAdvancedPolygon
-                            ):
-        # Maybe have an ordered list of operations like add polygon 1, subtract polygon 2, etc
-        self._layout.add_polygon(polygon)
-        return polygon
+                 layer: layer_or_lpp_type,
+                 width: dim_type,
+                 points: List[coord_type],
+                 resolution: float,
+                 end_style: str = 'truncate',
+                 join_style: str = 'extend',
+                 unit_mode: bool = False,
+                 ) -> PhotonicPath:
+        """ Creates a PhotonicPath object based on the provided arguments and adds it to the db """
+        new_path = PhotonicPath(layer=layer,
+                                width=width,
+                                points=points,
+                                resolution=resolution,
+                                end_style=end_style,
+                                join_style=join_style,
+                                unit_mode=unit_mode)
+        self._layout.add_path(new_path)
+        return new_path
 
     def finalize(self):
         # TODO: Implement port polygon adding here?
@@ -243,20 +236,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         TemplateBase.finalize(self)
 
     def add_photonic_port(self,
-                          name=None,  # type: str
-                          center=None,  # type: coord_type
-                          orient=None,  # type: str
-                          width=None,  # type: dim_type
-                          layer=None,  # type: Union[str, Tuple[str, str]]
-                          resolution=None,  # type: Union[float, int]
-                          unit_mode=False,  # type: bool
-                          port=None,  # type: PhotonicPort
-                          overwrite=False,  # type: bool
-                          show=True  # type: bool
-                          ):
-        # type: (...) -> PhotonicPort
-        """Adds a photonic port to the current hierarchy.
-        A PhotonicPort object can be passed, or will be constructed if the proper arguments are passed to this funciton.
+                          name: str = None,
+                          center: coord_type = None,
+                          orient: str = None,
+                          width: dim_type = None,
+                          layer: layer_or_lpp_type = None,
+                          overwrite_purpose: bool = False,
+                          resolution: float = None,
+                          unit_mode: bool = False,
+                          port: PhotonicPort = None,
+                          overwrite: bool = False,
+                          show: bool = True
+                          ) -> PhotonicPort:
+        """
+        Adds a photonic port to the current hierarchy. A PhotonicPort object can be passed, or will be constructed
+        if the proper arguments are passed to this function.
 
         Parameters
         ----------
@@ -270,6 +264,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the port width
         layer : Union[str, Tuple[str, str]]
             the layer on which the port should be added. If only a string, the purpose is defaulted to 'port'
+        overwrite_purpose : bool
+            True to overwrite the 'port' purpose if an LPP is passed. If False (default), the purpose of a passed LPP
+            is stripped away and the 'port' purpose is used.
         resolution : Union[float, int]
             the grid resolution
         unit_mode : bool
@@ -289,15 +286,23 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
-        # TODO: Require layer name as input
 
         # Create a temporary port object unless one is passed as an argument
         if port is None:
             if resolution is None:
                 resolution = self.grid.resolution
 
-            if isinstance(layer, str):
-                layer = (layer, 'port')
+            if overwrite_purpose:
+                if isinstance(layer, str):
+                    raise ValueError(f'Calling add_photonic_port with overwrite_purpose=True requires a LPP to be '
+                                     f'pased in the \'layer\' argument.')
+                else:
+                    layer = (layer[0], layer[1])
+            else:
+                if isinstance(layer, str):
+                    layer = (layer, 'port')
+                else:
+                    layer = (layer[0], 'port')
 
             # Check arguments for validity
             if all([name, center, orient, width, layer]) is None:
@@ -344,9 +349,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return port
 
     def has_photonic_port(self,
-                          port_name,  # type: str
-                          ):
-        # type: (...) -> bool
+                          port_name: str,
+                          ) -> bool:
         """Checks if the given port name exists in the current hierarchy level.
 
         Parameters
@@ -362,9 +366,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return port_name in self._photonic_ports
 
     def get_photonic_port(self,
-                          port_name='',  # type: Optional[str]
-                          ):
-        # type: (...) -> PhotonicPort
+                          port_name: Optional[str] = '',
+                          ) -> PhotonicPort:
         """ Returns the photonic port object with the given name
 
         Parameters
@@ -390,18 +393,17 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 )
         return self._photonic_ports[port_name]
 
-    def add_instance(self,  # type: PhotonicTemplateBase
-                     master,  # type: PhotonicTemplateBase
-                     inst_name=None,  # type: Optional[str]
-                     loc=(0, 0),  # type: Tuple[Union[float, int], Union[float, int]]
-                     orient="R0",  # type: str
-                     nx=1,  # type: int
-                     ny=1,  # type: int
-                     spx=0,  # type: Union[float, int]
-                     spy=0,  # type: Union[float, int]
-                     unit_mode=False,  # type: bool
-                     ):
-        # type: (...) -> PhotonicInstance
+    def add_instance(self: "PhotonicTemplateBase",
+                     master: "PhotonicTemplateBase",
+                     inst_name: Optional[str] = None,
+                     loc: coord_type = (0, 0),
+                     orient: str = "R0",
+                     nx: int = 1,
+                     ny: int = 1,
+                     spx: dim_type = 0,
+                     spy: dim_type = 0,
+                     unit_mode: bool = False,
+                     ) -> PhotonicInstance:
         """Adds a new (arrayed) instance to layout.
 
         Parameters
@@ -428,7 +430,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Returns
         -------
-        inst : Instance
+        inst : PhotonicInstance
             the added instance.
         """
         res = self.grid.resolution
@@ -456,14 +458,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_monitor_obj(monitor_obj)
 
     def add_instances_port_to_port(self,
-                                   inst_master,  # type: PhotonicTemplateBase
-                                   instance_port_name,  # type: str
-                                   self_port=None,  # type: Optional[PhotonicPort]
-                                   self_port_name=None,  # type: Optional[str]
-                                   instance_name=None,  # type: Optional[str]
-                                   reflect=False,  # type: bool
-                                   ):
-        # type: (...) -> PhotonicInstance
+                                   inst_master: "PhotonicTemplateBase",
+                                   instance_port_name: str,
+                                   self_port: Optional[PhotonicPort] = None,
+                                   self_port_name: Optional[str] = None,
+                                   instance_name: Optional[str] = None,
+                                   reflect: bool = False,
+                                   ) -> PhotonicInstance:
         """
         Instantiates a new instance of the inst_master template.
         The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
@@ -609,9 +610,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_inst
 
     def delete_port(self,
-                    port_names,  # type: Union[str, List[str]]
-                    ):
-        # type: (...) -> None
+                    port_names: Union[str, List[str]],
+                    ) -> None:
         """ Removes the given ports from this instances list of ports. Raises error if given port does not exist.
 
         Parameters
@@ -637,9 +637,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         pass
 
     def _get_unused_port_name(self,
-                              port_name,  # type: Optional[str]
-                              ):
-        # type: (...) -> str
+                              port_name: Optional[str],
+                              ) -> str:
         """Returns a new unique name for a port in the current hierarchy level
 
         Parameters
@@ -666,13 +665,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_name
 
     def extract_photonic_ports(self,
-                               inst,  # type: Union[PhotonicInstance, Instance]
-                               port_names=None,  # type: Optional[Union[str, List[str]]]
-                               port_renaming=None,  # type: Optional[Dict[str, str]]
-                               unmatched_only=True,  # type: bool
-                               show=True  # type: bool
-                               ):
-        # type: (...) -> None
+                               inst: Union[PhotonicInstance, "Instance"],
+                               port_names: Optional[Union[str, List[str]]] = None,
+                               port_renaming: Optional[Dict[str, str]] = None,
+                               unmatched_only: bool = True,  # TODO: matched vs non-matched ports.
+                                                             # TODO: if two ports are connected, do we export them
+                               show: bool = True,
+                               ) -> None:
         """Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
@@ -692,7 +691,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
 
         """
-        # TODO: matched vs non-matched ports.  IE, if two ports are already matched, do we export them
         if port_names is None:
             port_names = inst.master.photonic_ports_names_iter()
 
@@ -736,11 +734,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             )
 
     def add_via_stack(self,
-                      bot_layer,  # type: str
-                      top_layer,  # type: str
-                      loc,  # type: Tuple[Union[float, int], Union[float, int]]
-                      min_area_on_bot_top_layer=False,  # type: bool
-                      unit_mode=False,  # type: bool
+                      bot_layer: layer_or_lpp_type,
+                      top_layer: layer_or_lpp_type,
+                      loc: coord_type,
+                      min_area_on_bot_top_layer: bool = False,
+                      unit_mode: bool = False,
                       ):
         """
         Adds a via stack with one via in each layer at the provided location.
@@ -748,16 +746,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        bot_layer : str
-            Name of the bottom layer
-        top_layer : str
-            Name of the top layer
-        loc :
-            (x, y) location of the center of the via stack
+        bot_layer : Union[str, Tuple[str, str]]
+            Layer name or layer LPP of the bottom layer in the via stack
+        top_layer : Union[str, Tuple[str, str]]
+            Layer name or layer LPP of the top layer in the via stack
+        loc : coord_type
+            Coordinate of the center of the via stack
         min_area_on_bot_top_layer : bool
             True to have enclosures on top and bottom layer satisfy minimum area constraints
-        unit_mode
-            True if input argument is specified in layout resolution units
+        unit_mode : bool
+            True if input arguments are specified in layout resolution units
 
         Returns
         -------
@@ -765,6 +763,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         if not unit_mode:
             loc = (int(round(loc[0] / self.grid.resolution)), int(round(loc[1] / self.grid.resolution)))
+
+        if isinstance(bot_layer, tuple):
+            bot_layer = bot_layer[0]
+        if isinstance(top_layer, tuple):
+            top_layer = top_layer[0]
 
         bot_layer = bag.io.fix_string(bot_layer)
         top_layer = bag.io.fix_string(top_layer)
@@ -846,12 +849,32 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 )
 
     def add_via_stack_by_ind(self,
-                             bot_layer_ind,  # type: int
-                             top_layer_ind,  # type: int
-                             loc,  # type: Tuple[Union[float, int], Union[float, int]]
-                             min_area_on_bot_top_layer=False,  # type: bool
-                             unit_mode=False,  # type: bool
+                             bot_layer_ind: int,
+                             top_layer_ind: int,
+                             loc: coord_type,
+                             min_area_on_bot_top_layer: bool = False,
+                             unit_mode: bool = False,
                              ):
+        """
+        Adds a stack of vias from the metal at the bot_layer_ind index to the metal at the top_layer_ind index.
+
+        Parameters
+        ----------
+        bot_layer_ind : int
+            Index of the bottom layer of the via stack
+        top_layer_ind : int
+            Index of the top layer of the via stack
+        loc : coord_type
+            Coordinate of the center of the via stack
+        min_area_on_bot_top_layer : bool
+            True to have enclosures on top and bottom layer satisfy minimum area constraints
+        unit_mode : bool
+            True if input arguments are specified in layout resolution units
+
+        Returns
+        -------
+
+        """
         return self.add_via_stack(
             bot_layer=self.grid.tech_info.get_layer_name(bot_layer_ind),
             top_layer=self.grid.tech_info.get_layer_name(top_layer_ind),

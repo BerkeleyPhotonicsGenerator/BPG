@@ -5,7 +5,7 @@ Module containing simulation objects that can be added in lumerical
 import abc
 
 # BPG imports
-from BPG.photonic_core import Box, CoordBase
+from BPG.geometry import Box, CoordBase
 from BPG.lumerical.code_generator import LumericalCodeGenerator
 
 # Type checking imports

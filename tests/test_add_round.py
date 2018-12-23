@@ -41,31 +41,14 @@ class AddRound(BPG.PhotonicTemplateBase):
             unit_mode=False
         )
 
-        self.add_round(
-            round_obj=circle
-        )
-
-        self.add_round(
-            round_obj=circle.transform((0, 10), 'R90')
-        )
-        self.add_round(
-            round_obj=circle.transform((10, 10), 'R180')
-        )
-        self.add_round(
-            round_obj=circle.transform((20, 10), 'R270')
-        )
-        self.add_round(
-            round_obj=circle.transform((30, 10), 'MX')
-        )
-        self.add_round(
-            round_obj=circle.transform((40, 10), 'MY')
-        )
-        self.add_round(
-            round_obj=circle.transform((50, 10), 'MXR90')
-        )
-        self.add_round(
-            round_obj=circle.transform((60, 10), 'MYR90')
-        )
+        self.add_obj(circle)
+        self.add_obj(circle.transform((0, 10), 'R90', copy=True))
+        self.add_obj(circle.transform((10, 10), 'R180', copy=True))
+        self.add_obj(circle.transform((20, 10), 'R270', copy=True))
+        self.add_obj(circle.transform((30, 10), 'MX', copy=True))
+        self.add_obj(circle.transform((40, 10), 'MY', copy=True))
+        self.add_obj(circle.transform((50, 10), 'MXR90', copy=True))
+        self.add_obj(circle.transform((60, 10), 'MYR90', copy=True))
 
 
 def test_add_round():
