@@ -14,19 +14,15 @@ from BPG.photonic_core import PhotonicBagLayout
 # Photonic object imports
 from .port import PhotonicPort
 from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
-    PhotonicVia, PhotonicBlockage, PhotonicBoundary, PhotonicPath, PhotonicPinInfo
+    PhotonicPath
 
 # Typing imports
 from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
 if TYPE_CHECKING:
-    from bag.layout.objects import ViaInfo, PinInfo
-    from bag.layout.objects import InstanceInfo, Instance
+    from BPG.bpg_custom_types import layer_or_lpp_type, lpp_type, coord_type, dim_type
+    from bag.layout.objects import Instance
     from BPG.photonic_core import PhotonicTechInfo
     from BPG.db import PhotonicTemplateDB
-
-layer_type = Union[str, Tuple[str, str]]
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
@@ -55,7 +51,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return self._photonic_ports.keys()
 
     def add_rect(self,
-                 layer: layer_type,
+                 layer: layer_or_lpp_type,
                  x_span: dim_type = None,
                  y_span: dim_type = None,
                  center: coord_type = None,
@@ -736,9 +732,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             )
 
     def add_via_stack(self,
-                      bot_layer,  # type: str
-                      top_layer,  # type: str
-                      loc,  # type: Tuple[Union[float, int], Union[float, int]]
+                      bot_layer: layer_or_lpp_type,
+                      top_layer: layer_or_lpp_type,
+                      loc: coord_type,
                       min_area_on_bot_top_layer=False,  # type: bool
                       unit_mode=False,  # type: bool
                       ):
