@@ -98,3 +98,5 @@ def setup_logger(log_path: str,
     timing_logger.info('################################################################################')
     timing_logger.info(f'{"Time (s)":>15} | Operation')
     timing_logger.info('################################################################################')
+
+    timing_logger.propagate = True
