@@ -241,6 +241,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           orient: str = None,
                           width: dim_type = None,
                           layer: layer_or_lpp_type = None,
+                          overwrite_purpose: bool = False,
                           resolution: float = None,
                           unit_mode: bool = False,
                           port: PhotonicPort = None,
@@ -263,6 +264,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the port width
         layer : Union[str, Tuple[str, str]]
             the layer on which the port should be added. If only a string, the purpose is defaulted to 'port'
+        overwrite_purpose : bool
+            True to overwrite the 'port' purpose if an LPP is passed. If False (default), the purpose of a passed LPP
+            is stripped away and the 'port' purpose is used.
         resolution : Union[float, int]
             the grid resolution
         unit_mode : bool
@@ -282,15 +286,23 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
-        # TODO: Require layer name as input
 
         # Create a temporary port object unless one is passed as an argument
         if port is None:
             if resolution is None:
                 resolution = self.grid.resolution
 
-            if isinstance(layer, str):
-                layer = (layer, 'port')
+            if overwrite_purpose:
+                if isinstance(layer, str):
+                    raise ValueError(f'Calling add_photonic_port with overwrite_purpose=True requires a LPP to be '
+                                     f'pased in the \'layer\' argument.')
+                else:
+                    layer = (layer[0], layer[1])
+            else:
+                if isinstance(layer, str):
+                    layer = (layer, 'port')
+                else:
+                    layer = (layer[0], 'port')
 
             # Check arguments for validity
             if all([name, center, orient, width, layer]) is None:
