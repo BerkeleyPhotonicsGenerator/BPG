@@ -9,12 +9,12 @@ from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orie
 from BPG.photonic_core import PhotonicBagLayout
 
 # Photonic object imports
-from .port import PhotonicPort
-from .objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
+from BPG.port import PhotonicPort
+from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, PhotonicInstance, PhotonicRound, \
     PhotonicPath
 
 # Typing imports
-from typing import TYPE_CHECKING, Union, Dict, Any, List, Set, Optional, Tuple, Iterable
+from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable
 from BPG.bpg_custom_types import *
 
 if TYPE_CHECKING:
@@ -26,10 +26,10 @@ if TYPE_CHECKING:
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
-                 temp_db,  # type: PhotonicTemplateDB
-                 lib_name,  # type: str
-                 params,  # type: Dict[str, Any]
-                 used_names,  # type: Set[str]
+                 temp_db: "PhotonicTemplateDB",
+                 lib_name: str,
+                 params: Dict[str, Any],
+                 used_names: Set[str],
                  **kwargs,
                  ):
 
@@ -337,9 +337,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return port
 
     def has_photonic_port(self,
-                          port_name,  # type: str
-                          ):
-        # type: (...) -> bool
+                          port_name: str,
+                          ) -> bool:
         """Checks if the given port name exists in the current hierarchy level.
 
         Parameters
@@ -355,9 +354,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return port_name in self._photonic_ports
 
     def get_photonic_port(self,
-                          port_name='',  # type: Optional[str]
-                          ):
-        # type: (...) -> PhotonicPort
+                          port_name: Optional[str] = '',
+                          ) -> PhotonicPort:
         """ Returns the photonic port object with the given name
 
         Parameters
@@ -383,18 +381,17 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 )
         return self._photonic_ports[port_name]
 
-    def add_instance(self,  # type: PhotonicTemplateBase
-                     master,  # type: PhotonicTemplateBase
-                     inst_name=None,  # type: Optional[str]
-                     loc=(0, 0),  # type: Tuple[Union[float, int], Union[float, int]]
-                     orient="R0",  # type: str
-                     nx=1,  # type: int
-                     ny=1,  # type: int
-                     spx=0,  # type: Union[float, int]
-                     spy=0,  # type: Union[float, int]
-                     unit_mode=False,  # type: bool
-                     ):
-        # type: (...) -> PhotonicInstance
+    def add_instance(self: "PhotonicTemplateBase",
+                     master: "PhotonicTemplateBase",
+                     inst_name: Optional[str] = None,
+                     loc: coord_type = (0, 0),
+                     orient: str = "R0",
+                     nx: int = 1,
+                     ny: int = 1,
+                     spx: dim_type = 0,
+                     spy: dim_type = 0,
+                     unit_mode: bool = False,
+                     ) -> PhotonicInstance:
         """Adds a new (arrayed) instance to layout.
 
         Parameters
@@ -421,7 +418,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Returns
         -------
-        inst : Instance
+        inst : PhotonicInstance
             the added instance.
         """
         res = self.grid.resolution
@@ -449,14 +446,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_monitor_obj(monitor_obj)
 
     def add_instances_port_to_port(self,
-                                   inst_master,  # type: PhotonicTemplateBase
-                                   instance_port_name,  # type: str
-                                   self_port=None,  # type: Optional[PhotonicPort]
-                                   self_port_name=None,  # type: Optional[str]
-                                   instance_name=None,  # type: Optional[str]
-                                   reflect=False,  # type: bool
-                                   ):
-        # type: (...) -> PhotonicInstance
+                                   inst_master: "PhotonicTemplateBase",
+                                   instance_port_name: str,
+                                   self_port: Optional[PhotonicPort] = None,
+                                   self_port_name: Optional[str] = None,
+                                   instance_name: Optional[str] = None,
+                                   reflect: bool = False,
+                                   ) -> PhotonicInstance:
         """
         Instantiates a new instance of the inst_master template.
         The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
@@ -602,9 +598,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_inst
 
     def delete_port(self,
-                    port_names,  # type: Union[str, List[str]]
-                    ):
-        # type: (...) -> None
+                    port_names: Union[str, List[str]],
+                    ) -> None:
         """ Removes the given ports from this instances list of ports. Raises error if given port does not exist.
 
         Parameters
@@ -630,9 +625,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         pass
 
     def _get_unused_port_name(self,
-                              port_name,  # type: Optional[str]
-                              ):
-        # type: (...) -> str
+                              port_name: Optional[str],
+                              ) -> str:
         """Returns a new unique name for a port in the current hierarchy level
 
         Parameters
@@ -659,13 +653,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_name
 
     def extract_photonic_ports(self,
-                               inst,  # type: Union[PhotonicInstance, Instance]
-                               port_names=None,  # type: Optional[Union[str, List[str]]]
-                               port_renaming=None,  # type: Optional[Dict[str, str]]
-                               unmatched_only=True,  # type: bool
-                               show=True  # type: bool
-                               ):
-        # type: (...) -> None
+                               inst: Union[PhotonicInstance, "Instance"],
+                               port_names: Optional[Union[str, List[str]]] = None,
+                               port_renaming: Optional[Dict[str, str]] = None,
+                               unmatched_only: bool = True,  # TODO: matched vs non-matched ports.
+                                                             # TODO: if two ports are connected, do we export them
+                               show: bool = True,
+                               ) -> None:
         """Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
@@ -685,7 +679,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
 
         """
-        # TODO: matched vs non-matched ports.  IE, if two ports are already matched, do we export them
         if port_names is None:
             port_names = inst.master.photonic_ports_names_iter()
 
@@ -732,8 +725,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                       bot_layer: layer_or_lpp_type,
                       top_layer: layer_or_lpp_type,
                       loc: coord_type,
-                      min_area_on_bot_top_layer=False,  # type: bool
-                      unit_mode=False,  # type: bool
+                      min_area_on_bot_top_layer: bool = False,
+                      unit_mode: bool = False,
                       ):
         """
         Adds a via stack with one via in each layer at the provided location.
@@ -741,16 +734,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        bot_layer : str
-            Name of the bottom layer
-        top_layer : str
-            Name of the top layer
-        loc :
-            (x, y) location of the center of the via stack
+        bot_layer : Union[str, Tuple[str, str]]
+            Layer name or layer LPP of the bottom layer in the via stack
+        top_layer : Union[str, Tuple[str, str]]
+            Layer name or layer LPP of the top layer in the via stack
+        loc : coord_type
+            Coordinate of the center of the via stack
         min_area_on_bot_top_layer : bool
             True to have enclosures on top and bottom layer satisfy minimum area constraints
-        unit_mode
-            True if input argument is specified in layout resolution units
+        unit_mode : bool
+            True if input arguments are specified in layout resolution units
 
         Returns
         -------
@@ -758,6 +751,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         if not unit_mode:
             loc = (int(round(loc[0] / self.grid.resolution)), int(round(loc[1] / self.grid.resolution)))
+
+        if isinstance(bot_layer, tuple):
+            bot_layer = bot_layer[0]
+        if isinstance(top_layer, tuple):
+            top_layer = top_layer[0]
 
         bot_layer = bag.io.fix_string(bot_layer)
         top_layer = bag.io.fix_string(top_layer)
@@ -839,12 +837,32 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 )
 
     def add_via_stack_by_ind(self,
-                             bot_layer_ind,  # type: int
-                             top_layer_ind,  # type: int
-                             loc,  # type: Tuple[Union[float, int], Union[float, int]]
-                             min_area_on_bot_top_layer=False,  # type: bool
-                             unit_mode=False,  # type: bool
+                             bot_layer_ind: int,
+                             top_layer_ind: int,
+                             loc: coord_type,
+                             min_area_on_bot_top_layer: bool = False,
+                             unit_mode: bool = False,
                              ):
+        """
+        Adds a stack of vias from the metal at the bot_layer_ind index to the metal at the top_layer_ind index.
+
+        Parameters
+        ----------
+        bot_layer_ind : int
+            Index of the bottom layer of the via stack
+        top_layer_ind : int
+            Index of the top layer of the via stack
+        loc : coord_type
+            Coordinate of the center of the via stack
+        min_area_on_bot_top_layer : bool
+            True to have enclosures on top and bottom layer satisfy minimum area constraints
+        unit_mode : bool
+            True if input arguments are specified in layout resolution units
+
+        Returns
+        -------
+
+        """
         return self.add_via_stack(
             bot_layer=self.grid.tech_info.get_layer_name(bot_layer_ind),
             top_layer=self.grid.tech_info.get_layer_name(top_layer_ind),

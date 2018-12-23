@@ -1,27 +1,23 @@
-#!/usr/bin/python
-# -*- coding: utf-8 -*-
-
-from typing import TYPE_CHECKING, Tuple, Union, List, Optional, Dict, Any, Iterator, Iterable, Generator
+from typing import TYPE_CHECKING, Tuple
 import numpy as np
 from bag.layout.util import transform_point, transform_loc_orient
 
-dim_type = Union[float, int]
-coord_type = Tuple[dim_type, dim_type]
+if TYPE_CHECKING:
+    from BPG.bpg_custom_types import dim_type, coord_type, lpp_type, layer_or_lpp_type
 
 
 class PhotonicPort:
     # TODO:  __slots__ =
     # TODO: Ensure unit mode is rounded properly
     def __init__(self,
-                 name,  # type: str
-                 center,  # type: coord_type
-                 orientation,  # type: str
-                 width,  # type: dim_type
-                 layer,  # type: Tuple[str, str]
-                 resolution,  # type: float
-                 unit_mode=False,  # type: bool
-                 ):
-        # type: (...) -> None
+                 name: str,
+                 center: "coord_type",
+                 orientation: str,
+                 width: "dim_type",
+                 layer: "lpp_type",
+                 resolution: float,
+                 unit_mode: bool = False,
+                 ) -> None:
         """Creates a new PhotonicPort object
 
         Parameters
@@ -52,6 +48,11 @@ class PhotonicPort:
 
         self._center_unit = np.array(center)  # type: np.array
         self._name = name
+
+        if not (isinstance(layer, tuple) and (len(layer) == 2) and
+                isinstance(layer[0], str) and isinstance(layer[1], str)):
+            raise ValueError(f'LPP {layer} into PhotonicPort is not valid. Must be a tuple of 2 strings.')
+
         self._layer = layer
         self._used = False
         self._width_unit = width
@@ -63,85 +64,73 @@ class PhotonicPort:
         )
 
     @property
-    def used(self):
+    def used(self) -> bool:
         """Returns True if port is used"""
         # TODO: Implement?
         return self._used
 
     @used.setter
     def used(self,
-             new_used  # type: bool
-             ):
-        # type: (...) -> None
+             new_used: bool
+             ) -> None:
         self._used = new_used
 
     @property
-    def center(self):
-        # type: (...) -> np.array
+    def center(self) -> np.array:
         """Return the center coordinates as np array"""
         return self._center_unit * self._res
 
     @property
-    def center_unit(self):
-        # type: (...) -> np.array
+    def center_unit(self) -> np.array:
         """Return the center coordinates as np array in resolution units"""
         return self._center_unit
 
     @property
-    def resolution(self):
-        # type (...) -> float
+    def resolution(self) -> float:
         """Returns the layout resolution of the port object"""
         return self._res
 
     @property
-    def name(self):
-        # type: () -> str
+    def name(self) -> str:
         """ Returns the name of the port """
         return self._name
 
     @name.setter
     def name(self,
-             name,  # type: str
+             name: str,
              ):
-        # type: (...) -> None
         """Sets the port name"""
         self._name = name
 
     @property
-    def layer(self):
-        # type: () -> Tuple[str, str]
+    def layer(self) -> "lpp_type":
         """Returns the layer of the port """
         return self._layer
 
     @property
-    def width(self):
-        # type: () -> float
+    def width(self) -> float:
         """Returns the width of the port """
         return self._width_unit * self._res
 
     @property
-    def width_unit(self):
-        # type: () -> int
+    def width_unit(self) -> int:
         """Returns the width of the port in layout units"""
         return self._width_unit
 
     @width.setter
-    def width(self, new_width):
-        # type: (float) -> None
+    def width(self, new_width: float) -> None:
         """Sets the port width"""
         self._width_unit = int(round(new_width / self._res))
 
     @width_unit.setter
-    def width_unit(self, new_width):
-        # type: (int) -> None
+    def width_unit(self, new_width: int) -> None:
         """Sets the port width"""
         self._width_unit = new_width
 
     def width_vec(self,
-                  unit_mode=True,  # type: bool
-                  normalized=True,  # type: bool
-                  ):
-        # type: (...) -> np.array
+                  unit_mode: bool = True,
+                  normalized: bool = True,
+                  ) -> np.array:
         """Returns a normalized vector pointing into the port object
 
         Parameters
@@ -172,30 +161,26 @@ class PhotonicPort:
             return point * self._res
 
     @property
-    def orientation(self):
-        # type: () -> str
+    def orientation(self) -> str:
         """ Returns the orientation of the port """
         return self._orientation
 
-    def is_horizontal(self):
-        # type: () -> bool
+    def is_horizontal(self) -> bool:
         """Returns True if port orientation is R0 or R180"""
         if self.orientation == 'R0' or self.orientation == 'R180':
             return True
         else:
             return False
 
-    def is_vertical(self):
-        # type: () -> bool
+    def is_vertical(self) -> bool:
         """Returns True if port orientation is vertical (R90 or R270)"""
         return not self.is_horizontal()
 
     def transform(self,
-                  loc=(0, 0),  # type: coord_type
-                  orient='R0',  # type: str
-                  unit_mode=False,  # type: bool
-                  ):
-        # type: (...) -> PhotonicPort
+                  loc: "coord_type" = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool= False,
+                  ) -> "PhotonicPort":
         """Return a new transformed photonic port
 
         Parameters
@@ -234,15 +219,14 @@ class PhotonicPort:
 
     @classmethod
     def from_dict(cls,
-                  center,  # type: coord_type
-                  name,  # type: str
-                  orient,  # type: str
-                  port_width,  # type: dim_type
-                  layer,  # type: Union[str, Tuple[str, str]]
-                  resolution,  # type: Union[float, int]
-                  unit_mode=True,  # type: bool
-                  ):
-        # type: (...) -> PhotonicPort
+                  center: "coord_type",
+                  name: str,
+                  orient: str,
+                  port_width: "dim_type",
+                  layer: "layer_or_lpp_type",
+                  resolution: float,
+                  unit_mode: bool = True,
+                  ) -> "PhotonicPort":
         """Creates a new PhotonicPort object from a set of arguments
 
         Parameters
