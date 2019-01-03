@@ -5,14 +5,14 @@ This module provides a command-line interface to using BPG
 import sys
 import argparse
 import os
+import BPG
+import pytest
 
 
 def run(args):
-    """ Sources your bag_startup.py and runs """
-    import BPG
+    """ Sets up your path and runs """
+    # Generate the content list
     plm = BPG.PhotonicLayoutManager(spec_file=args.spec)
-
-    # Generate the content list no matter what
     plm.generate_content()
 
     if args.gds:
@@ -31,8 +31,15 @@ def run(args):
         plm.generate_dataprep_gds()
 
 
-def test(args):
-    print(sys.path)
+def test():
+    """
+    Runs the built-in test suite
+    TODO: This only works in BAG_WORK_DIR...make it work in any directory
+    """
+    # Use the built in config file for testing
+    os.environ['BAG_CONFIG_PATH'] = "./BPG/examples/tech/bag_config.yaml"
+    BPG.setup_environment()
+    pytest.main(['BPG/tests'])
 
 
 def setup():
@@ -45,8 +52,13 @@ def get_cmd_line_args(arg_list):
     # Change module search path to include the directory where bpg is invoked
     sys.path = [os.getcwd()] + sys.path
     parser = argparse.ArgumentParser()
-    # List of possible arguments
-    parser.add_argument('action', help='any basic action like run, newproject, etc.')
+    # List of possible actions
+    parser.add_argument('action', help="""
+    run: generates the desired output based on provided spec file and flags,
+    shell: launches an iPython session for quick prototyping and debugging,
+    setup: starts a new project based on the standard BPG project template,
+    test : runs the BPG test suite
+    """)
     parser.add_argument('-s', '--spec',
                         help='the spec file to be used',
                         )
@@ -81,7 +93,7 @@ def main(arg_list):
     if args.action == 'run':
         run(args)
     elif args.action == 'test':
-        test(args)
+        test()
     elif args.action == 'setup':
         setup()
     elif args.action == 'shell':
