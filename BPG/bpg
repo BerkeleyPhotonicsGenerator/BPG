@@ -7,28 +7,34 @@ import argparse
 import os
 import BPG
 import pytest
+import runpy
 
 
 def run(args):
     """ Sets up your path and runs """
     # Generate the content list
-    plm = BPG.PhotonicLayoutManager(spec_file=args.spec)
-    plm.generate_content()
+    if args.module:
+        runpy.run_path(args.module, run_name='__main__')
+    elif args.spec:
+        plm = BPG.PhotonicLayoutManager(spec_file=args.spec)
+        plm.generate_content()
 
-    if args.gds:
-        plm.generate_gds()
+        if args.gds:
+            plm.generate_gds()
 
-    # Flat gds generation, lsf, or dataprep requires generation of flat content list
-    if args.flat_gds or args.lsf or args.dataprep:
-        plm.generate_flat_content()
+        # Flat gds generation, lsf, or dataprep requires generation of flat content list
+        if args.flat_gds or args.lsf or args.dataprep:
+            plm.generate_flat_content()
 
-    if args.flat_gds:
-        plm.generate_flat_gds()
-    if args.lsf:
-        plm.generate_lsf()
-    if args.dataprep:
-        plm.dataprep()
-        plm.generate_dataprep_gds()
+        if args.flat_gds:
+            plm.generate_flat_gds()
+        if args.lsf:
+            plm.generate_lsf()
+        if args.dataprep:
+            plm.dataprep()
+            plm.generate_dataprep_gds()
+    else:
+        raise ValueError("You must provide either a python module or a spec file to run")
 
 
 def test():
@@ -65,6 +71,8 @@ def get_cmd_line_args(arg_list):
     parser.add_argument('-c', '--config',
                         help='the bag config file to be used',
                         )
+    parser.add_argument('-m', '--module',
+                        help='run a python file in BPG')
 
     # Output types
     parser.add_argument('--gds',
