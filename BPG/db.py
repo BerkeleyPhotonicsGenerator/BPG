@@ -15,7 +15,7 @@ from .content_list import ContentList
 from .compiler.dataprep_gdspy import Dataprep
 
 # Typing Imports
-from typing import TYPE_CHECKING, Dict, Optional, Sequence, List
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, List, Tuple
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
@@ -48,6 +48,9 @@ class PhotonicTemplateDB(TemplateDB):
 
         self.photonic_tech_info = photonic_tech_info
         self.impl_cell = None  # TODO: impl_cell??
+
+        # Storage for the cache used to speed up flattening.
+        self.flattening_cache: Dict[Tuple, "ContentList"] = {}
 
     def dataprep(self,
                  flat_content_list: "ContentList",
@@ -157,6 +160,7 @@ class PhotonicTemplateDB(TemplateDB):
 
         content_list = [master.get_content(lib_name, self.format_cell_name)
                         for master in info_dict.values()]
+
         return content_list
 
     # TODO: Make generate flat content list a method of content list that simply flattens it...
@@ -224,8 +228,11 @@ class PhotonicTemplateDB(TemplateDB):
 
         logging.debug('Retreiving master contents')
 
+        # Clear the flattening cache
+        self.flattening_cache = {}
         flat_content_lists = []
         start = time.time()
+        # Looping handles case where multiple masters were passed to generate_flat_content_list
         for master, top_name in zip(master_list, name_list):
             flat_content_lists.append(
                 self._flatten_instantiate_master_helper(master)
@@ -288,15 +295,28 @@ class PhotonicTemplateDB(TemplateDB):
                 raise ValueError(f'Flattening with arrayed instances is not currently supported.')
 
             child_master_key = child_instance_info['master_key']
-            child_master = self._master_lookup[child_master_key]
-            hierarchy_name_addon = f'{child_master.__class__.__name__}'
-            if child_instance_info['name'] is not None:
-                hierarchy_name_addon += f'(inst_name={child_instance_info["name"]})'
 
-            child_content = self._flatten_instantiate_master_helper(
-                master=child_master,
-                hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
-            )
+            # Get the flat content of this child
+            if child_master_key not in self.flattening_cache:
+                print(f'Did NOT find content {child_master_key}')
+                # If flattened content is not already generated, create the flattened content, then add to cache
+                child_master = self._master_lookup[child_master_key]
+                hierarchy_name_addon = f'{child_master.__class__.__name__}'
+                if child_instance_info['name'] is not None:
+                    hierarchy_name_addon += f'(inst_name={child_instance_info["name"]})'
+
+                child_content = self._flatten_instantiate_master_helper(
+                    master=child_master,
+                    hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
+                )
+
+                self.flattening_cache[child_master_key] = child_content
+            else:
+                print(f'Found content {child_master_key}')
+                # The flattened content is already generated
+                # No need to copy, as ContentList.transform_content creates a copy
+                child_content = self.flattening_cache[child_master_key]
+
             transformed_child_content = child_content.transform_content(
                 res=self.grid.resolution,
                 loc=child_instance_info['loc'],
