@@ -1,3 +1,4 @@
+import sys
 import os
 import bag
 import bag.io
@@ -85,6 +86,9 @@ class PhotonicBagProject(BagProject):
         """ Receives a specification file from the user and configures the project paths accordingly """
         self.specs = read_yaml(spec_file)
 
+        # Get root path for the project
+        bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+
         # Setup relevant output files and directories
         if 'project_dir' in self.specs:
             self.project_dir = Path(self.specs['project_dir']).expanduser()
@@ -98,9 +102,6 @@ class PhotonicBagProject(BagProject):
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
-
-        # Get root path for the project
-        bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
 
         # Enable logging for BPG
         if 'logfile' in self.specs:
