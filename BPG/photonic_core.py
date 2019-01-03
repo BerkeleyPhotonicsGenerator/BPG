@@ -17,7 +17,7 @@ from bag.layout.core import BagLayout
 from BPG.content_list import ContentList
 
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict
-from BPG.bpg_custom_types import layer_or_lpp_type
+from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
 
 # Typing imports
 if TYPE_CHECKING:
@@ -152,10 +152,9 @@ class PhotonicBagProject(BagProject):
         return bag.core._parse_yaml_file(filepath)
 
 
-def create_photonic_tech_info(bpg_config,  # type: Dict
-                              tech_info,  # type: TechInfo
-                              ):
-    # type: (...) -> PhotonicTechInfo
+def create_photonic_tech_info(bpg_config: Dict,
+                              tech_info: "TechInfo",
+                              ) -> "PhotonicTechInfo":
     """Create PhotonicTechInfo object."""
 
     if 'photonic_tech_config_path' not in bpg_config:
@@ -196,7 +195,7 @@ class PhotonicBagLayout(BagLayout):
         BagLayout.__init__(self, grid, use_cybagoa)
 
         # Add new features to be supported in content list
-        self._round_list = []  # type: List[PhotonicRound]
+        self._round_list: List["PhotonicRound"] = []
         self._sim_list = []
         self._source_list = []
         self._monitor_list = []
@@ -267,12 +266,11 @@ class PhotonicBagLayout(BagLayout):
         else:
             self._is_empty = False
 
-    def get_content(self,  # type: BagLayout
-                    lib_name,  # type: str
-                    cell_name,  # type: str
-                    rename_fun,  # type: Callable[[str], str]
-                    ):
-        # type: (...) -> Union[ContentList, Tuple[str, 'cybagoa.PyOALayout']]
+    def get_content(self,
+                    lib_name: str,
+                    cell_name: str,
+                    rename_fun: Callable[[str], str],
+                    ) -> Union[ContentList, Tuple[str, 'cybagoa.PyOALayout']]:
         """
         Returns a list describing geometries in this layout.
 
@@ -287,8 +285,8 @@ class PhotonicBagLayout(BagLayout):
 
         Returns
         -------
-        content : Union[List[Any], Tuple[str, 'cybagoa.PyOALayout']]
-            a list describing this layout, or PyOALayout if cybagoa package is enabled.
+        content : Union[ContentList, Tuple[str, 'cybagoa.PyOALayout']]
+            a ContentList describing this layout, or PyOALayout if cybagoa package is enabled.
         """
 
         if not self._finalized:
@@ -349,8 +347,11 @@ class PhotonicBagLayout(BagLayout):
                 monitor_list=monitor_list,
             )
 
-    def move_all_by(self, dx=0.0, dy=0.0, unit_mode=False):
-        # type: (Union[float, int], Union[float, int], bool) -> None
+    def move_all_by(self,
+                    dx: "dim_type" = 0.0,
+                    dy: "dim_type" = 0.0,
+                    unit_mode: bool = False,
+                    ) -> None:
         """Move all layout objects in this layout by the given amount.
 
         Parameters
@@ -373,7 +374,7 @@ class PhotonicBagLayout(BagLayout):
             obj.move_by(dx=dx, dy=dy, unit_mode=unit_mode)
 
     def add_round(self,
-                  round_obj  # type: PhotonicRound
+                  round_obj: "PhotonicRound",
                   ):
         """Add a new (arrayed) round shape.
 
@@ -387,24 +388,32 @@ class PhotonicBagLayout(BagLayout):
 
         self._round_list.append(round_obj)
 
-    def add_path(self, path: 'PhotonicPath'):
+    def add_path(self,
+                 path: "PhotonicPath",
+                 ):
         BagLayout.add_path(self, path)
 
-    def add_sim_obj(self, sim_obj):
+    def add_sim_obj(self,
+                    sim_obj,
+                    ):
         """ Add a new Lumerical simulation object to the db """
         if self._finalized:
             raise Exception('Layout is already finalized.')
 
         self._sim_list.append(sim_obj)
 
-    def add_source_obj(self, source_obj):
+    def add_source_obj(self,
+                       source_obj,
+                       ):
         """ Add a new Lumerical source object to the db """
         if self._finalized:
             raise Exception('Layout is already finalized.')
 
         self._source_list.append(source_obj)
 
-    def add_monitor_obj(self, monitor_obj):
+    def add_monitor_obj(self,
+                        monitor_obj,
+                        ):
         """ Add a new Lumerical monitor object to the db """
         if self._finalized:
             raise Exception('Layout is already finalized.')
@@ -503,9 +512,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_width_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
-                       ):
-        # type: (...) -> int
+                       layer: "layer_or_lpp_type",
+                       ) -> int:
         """
         Returns the minimum width (in resolution units) for a given layer.
 
@@ -522,9 +530,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_width(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
-                  ):
-        # type: (...) -> float
+                  layer: "layer_or_lpp_type",
+                  ) -> float:
         """
         Returns the minimum width (in layout units) for a given layer.
 
@@ -541,9 +548,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_space_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
-                       ):
-        # type: (...) -> int
+                       layer: "layer_or_lpp_type",
+                       ) -> int:
         """
         Returns the minimum space (in resolution units) for a given layer.
 
@@ -560,9 +566,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_space(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
-                  ):
-        # type: (...) -> float
+                  layer: "layer_or_lpp_type",
+                  ) -> float:
         """
         Returns the minimum space (in layout units) for a given layer.
 
@@ -579,9 +584,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def max_width_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
-                       ):
-        # type: (...) -> int
+                       layer: "layer_or_lpp_type",
+                       ) -> int:
         """
         Returns the maximum width (in resolution units) for a given layer.
 
@@ -598,9 +602,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def max_width(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
-                  ):
-        # type: (...) -> float
+                  layer: "layer_or_lpp_type",
+                  ) -> float:
         """
         Returns the maximum width (in layout units) for a given layer.
 
@@ -617,9 +620,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_area_unit(self,
-                      layer,  # type: Union[str, Tuple[str, str]]
-                      ):
-        # type: (...) -> int
+                      layer: "layer_or_lpp_type",
+                      ) -> int:
         """
         Returns the minimum area (in resolution units) for a given layer.
 
@@ -636,9 +638,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_area(self,
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 ):
-        # type: (...) -> float
+                 layer: "layer_or_lpp_type",
+                 ) -> float:
         """
         Returns the minimum area (in layout units) for a given layer.
 
@@ -655,9 +656,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_edge_length_unit(self,
-                             layer,  # type: Union[str, Tuple[str, str]]
-                             ):
-        # type: (...) -> int
+                             layer: "layer_or_lpp_type",
+                             ) -> int:
         """
         Returns the minimum edge length (in resolution units) for a given layer.
 
@@ -674,9 +674,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def min_edge_length(self,
-                        layer,  # type: Union[str, Tuple[str, str]]
-                        ):
-        # type: (...) -> float
+                        layer: "layer_or_lpp_type",
+                        ) -> float:
         """
         Returns the minimum edge length (in layout units) for a given layer.
 
@@ -693,9 +692,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def height_unit(self,
-                    layer,  # type: Union[str, Tuple[str, str]]
-                    ):
-        # type: (...) -> int
+                    layer: "layer_or_lpp_type",
+                    ) -> int:
         """
         Returns the height from the top of the silicon region (defined as 0) to the bottom surface of the given
         layer, in resolution units.
@@ -713,9 +711,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def height(self,
-               layer,  # type: Union[str, Tuple[str, str]]
-               ):
-        # type: (...) -> float
+               layer: "layer_or_lpp_type",
+               ) -> float:
         """
         Returns the height from the top of the silicon region (defined as 0) to the bottom surface of the given
         layer, in layout units.
@@ -733,9 +730,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def thickness_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
-                       ):
-        # type: (...) -> int
+                       layer: "layer_or_lpp_type",
+                       ) -> int:
         """
         Returns the thickness of the layer, in resolution units
 
@@ -752,9 +748,8 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def thickness(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
-                  ):
-        # type: (...) -> float
+                  layer: "layer_or_lpp_type",
+                  ) -> float:
         """
         Returns the thickness of the layer, in layout units.
 
@@ -800,78 +795,76 @@ class DummyPhotonicTechInfo(PhotonicTechInfo):
         PhotonicTechInfo.__init__(self, {}, resolution, layout_unit)
 
     def min_area(self,
-                 layer,  # type: Union[str, Tuple[str, str]]
+                 layer: "layer_or_lpp_type",
                  ):
         return 0
 
     def min_area_unit(self,
-                      layer,  # type: Union[str, Tuple[str, str]]
+                      layer: "layer_or_lpp_type",
                       ):
         return 0
 
     def min_edge_length(self,
-                        layer,  # type: Union[str, Tuple[str, str]]
+                        layer: "layer_or_lpp_type",
                         ):
         return 0
 
     def min_edge_length_unit(self,
-                             layer,  # type: Union[str, Tuple[str, str]]
+                             layer: "layer_or_lpp_type",
                              ):
         return 0
 
     def min_space(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
+                  layer: "layer_or_lpp_type",
                   ):
         return 0
 
     def min_space_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
+                       layer: "layer_or_lpp_type",
                        ):
         return 0
 
     def min_width(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
+                  layer: "layer_or_lpp_type",
                   ):
         return 0
 
     def min_width_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
+                       layer: "layer_or_lpp_type",
                        ):
         return 0
 
     def max_width(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
+                  layer: "layer_or_lpp_type",
                   ):
         return 0
 
     def max_width_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
+                       layer: "layer_or_lpp_type",
                        ):
         return 0
 
     def height(self,
-               layer,  # type: Union[str, Tuple[str, str]]
+               layer: "layer_or_lpp_type",
                ):
         return 0
 
     def height_unit(self,
-                    layer,  # type: Union[str, Tuple[str, str]]
+                    layer: "layer_or_lpp_type",
                     ):
         return 0
 
     def thickness(self,
-                  layer,  # type: Union[str, Tuple[str, str]]
+                  layer: "layer_or_lpp_type",
                   ):
         return 0
 
     def thickness_unit(self,
-                       layer,  # type: Union[str, Tuple[str, str]]
+                       layer: "layer_or_lpp_type",
                        ):
         return 0
 
     def sheet_resistance(self,
-                         layer: layer_or_lpp_type,
+                         layer: "layer_or_lpp_type",
                          ) -> float:
         return 0
-
-
