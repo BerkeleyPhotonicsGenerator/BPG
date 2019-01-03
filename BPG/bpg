@@ -4,6 +4,7 @@ This module provides a command-line interface to using BPG
 """
 import sys
 import argparse
+import os
 
 
 def run(args):
@@ -30,7 +31,8 @@ def setup():
 
 
 def get_cmd_line_args(arg_list):
-    sys.path = [''] + sys.path
+    # Change module search path to include the directory where bpg is invoked
+    sys.path = [os.getcwd()] + sys.path
     parser = argparse.ArgumentParser()
     # List of possible arguments
     parser.add_argument('action', help='any basic action like run, newproject, etc.')
@@ -71,8 +73,11 @@ def main(arg_list):
         test(args)
     elif args.action == 'setup':
         setup()
+    elif args.action == 'shell':
+        from IPython import embed
+        embed()
     else:
-        print('Invalid action')
+        print(f'{args.action} is an invalid action')
         return -1
 
 
