@@ -297,9 +297,10 @@ class PhotonicTemplateDB(TemplateDB):
             child_master_key = child_instance_info['master_key']
 
             # Get the flat content of this child
+            # Check if given child master & spec info has already been flattened
             if child_master_key not in self.flattening_cache:
-                print(f'Did NOT find content {child_master_key}')
                 # If flattened content is not already generated, create the flattened content, then add to cache
+                logging.debug(f'Not found in flattened cache, flatten being performed: {child_master_key[0]}')
                 child_master = self._master_lookup[child_master_key]
                 hierarchy_name_addon = f'{child_master.__class__.__name__}'
                 if child_instance_info['name'] is not None:
@@ -312,9 +313,9 @@ class PhotonicTemplateDB(TemplateDB):
 
                 self.flattening_cache[child_master_key] = child_content
             else:
-                print(f'Found content {child_master_key}')
                 # The flattened content is already generated
                 # No need to copy, as ContentList.transform_content creates a copy
+                logging.debug(f'Found in flattened cache: {child_master_key[0]}')
                 child_content = self.flattening_cache[child_master_key]
 
             transformed_child_content = child_content.transform_content(

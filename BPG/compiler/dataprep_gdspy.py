@@ -1035,7 +1035,7 @@ class Dataprep:
                 if polygon1 is None:
                     polygon_out = self.dataprep_oversize_gdspy(polygon2, size_amount)
                 else:
-                    polygon_out =gdspy.fast_boolean(polygon1,
+                    polygon_out = gdspy.fast_boolean(polygon1,
                                                     self.dataprep_oversize_gdspy(polygon2, size_amount),
                                                     'xor')
                 polygon_out = self.dataprep_cleanup_gdspy(polygon_out, self.do_cleanup)
