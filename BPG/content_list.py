@@ -225,7 +225,29 @@ class ContentList(dict):
                           orient: str,
                           via_info: Dict,
                           unit_mode: bool,
-                          ):
+                          ) -> "ContentList":
+        """
+        Transforms the layout content (does not transform the sub-instances) of the current ContentList by the loc and
+        orient passed.
+
+        Parameters
+        ----------
+        res : float
+            The grid resolution.
+        loc : Tuple[Union[float, int], Union[float, int]]
+            The (x, y) tuple describing the translation vector for the transformation.
+        orient : str
+            The orientation string describing how the layout should be rotated.
+        via_info : Dict
+            A dictionary containing the via technology properties
+        unit_mode : bool
+            True if loc is provided in resolution unit coordinates. False if in layout unit coordinates.
+
+        Returns
+        -------
+        new_content_list : ContentList
+            The new ContentList object with the transformed shapes.
+        """
         new_rect_list = []
         new_via_list = []  # via list which can not be handled by DataPrep
         new_pin_list = []
