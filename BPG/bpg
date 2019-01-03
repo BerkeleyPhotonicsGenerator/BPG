@@ -10,14 +10,25 @@ import os
 def run(args):
     """ Sources your bag_startup.py and runs """
     import BPG
-    prj = BPG.PhotonicBagProject()
-    plm = BPG.PhotonicLayoutManager(prj, spec_file=args.spec, verbose=args.verbose)
+    plm = BPG.PhotonicLayoutManager(spec_file=args.spec)
+
+    # Generate the content list no matter what
+    plm.generate_content()
+
     if args.gds:
         plm.generate_gds()
+
+    # Flat gds generation, lsf, or dataprep requires generation of flat content list
+    if args.flat_gds or args.lsf or args.dataprep:
+        plm.generate_flat_content()
+
     if args.flat_gds:
         plm.generate_flat_gds()
     if args.lsf:
         plm.generate_lsf()
+    if args.dataprep:
+        plm.dataprep()
+        plm.generate_dataprep_gds()
 
 
 def test(args):
@@ -42,10 +53,7 @@ def get_cmd_line_args(arg_list):
     parser.add_argument('-c', '--config',
                         help='the bag config file to be used',
                         )
-    parser.add_argument('-v', '--verbose',
-                        help='dump information to the command line',
-                        action='store_true'
-                        )
+
     # Output types
     parser.add_argument('--gds',
                         help='flag to generate a gds',
@@ -59,6 +67,9 @@ def get_cmd_line_args(arg_list):
                         help='flag to generate a lsf',
                         action='store_true'
                         )
+    parser.add_argument('--dataprep',
+                        help='flag to run dataprep and generate a dataprep gds',
+                        action='store_true')
     args = parser.parse_args(arg_list)
     return args
 
