@@ -84,11 +84,10 @@ class PhotonicTemplateDB(TemplateDB):
         return post_dataprep_flat_content_list
 
     def generate_content_list(self,
-                              master_list,  # type: Sequence[DesignMaster]
-                              name_list=None,  # type: Optional[Sequence[Optional[str]]]
-                              lib_name='',  # type: str
-                              debug=False,  # type: bool
-                              rename_dict=None,  # type: Optional[Dict[str, str]]
+                              master_list: Sequence["DesignMaster"],
+                              name_list: Optional[Sequence[Optional[str]]] = None,
+                              lib_name: str = '',
+                              rename_dict: Optional[Dict[str, str]] = None,
                               ) -> List[ContentList]:
         """
         Create the content list from the provided masters and returns it.
@@ -101,8 +100,6 @@ class PhotonicTemplateDB(TemplateDB):
             list of master cell names.  If not given, default names will be used.
         lib_name : str
             Library to create the masters in.  If empty or None, use default library.
-        debug : bool
-            True to print debugging messages
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
 
@@ -112,7 +109,7 @@ class PhotonicTemplateDB(TemplateDB):
             Generated content list of the provided masters
         """
         if name_list is None:
-            name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
+            name_list: Sequence[Optional[str]] = [None] * len(master_list)
         else:
             if len(name_list) != len(master_list):
                 raise ValueError("Master list and name list length mismatch.")
@@ -145,11 +142,10 @@ class PhotonicTemplateDB(TemplateDB):
                     rename[name] = name2
                     reverse_rename[name2] = name
 
-        if debug:
-            print('Retrieving master contents')
+        logging.debug(f'Retrieving master contents')
 
         # use ordered dict so that children are created before parents.
-        info_dict = OrderedDict()  # type: Dict[str, DesignMaster]
+        info_dict: Dict[str, "DesignMaster"] = OrderedDict()
         for master, top_name in zip(master_list, name_list):
             self._instantiate_master_helper(info_dict, master)
 
@@ -163,7 +159,6 @@ class PhotonicTemplateDB(TemplateDB):
 
         return content_list
 
-    # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content_list(self,
                                    master_list: Sequence['PhotonicTemplateBase'],
                                    name_list: Optional[Sequence[Optional[str]]] = None,
@@ -186,9 +181,6 @@ class PhotonicTemplateDB(TemplateDB):
         """
         logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
-        # TODO: Implement support for multiple flat masters. Do we flatten all the objects together into 1 layout?
-        #  Probably not... Each master is a separate 'layout' and should each be flattened on its own.
-        #  This would require making flat_content_list a list of dicts each corresponding to a different master, etc
         if len(master_list) > 1:
             raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
 
@@ -254,7 +246,7 @@ class PhotonicTemplateDB(TemplateDB):
         return flat_content_lists
 
     def _flatten_instantiate_master_helper(self,
-                                           master: 'PhotonicTemplateBase',  # DesignMaster
+                                           master: 'PhotonicTemplateBase',
                                            hierarchy_name: Optional[str] = None,
                                            ) -> ContentList:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
