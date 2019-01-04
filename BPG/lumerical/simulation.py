@@ -29,6 +29,10 @@ class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
 
     ''' Properties '''
 
+    def __setitem__(self, key, value):
+        """ TODO: Make lumerical objects have a dictionary like syntax for setting properties """
+        pass
+
     def __getitem__(self, item):
         """ Set up getitem to return layer info when content dict is prompted """
         if item == 'layer':
@@ -36,7 +40,10 @@ class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
 
     @property
     def content(self):
-        """ Return self so that lsf_export can be called by BAG from the content list """
+        """
+        Return self so that lsf_export can be called by BAG from the content list
+        TODO: Instead of returning self, return a dictionary that directly contains the lsf code
+        """
         return self
 
     @abc.abstractmethod
