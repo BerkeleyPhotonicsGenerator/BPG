@@ -52,6 +52,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         Takes a provided layout object and adds it to the db. Automatically detects what type of object is
         being added, and sends it to the appropriate category in the layoutDB.
+        Also accepts a list of layout objects.
 
         TODO: Provide support for directly adding photonic ports and simulation objects
         """
@@ -67,6 +68,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             self._layout.add_polygon(obj)
         elif isinstance(obj, PhotonicInstance):
             self._layout.add_instance(obj)
+        elif isinstance(obj, list):
+            for layout_obj in obj:
+                self.add_obj(layout_obj)
         else:
             raise ValueError("{} is not a valid layout object type, and cannot be added to the db".format(type(obj)))
 
