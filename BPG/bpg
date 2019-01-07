@@ -4,23 +4,48 @@ This module provides a command-line interface to using BPG
 """
 import sys
 import argparse
+import os
+import BPG
+import pytest
+import runpy
 
 
 def run(args):
-    """ Sources your bag_startup.py and runs """
-    import BPG
-    prj = BPG.PhotonicBagProject()
-    plm = BPG.PhotonicLayoutManager(prj, spec_file=args.spec, verbose=args.verbose)
-    if args.gds:
-        plm.generate_gds()
-    if args.flat_gds:
-        plm.generate_flat_gds()
-    if args.lsf:
-        plm.generate_lsf()
+    """ Sets up your path and runs """
+    # Generate the content list
+    if args.module:
+        runpy.run_path(args.module, run_name='__main__')
+    elif args.spec:
+        plm = BPG.PhotonicLayoutManager(spec_file=args.spec)
+        plm.generate_content()
+
+        if args.gds:
+            plm.generate_gds()
+
+        # Flat gds generation, lsf, or dataprep requires generation of flat content list
+        if args.flat_gds or args.lsf or args.dataprep:
+            plm.generate_flat_content()
+
+        if args.flat_gds:
+            plm.generate_flat_gds()
+        if args.lsf:
+            plm.generate_lsf()
+        if args.dataprep:
+            plm.dataprep()
+            plm.generate_dataprep_gds()
+    else:
+        raise ValueError("You must provide either a python module or a spec file to run")
 
 
-def test(args):
-    print(sys.path)
+def test():
+    """
+    Runs the built-in test suite
+    TODO: This only works in BAG_WORK_DIR...make it work in any directory
+    """
+    # Use the built in config file for testing
+    os.environ['BAG_CONFIG_PATH'] = "./BPG/examples/tech/bag_config.yaml"
+    BPG.setup_environment()
+    pytest.main(['BPG/tests'])
 
 
 def setup():
@@ -30,20 +55,25 @@ def setup():
 
 
 def get_cmd_line_args(arg_list):
-    sys.path = [''] + sys.path
+    # Change module search path to include the directory where bpg is invoked
+    sys.path = [os.getcwd()] + sys.path
     parser = argparse.ArgumentParser()
-    # List of possible arguments
-    parser.add_argument('action', help='any basic action like run, newproject, etc.')
+    # List of possible actions
+    parser.add_argument('action', help="""
+    run: generates the desired output based on provided spec file and flags,
+    shell: launches an iPython session for quick prototyping and debugging,
+    setup: starts a new project based on the standard BPG project template,
+    test : runs the BPG test suite
+    """)
     parser.add_argument('-s', '--spec',
                         help='the spec file to be used',
                         )
     parser.add_argument('-c', '--config',
                         help='the bag config file to be used',
                         )
-    parser.add_argument('-v', '--verbose',
-                        help='dump information to the command line',
-                        action='store_true'
-                        )
+    parser.add_argument('-m', '--module',
+                        help='run a python file in BPG')
+
     # Output types
     parser.add_argument('--gds',
                         help='flag to generate a gds',
@@ -57,6 +87,9 @@ def get_cmd_line_args(arg_list):
                         help='flag to generate a lsf',
                         action='store_true'
                         )
+    parser.add_argument('--dataprep',
+                        help='flag to run dataprep and generate a dataprep gds',
+                        action='store_true')
     args = parser.parse_args(arg_list)
     return args
 
@@ -68,11 +101,14 @@ def main(arg_list):
     if args.action == 'run':
         run(args)
     elif args.action == 'test':
-        test(args)
+        test()
     elif args.action == 'setup':
         setup()
+    elif args.action == 'shell':
+        from IPython import embed
+        embed()
     else:
-        print('Invalid action')
+        print(f'{args.action} is an invalid action')
         return -1
 
 

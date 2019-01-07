@@ -119,7 +119,12 @@ lib_defs: "bag_libs.def"
 # place to put new design libraries
 new_lib_path: "BagModules"
 
+# Add the following modules to the python search path
+path_setup:
+  - "${BAG_WORK_DIR}/BAG_framework"
+  - "${BAG_WORK_DIR}/Photonic_Core_Layout"
+  - "${BAG_WORK_DIR}/BAG2_TEMPLATES_EC"
+
 # Configuration for Berkeley Photonics Generator
 bpg_config:
   photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
-

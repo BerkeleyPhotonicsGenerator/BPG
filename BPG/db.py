@@ -15,7 +15,7 @@ from .content_list import ContentList
 from .compiler.dataprep_gdspy import Dataprep
 
 # Typing Imports
-from typing import TYPE_CHECKING, Dict, Optional, Sequence, List
+from typing import TYPE_CHECKING, Dict, Optional, Sequence, List, Tuple
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicTechInfo
@@ -49,6 +49,9 @@ class PhotonicTemplateDB(TemplateDB):
         self.photonic_tech_info = photonic_tech_info
         self.impl_cell = None  # TODO: impl_cell??
 
+        # Storage for the cache used to speed up flattening.
+        self.flattening_cache: Dict[Tuple, "ContentList"] = {}
+
     def dataprep(self,
                  flat_content_list: "ContentList",
                  is_lsf: bool = False,
@@ -81,11 +84,10 @@ class PhotonicTemplateDB(TemplateDB):
         return post_dataprep_flat_content_list
 
     def generate_content_list(self,
-                              master_list,  # type: Sequence[DesignMaster]
-                              name_list=None,  # type: Optional[Sequence[Optional[str]]]
-                              lib_name='',  # type: str
-                              debug=False,  # type: bool
-                              rename_dict=None,  # type: Optional[Dict[str, str]]
+                              master_list: Sequence["DesignMaster"],
+                              name_list: Optional[Sequence[Optional[str]]] = None,
+                              lib_name: str = '',
+                              rename_dict: Optional[Dict[str, str]] = None,
                               ) -> List[ContentList]:
         """
         Create the content list from the provided masters and returns it.
@@ -98,8 +100,6 @@ class PhotonicTemplateDB(TemplateDB):
             list of master cell names.  If not given, default names will be used.
         lib_name : str
             Library to create the masters in.  If empty or None, use default library.
-        debug : bool
-            True to print debugging messages
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
 
@@ -109,7 +109,7 @@ class PhotonicTemplateDB(TemplateDB):
             Generated content list of the provided masters
         """
         if name_list is None:
-            name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
+            name_list: Sequence[Optional[str]] = [None] * len(master_list)
         else:
             if len(name_list) != len(master_list):
                 raise ValueError("Master list and name list length mismatch.")
@@ -142,11 +142,10 @@ class PhotonicTemplateDB(TemplateDB):
                     rename[name] = name2
                     reverse_rename[name2] = name
 
-        if debug:
-            print('Retrieving master contents')
+        logging.debug(f'Retrieving master contents')
 
         # use ordered dict so that children are created before parents.
-        info_dict = OrderedDict()  # type: Dict[str, DesignMaster]
+        info_dict: Dict[str, "DesignMaster"] = OrderedDict()
         for master, top_name in zip(master_list, name_list):
             self._instantiate_master_helper(info_dict, master)
 
@@ -157,9 +156,9 @@ class PhotonicTemplateDB(TemplateDB):
 
         content_list = [master.get_content(lib_name, self.format_cell_name)
                         for master in info_dict.values()]
+
         return content_list
 
-    # TODO: Make generate flat content list a method of content list that simply flattens it...
     def generate_flat_content_list(self,
                                    master_list: Sequence['PhotonicTemplateBase'],
                                    name_list: Optional[Sequence[Optional[str]]] = None,
@@ -182,9 +181,6 @@ class PhotonicTemplateDB(TemplateDB):
         """
         logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
-        # TODO: Implement support for multiple flat masters. Do we flatten all the objects together into 1 layout?
-        #  Probably not... Each master is a separate 'layout' and should each be flattened on its own.
-        #  This would require making flat_content_list a list of dicts each corresponding to a different master, etc
         if len(master_list) > 1:
             raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
 
@@ -224,8 +220,11 @@ class PhotonicTemplateDB(TemplateDB):
 
         logging.debug('Retreiving master contents')
 
+        # Clear the flattening cache
+        self.flattening_cache = {}
         flat_content_lists = []
         start = time.time()
+        # Looping handles case where multiple masters were passed to generate_flat_content_list
         for master, top_name in zip(master_list, name_list):
             flat_content_lists.append(
                 self._flatten_instantiate_master_helper(master)
@@ -247,7 +246,7 @@ class PhotonicTemplateDB(TemplateDB):
         return flat_content_lists
 
     def _flatten_instantiate_master_helper(self,
-                                           master: 'PhotonicTemplateBase',  # DesignMaster
+                                           master: 'PhotonicTemplateBase',
                                            hierarchy_name: Optional[str] = None,
                                            ) -> ContentList:
         """Recursively passes through layout elements, and transforms (translation and rotation) all sub-hierarchy
@@ -288,15 +287,29 @@ class PhotonicTemplateDB(TemplateDB):
                 raise ValueError(f'Flattening with arrayed instances is not currently supported.')
 
             child_master_key = child_instance_info['master_key']
-            child_master = self._master_lookup[child_master_key]
-            hierarchy_name_addon = f'{child_master.__class__.__name__}'
-            if child_instance_info['name'] is not None:
-                hierarchy_name_addon += f'(inst_name={child_instance_info["name"]})'
 
-            child_content = self._flatten_instantiate_master_helper(
-                master=child_master,
-                hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
-            )
+            # Get the flat content of this child
+            # Check if given child master & spec info has already been flattened
+            if child_master_key not in self.flattening_cache:
+                # If flattened content is not already generated, create the flattened content, then add to cache
+                logging.debug(f'Not found in flattened cache, flatten being performed: {child_master_key[0]}')
+                child_master = self._master_lookup[child_master_key]
+                hierarchy_name_addon = f'{child_master.__class__.__name__}'
+                if child_instance_info['name'] is not None:
+                    hierarchy_name_addon += f'(inst_name={child_instance_info["name"]})'
+
+                child_content = self._flatten_instantiate_master_helper(
+                    master=child_master,
+                    hierarchy_name=f'{hierarchy_name}.{hierarchy_name_addon}'
+                )
+
+                self.flattening_cache[child_master_key] = child_content
+            else:
+                # The flattened content is already generated
+                # No need to copy, as ContentList.transform_content creates a copy
+                logging.debug(f'Found in flattened cache: {child_master_key[0]}')
+                child_content = self.flattening_cache[child_master_key]
+
             transformed_child_content = child_content.transform_content(
                 res=self.grid.resolution,
                 loc=child_instance_info['loc'],
