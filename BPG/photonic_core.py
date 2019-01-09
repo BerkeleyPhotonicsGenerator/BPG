@@ -226,12 +226,15 @@ class PhotonicBagLayout(BagLayout):
         boundary_list = []
         via_list = []
         round_list = []
+        sim_list = []
         for targ_list, obj_list in ((path_list, self._path_list),
                                     (polygon_list, self._polygon_list),
                                     (blockage_list, self._blockage_list),
                                     (boundary_list, self._boundary_list),
                                     (via_list, self._via_list),
-                                    (round_list, self._round_list)):
+                                    (round_list, self._round_list),
+                                    (sim_list, self._sim_list)
+                                    ):
             for obj in obj_list:
                 if obj.valid:
                     targ_list.append(obj.content)
@@ -257,7 +260,7 @@ class PhotonicBagLayout(BagLayout):
                              boundary_list,
                              polygon_list,
                              round_list,
-                             self._sim_list,
+                             sim_list,
                              self._source_list,
                              self._monitor_list
                              ]
