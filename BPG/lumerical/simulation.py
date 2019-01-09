@@ -25,18 +25,31 @@ class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
         Box.__init__(self)
         LumericalCodeGenerator.__init__(self)
 
+        # Initialize the property dictionary with the default values
+        self._prop_dict = self.get_default_property_values().copy()
+
         self.layer = ('SI', 'sim')  # Attach simulation objects to a separate layer
+
+    def __setitem__(self, key, value):
+        if key in self.prop_dict:
+            self.prop_dict[key] = value
+        else:
+            raise KeyError(f'{key} is not a valid property of {self.__class__.__name__}')
+
+    def __getitem__(self, item):
+        return self.prop_dict[item]
+
+    @classmethod
+    @abc.abstractmethod
+    def get_default_property_values(cls) -> dict:
+        """ Returns a dictionary containing available properties and their corresponding descriptions """
+        return dict()
 
     ''' Properties '''
 
-    def __setitem__(self, key, value):
-        """ TODO: Make lumerical objects have a dictionary like syntax for setting properties """
-        pass
-
-    def __getitem__(self, item):
-        """ Set up getitem to return layer info when content dict is prompted """
-        if item == 'layer':
-            return self.layer
+    @property
+    def prop_dict(self):
+        return self._prop_dict
 
     @property
     def content(self):
@@ -59,14 +72,24 @@ class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
     def _export_geometry(self):
         """ Adds code to specify the geometry of a simulation region """
         # First set the center of the simulation region
-        self.set('x', self.geometry['x']['center'])
-        self.set('y', self.geometry['y']['center'])
-        self.set('z', self.geometry['z']['center'])
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
 
         # Then set the span of each dimension
-        self.set('x span', self.geometry['x']['span'])
-        self.set('y span', self.geometry['y']['span'])
-        self.set('z span', self.geometry['z']['span'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('z span', self['z span'])
+
+        # First set the center of the simulation region
+        # self.set('x', self.geometry['x']['center'])
+        # self.set('y', self.geometry['y']['center'])
+        # self.set('z', self.geometry['z']['center'])
+        #
+        # # Then set the span of each dimension
+        # self.set('x span', self.geometry['x']['span'])
+        # self.set('y span', self.geometry['y']['span'])
+        # self.set('z span', self.geometry['z']['span'])
 
 
 class FDESolver(LumericalSimObj):
@@ -83,6 +106,7 @@ class FDESolver(LumericalSimObj):
 
     ''' Configuration Methods '''
     ''' USE THESE METHODS TO SETUP THE SIMULATION '''
+
     def align_to_port(self,
                       port,  # type: PhotonicPort
                       offset=(0, 0),  # type: Tuple,
@@ -162,9 +186,13 @@ class FDESolver(LumericalSimObj):
     def _export_geometry(self):
         """ Overrides base method to support 2D sim region """
         # First set the center of the simulation region
-        self.set('x', self.geometry['x']['center'])
-        self.set('y', self.geometry['y']['center'])
-        self.set('z', self.geometry['z']['center'])
+        # self.set('x', self.geometry['x']['center'])
+        # self.set('y', self.geometry['y']['center'])
+        # self.set('z', self.geometry['z']['center'])
+
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
 
         # Next, set the span of each dimension perpendicular to the wave propagation
         if self.orientation != 'x':
@@ -216,6 +244,24 @@ class FDTDSolver(LumericalSimObj):
         }
         self.mesh_accuracy = 3
 
+    @classmethod
+    def get_default_property_values(cls) -> dict:
+        return {
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "x span": 0,
+            "y span": 0,
+            "z span": 0,
+            "mesh accuracy": 3,
+            "x min bc": 'PML',
+            "x max bc": 'PML',
+            "y min bc": 'PML',
+            "y max bc": 'PML',
+            "z min bc": 'PML',
+            "z max bc": 'PML',
+        }
+
     ''' LSF Export Methods '''
     ''' DO NOT CALL THESE METHODS DIRECTLY '''
 
@@ -243,3 +289,68 @@ class FDTDSolver(LumericalSimObj):
         self.set("y max bc", self._bc['ymax'])
         self.set("z min bc", self._bc['zmin'])
         self.set("z max bc", self._bc['zmax'])
+
+
+class PowerMonitor(LumericalSimObj):
+    """ Lumerical Simulation Object that controls and places a power monitor """
+
+    def __init__(self):
+        super(PowerMonitor, self).__init__()
+        self.name = None
+        self.monitor_type = None
+
+    @classmethod
+    def get_default_property_values(cls) -> dict:
+        return {
+            "monitor type": None,
+            "x": None,
+            "y": None,
+            "z": None,
+            "x span": None,
+            "y span": None,
+            "z span": None,
+        }
+
+    def lsf_export(self):
+        """
+        Returns a list of Lumerical code describing the creation of a PowerMonitor object
+
+        Returns
+        -------
+        lsf_code : List[str]
+            list of Lumerical code to create the FDESolver object
+        """
+        self.add_code('\naddmode')
+        self.set("name", self.name)
+        self.set("monitor type", self.monitor_type)
+        self._export_geometry()
+
+        return self._code
+
+
+class ModeSource(LumericalSimObj):
+    """ Lumerical Simulation Object that controls and places a power monitor """
+
+    def __init__(self):
+        super(ModeSource, self).__init__()
+
+    @classmethod
+    def get_default_property_values(cls) -> dict:
+        return {
+            "name": None,
+            "injection axis": "x",
+            "direction": "forward",
+            "x": None,
+            "y": None,
+            "z": None,
+            "x span": None,
+            "y span": None,
+            "z span": None,
+        }
+
+    def lsf_export(self):
+        self.add_code('\naddmode')
+        self.set("name", self['name'])
+        self.set("injection axis", self['injection axis'])
+        self.set("direction", self['direction'])
+        self._export_geometry()
