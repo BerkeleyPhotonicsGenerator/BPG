@@ -3,9 +3,7 @@
 """
 This module defines the content list object that is used in db.
 """
-
-import time
-import logging
+from collections import UserDict
 
 from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound, PhotonicBlockage, PhotonicBoundary, \
     PhotonicPath, PhotonicPinInfo
@@ -17,7 +15,7 @@ if TYPE_CHECKING:
     from BPG.objects import PhotonicViaInfo
 
 
-class ContentList(dict):
+class ContentList(UserDict):
     layout_objects_keys = (
         'rect_list', 'via_list', 'pin_list', 'path_list', 'blockage_list', 'boundary_list',
         'polygon_list', 'round_list', 'sim_list', 'source_list', 'monitor_list'
@@ -35,8 +33,11 @@ class ContentList(dict):
 
         # If key is not specified, content list should have an empty list, not None
         kv_iter = ((key, kwargs.get(key, [])) for key in self.all_iterables_keys)
-        dict.__init__(self, kv_iter)
-        self.cell_name = cell_name
+        UserDict.__init__(self, kv_iter)
+        self.data['cell_name'] = cell_name
+
+    def __repr__(self):
+        return f'ContentList for cell_name={self.cell_name}'
 
     # TODO: Fill in type info? This is tough because they are all lists of content info
     @property
@@ -86,6 +87,10 @@ class ContentList(dict):
     @property
     def monitor_list(self) -> List:
         return self['monitor_list']
+
+    @property
+    def cell_name(self) -> 'str':
+        return self['cell_name']
 
     def copy(self):
         """

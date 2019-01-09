@@ -56,9 +56,10 @@ class PhotonicBagProject(BagProject):
         self.specs = None
         self.log_path = None
         self.log_filename = 'output.log'
-        self.scripts_dir = None
-        self.data_dir = None
-        self.project_dir = None
+        self.project_dir: Path = None
+        self.scripts_dir: Path = None
+        self.data_dir: Path = None
+        self.content_dir: Path = None
         self.lsf_path = None
         self.gds_path = None
 
@@ -97,11 +98,13 @@ class PhotonicBagProject(BagProject):
             self.project_dir = default_path / self.specs['project_name']
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
+        self.content_dir = self.project_dir / 'content'
 
         # Make the project directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
         self.data_dir.mkdir(exist_ok=True)
+        self.content_dir.mkdir(exist_ok=True)
 
         # Enable logging for BPG
         if 'logfile' in self.specs:

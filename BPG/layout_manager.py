@@ -2,6 +2,9 @@ import yaml
 import importlib
 import logging
 import time
+import json
+from pathlib import Path
+from collections import UserDict
 
 # BAG imports
 from bag.layout import RoutingGrid
@@ -67,6 +70,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.content_list_post_dataprep: "ContentList" = None
         self.content_list_post_lsf_dataprep: "ContentList" = None
         self.content_list_lumerical_tb: List["ContentList"] = []
+
+        self.content_list_types = ['content_list', 'content_list_flat', 'content_list_post_dataprep',
+                                   'content_list_post_lsf_dataprep', 'content_list_lumerical_tb']
 
     def init_plugins(self) -> None:
         """
@@ -152,9 +158,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                                        name_list=[cell_name])
         end_time_contentgen = time.time()
 
-        timing_logger.info(f'{end_time_contentgen - start_time:<15.6g} | Content list creation')
+        # Save the content
+        self.save_content_list('content_list')
+        end_time_save = time.time()
+
+        timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
         timing_logger.info(f'  {end_time_newtemp - start_time:<13.6g} | - New template generation')
         timing_logger.info(f'  {end_time_contentgen - end_time_newtemp:<13.6g} | - Content list generation')
+        timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
 
@@ -197,7 +208,13 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                                                  )[0]
         end_time_contentgen = time.time()
 
-        timing_logger.info(f'{end_time_contentgen - start_time:<15.6g} | Flattening and flat content list creation')
+        # Save the content
+        self.save_content_list('content_list_flat')
+        end_time_save = time.time()
+
+        timing_logger.info(f'{end_time_save - start_time:<15.6g} | Generate flat content')
+        timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | Flattening and flat content list creation')
+        timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list_flat
 
@@ -345,3 +362,133 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         # 4) Export to LSF
         lmg.export_to_lsf()
+
+    def save_content_list(self,
+                          content_list: str,
+                          filepath: str = None,
+                          ):
+        """
+        Saves the provided content list to the passed filepath, or to the PLM default filepath.
+
+        Parameters
+        ----------
+        content_list : str
+            Which content list to save
+        filepath : Optional[str]
+            Filepath (directory and filename) (relative to where bpg was started) where to store the file.
+            If not specified, defaults to the directory provided in the current PhotonicLayoutManager instance.
+        Returns
+        -------
+
+        """
+        if content_list not in self.content_list_types:
+            raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
+
+        # If filepath not passed, use the default one
+        if not filepath:
+            filepath = self.content_dir / content_list
+
+        with open(filepath, 'w') as f:
+            test = json.dumps(self.__dict__[content_list],
+                              # f,
+                              indent=4,
+                              default=_json_convert_to_dict,
+                              )
+            f.write(test)
+
+            print(f'json str:  {test}')
+
+    def load_content_list(self,
+                          content_list: str,
+                          filepath: str = None,
+                          ):
+        """
+        Loads the specified content list from the passed filepath, or the PLM default filepath.
+
+        Parameters
+        ----------
+        content_list : str
+            Which content list to load
+        filepath : Optional[str]
+            Filepath (directory and filename) (relative to where bpg was started) to which content list file to load.
+            If not specified, defaults to the directory provided in the current PhotonicLayoutManager instance.
+        Returns
+        -------
+
+        """
+        if content_list not in self.content_list_types:
+            raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
+
+        # If filepath not passed, get the default content location for this PLM
+        if not filepath:
+            filepath = Path(self.content_dir) / content_list
+
+        with open(filepath, 'r') as f:
+            content = json.load(f, object_hook=_json_convert_from_dict)
+
+        self.__dict__[content_list] = content
+        return content
+
+
+def _json_convert_to_dict(obj: object) -> dict:
+    """
+    Takes in a custom object and returns a dictionary representation of the object.
+    The dict representation includes meta data such as the object's module and class names.
+
+    Parameters
+    ----------
+    obj : object
+        The object to convert to a dict
+
+    Returns
+    -------
+    obj_dict : dict
+        The dict form of the object
+    """
+    print(f'_json_convert_to_dict       obj={obj}')
+    print(f'obj.__dict__=    {obj.__dict__}')
+    # Initialize the object dictionary with its class and module
+    obj_dict = dict(
+        __class__=obj.__class__.__name__,
+        __module__=obj.__module__,
+    )
+
+    # Update object dictionary with the obj's properties
+    if isinstance(obj, UserDict):
+        obj_dict.update(obj.data)
+    else:
+        obj_dict.update(obj.__dict__)
+
+    print(f'obj_dict=    {obj_dict}')
+    return obj_dict
+
+
+def _json_convert_from_dict(obj_dict: dict) -> object:
+    """
+    Takes in a dict and returns an object associated with the dict.
+    The function uses the "__module__" and "__class__" metadata in the dictionary to know which object to create.
+
+    Parameters
+    ----------
+    obj_dict : dict
+        The object dictionary to convert to an object
+
+    Returns
+    -------
+    obj : object
+        The object
+    """
+    print(obj_dict)
+    if "__class__" in obj_dict and "__module__" in obj_dict:
+        class_name = obj_dict.pop("__class__")
+
+        module_name = obj_dict.pop("__module__")
+
+        module = importlib.import_module(module_name)
+        obj_class = getattr(module, class_name)
+
+        obj = obj_class(**obj_dict)
+    else:
+        obj = obj_dict
+
+    return obj
