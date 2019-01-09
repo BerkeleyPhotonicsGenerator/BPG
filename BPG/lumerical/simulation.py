@@ -9,87 +9,125 @@ from BPG.geometry import Box, CoordBase
 from BPG.lumerical.code_generator import LumericalCodeGenerator
 
 # Type checking imports
-from typing import List, Tuple
+from typing import List, Tuple, Any
 from BPG.port import PhotonicPort
 
 
-class LumericalSimObj(Box, LumericalCodeGenerator, metaclass=abc.ABCMeta):
+class LumericalSimObj(LumericalCodeGenerator, metaclass=abc.ABCMeta):
     """
     Abstract Base Class for all simulation/monitor objects in Lumerical
 
-    All simulation objects have a common representation for geometry and generate lsf code, so LumericalSimObj
-    inherits both from Box and from LumericalCodeGenerator
+    Notes
+    -----
+    * All simulation objects are treated as dictionaries that store their properties and values. These can be modified
+    directly by users so that the code looks similar to standard lumerical script, or specialized methods can be used
+    to simplify common operations like convergence tests.
+
+    * Because only specific properties are available for each type of simulation object, the built-in dict's keys are
+    set to be immutable. The available properties and their default values are defined by the abstract method
+    get_default_property_values().
+
+    * Since geometry manipulation is such a common operation for simulation classes, an abstract property
+    self.geometry is provided. This property will contain an object that enables quick and easy functions like
+    alignment to ports.
+
+    * The final abstract method is lsf_export. The method is called at the end of the build process to convert all of
+    the values in the property dictionary into their corresponding lumerical code.
     """
 
     def __init__(self):
-        Box.__init__(self)
         LumericalCodeGenerator.__init__(self)
 
         # Initialize the property dictionary with the default values
         self._prop_dict = self.get_default_property_values().copy()
 
-        self.layer = ('SI', 'sim')  # Attach simulation objects to a separate layer
+        # By default attach simulation objects to a special layer
+        # TODO: Figure out the correct way to place these objects on layers...
+        self._prop_dict['layer'] = ('SI', 'sim')
 
-    def __setitem__(self, key, value):
-        if key in self.prop_dict:
-            self.prop_dict[key] = value
+    def __setitem__(self, key, value) -> None:
+        """
+        The available properties are governed by Lumerical syntax and features, so users are prevented from adding
+        arbitrary keys to the property dict
+        """
+        if key in self._prop_dict:
+            self._prop_dict[key] = value
         else:
             raise KeyError(f'{key} is not a valid property of {self.__class__.__name__}')
 
     def __getitem__(self, item):
-        return self.prop_dict[item]
+        return self._prop_dict[item]
+
+    @property
+    def valid(self):
+        """ For now all objects are valid. TODO: Add syntax check here to confirm all properties are specified """
+        return True
 
     @classmethod
     @abc.abstractmethod
     def get_default_property_values(cls) -> dict:
-        """ Returns a dictionary containing available properties and their corresponding descriptions """
+        """
+        Returns a dictionary containing available properties and their corresponding default values
+        This method is called upon initialization of a LumericalSimObj to populate the property dictionary
+        """
         return dict()
-
-    ''' Properties '''
-
-    @property
-    def prop_dict(self):
-        return self._prop_dict
 
     @property
     def content(self):
         """
-        Return self so that lsf_export can be called by BAG from the content list
-        TODO: Instead of returning self, return a dictionary that directly contains the lsf code
+        Calls the lsf_export method to convert the object properties to lumerical code, then formats it into a
+        content dictionary
         """
-        return self
+        self.lsf_export()
+        content = dict(layer=self._prop_dict['layer'], code=self._code)
+        return content
+
+    @property
+    @abc.abstractmethod
+    def geometry(self):
+        """
+        This property returns an object that describes the sizing and placement of the lumerical object. This enables
+        users to easily access this object for more complex geometric manipulation.
+        """
+        pass
 
     @abc.abstractmethod
     def lsf_export(self) -> List[str]:
         """
-        Returns a list of Lumerical code describing the creation of the simulation object
-
-        Unlike the export_lsf method for photonic objects, this method is not a classmethod, and relies
-        on internal access to the instances attributes
+        Returns a list of Lumerical code strings describing the creation of the simulation object. All lumerical
+        objects must implement this method in order to convert their internal object representation into valid
+        code
         """
         pass
 
-    def _export_geometry(self):
-        """ Adds code to specify the geometry of a simulation region """
-        # First set the center of the simulation region
-        self.set('x', self['x'])
-        self.set('y', self['y'])
-        self.set('z', self['z'])
 
-        # Then set the span of each dimension
-        self.set('x span', self['x span'])
-        self.set('y span', self['y span'])
-        self.set('z span', self['z span'])
+class LumericalCodeObj(LumericalSimObj):
+    """ Class that enables the easy addition of arbitrary lumerical code """
 
-        # First set the center of the simulation region
-        # self.set('x', self.geometry['x']['center'])
-        # self.set('y', self.geometry['y']['center'])
-        # self.set('z', self.geometry['z']['center'])
-        #
-        # # Then set the span of each dimension
-        # self.set('x span', self.geometry['x']['span'])
-        # self.set('y span', self.geometry['y']['span'])
-        # self.set('z span', self.geometry['z']['span'])
+    def __init__(self):
+        LumericalSimObj.__init__(self)
+
+    def __setitem__(self, key: str, value: Any):
+        """
+        Unlike the base class LumericalSimObj, this class allows you to assign arbitrary properties, so allow
+        users to add anything to the property dict. This assumes that all __setitem__ calls are equivalent to
+        lumerical set statements.
+        """
+        self.set(key, value)
+        self._prop_dict[key] = value
+
+    @property
+    def geometry(self):
+        return None
+
+    @classmethod
+    def get_default_property_values(cls):
+        """ This class is designed to enable arbitrary code execution so there are no default properties """
+        return dict()
+
+    def lsf_export(self):
+        """ Simply return code that the user has explicitly added """
+        return self._code
 
 
 class FDESolver(LumericalSimObj):
@@ -125,12 +163,13 @@ class FDESolver(LumericalSimObj):
         align_orient : bool
             True to set the orientation to match the port orientation, False to ignore port orientation
         """
-        LumericalSimObj.align_to_port(self, port, offset)
-        if align_orient is True:
-            if port.orientation == 'R0' or port.orientation == 'R180':
-                self.orientation = 'x'
-            else:
-                self.orientation = 'y'
+        raise NotImplementedError('This method has been deprecated')
+        # LumericalSimObj.align_to_port(self, port, offset)
+        # if align_orient is True:
+        #     if port.orientation == 'R0' or port.orientation == 'R180':
+        #         self.orientation = 'x'
+        #     else:
+        #         self.orientation = 'y'
 
     ''' Properties '''
 
@@ -184,12 +223,6 @@ class FDESolver(LumericalSimObj):
         self.set('solver type', '2D {} normal'.format(self.orientation))
 
     def _export_geometry(self):
-        """ Overrides base method to support 2D sim region """
-        # First set the center of the simulation region
-        # self.set('x', self.geometry['x']['center'])
-        # self.set('y', self.geometry['y']['center'])
-        # self.set('z', self.geometry['z']['center'])
-
         self.set('x', self['x'])
         self.set('y', self['y'])
         self.set('z', self['z'])
@@ -233,17 +266,6 @@ class FDTDSolver(LumericalSimObj):
     def __init__(self):
         super(FDTDSolver, self).__init__()
 
-        # Initialize simulator variables
-        self._bc = {
-            'xmin': 'PML',
-            'xmax': 'PML',
-            'ymin': 'PML',
-            'ymax': 'PML',
-            'zmin': 'PML',
-            'zmax': 'PML',
-        }
-        self.mesh_accuracy = 3
-
     @classmethod
     def get_default_property_values(cls) -> dict:
         return {
@@ -262,10 +284,14 @@ class FDTDSolver(LumericalSimObj):
             "z max bc": 'PML',
         }
 
+    @property
+    def geometry(self):
+        return None
+
     ''' LSF Export Methods '''
     ''' DO NOT CALL THESE METHODS DIRECTLY '''
 
-    def lsf_export(self):
+    def lsf_export(self) -> List[str]:
         """
         Returns a list of Lumerical code describing the creation of a FDESolver object
 
@@ -275,33 +301,37 @@ class FDTDSolver(LumericalSimObj):
             list of Lumerical code to create the FDESolver object
         """
         self.add_code('\naddfdtd')
-        self._export_geometry()
-        self._export_sim_settings()
+
+        # Set the geometry
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('z span', self['z span'])
+
+        # Finally set the meshing and boundary condition settings
+        self.set("mesh accuracy", self['mesh accuracy'])
+        self.set("x min bc", self['x min bc'])
+        self.set("x max bc", self['x max bc'])
+        self.set("y min bc", self['y min bc'])
+        self.set("y max bc", self['y max bc'])
+        self.set("z min bc", self['z min bc'])
+        self.set("z max bc", self['z max bc'])
 
         return self._code
 
-    def _export_sim_settings(self):
-        """ Adds code for setting the simulation variables """
-        self.set("mesh accuracy", self.mesh_accuracy)
-        self.set("x min bc", self._bc['xmin'])
-        self.set("x max bc", self._bc['xmax'])
-        self.set("y min bc", self._bc['ymin'])
-        self.set("y max bc", self._bc['ymax'])
-        self.set("z min bc", self._bc['zmin'])
-        self.set("z max bc", self._bc['zmax'])
-
 
 class PowerMonitor(LumericalSimObj):
-    """ Lumerical Simulation Object that controls and places a power monitor """
+    """ Lumerical Simulation Object that describes a power monitor """
 
     def __init__(self):
         super(PowerMonitor, self).__init__()
-        self.name = None
-        self.monitor_type = None
 
     @classmethod
     def get_default_property_values(cls) -> dict:
         return {
+            "name": None,
             "monitor type": None,
             "x": None,
             "y": None,
@@ -311,7 +341,11 @@ class PowerMonitor(LumericalSimObj):
             "z span": None,
         }
 
-    def lsf_export(self):
+    @property
+    def geometry(self):
+        return None
+
+    def lsf_export(self) -> List[str]:
         """
         Returns a list of Lumerical code describing the creation of a PowerMonitor object
 
@@ -321,9 +355,16 @@ class PowerMonitor(LumericalSimObj):
             list of Lumerical code to create the FDESolver object
         """
         self.add_code('\naddmode')
-        self.set("name", self.name)
-        self.set("monitor type", self.monitor_type)
-        self._export_geometry()
+        self.set("name", self['name'])
+        self.set("monitor type", self['monitor type'])
+
+        # Set the geometry
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('z span', self['z span'])
 
         return self._code
 
@@ -348,9 +389,20 @@ class ModeSource(LumericalSimObj):
             "z span": None,
         }
 
+    @property
+    def geometry(self):
+        return None
+
     def lsf_export(self):
         self.add_code('\naddmode')
         self.set("name", self['name'])
         self.set("injection axis", self['injection axis'])
         self.set("direction", self['direction'])
-        self._export_geometry()
+
+        # Set the geometry
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('z span', self['z span'])
