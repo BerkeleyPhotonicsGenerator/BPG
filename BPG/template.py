@@ -1,6 +1,8 @@
 # general imports
 import abc
 import numpy as np
+import logging
+import math
 
 # bag imports
 import bag.io
@@ -32,14 +34,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  used_names: Set[str],
                  **kwargs,
                  ):
-
         use_cybagoa = kwargs.get('use_cybagoa', False)
 
         TemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        logging.debug(f'Initializing master {self.__class__.__name__}')
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
+
+        # This stores the angular offset from the cardinal axis that this master is drawn at
+        self._angle = self.params.get('angle', 0.0)
+
+        # Check that the provided angle is in modulo format for debugging purposes
+        if self._angle < 0 or self._angle > math.pi / 2:
+            logging.warning(f"{self.__class__.__name__}'s angle {self._angle} is not in modulo format")
 
     @abc.abstractmethod
     def draw_layout(self):
