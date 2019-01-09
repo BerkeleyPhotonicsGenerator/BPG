@@ -118,7 +118,8 @@ class LumericalPlugin(AbstractPlugin):
                 lsfwriter.add_formatted_line('# Adding Simulation Objects ')
                 lsfwriter.add_formatted_line('#-------------------------- ')
             for sim in content_list.sim_list:
-                lsf_repr = sim.lsf_export()
+                # lsf_repr = sim.lsf_export()
+                lsf_repr = sim['code']
                 lsfwriter.add_formatted_code_block(lsf_repr)
 
             if len(content_list.source_list) != 0:
@@ -127,7 +128,8 @@ class LumericalPlugin(AbstractPlugin):
                 lsfwriter.add_formatted_line('# Adding Source Objects ')
                 lsfwriter.add_formatted_line('#---------------------- ')
             for source in content_list.source_list:
-                lsf_repr = source.lsf_export()
+                # lsf_repr = source.lsf_export()
+                lsf_repr = source.content['code']
                 lsfwriter.add_formatted_code_block(lsf_repr)
 
             if len(content_list.monitor_list) != 0:
@@ -136,7 +138,8 @@ class LumericalPlugin(AbstractPlugin):
                 lsfwriter.add_formatted_line('# Adding Monitor Objects ')
                 lsfwriter.add_formatted_line('#----------------------- ')
             for monitor in content_list.monitor_list:
-                lsf_repr = monitor.lsf_export()
+                # lsf_repr = monitor.lsf_export()
+                lsf_repr = monitor.content['code']
                 lsfwriter.add_formatted_code_block(lsf_repr)
 
             lsfwriter.export_to_lsf()

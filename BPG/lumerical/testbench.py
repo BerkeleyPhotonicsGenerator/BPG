@@ -10,10 +10,13 @@ logger = logging.getLogger(__name__)
 
 
 class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
+    """
+    Abstract base class for all lumerical testbench generators. This class is structured similarly
+    to layout generators, allowing users to add lumerical objects to a running database. These objects
+    can then be manipulated by the user to setup the desired properties as needed.
+    """
+
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
-        """
-        This class enables the creation of Lumerical testbenches
-        """
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
         self.layout_package: str = params['layout_package']
         self.layout_class: str = params['layout_class']
@@ -46,8 +49,14 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         """
         pass
 
+    def add_code_obj(self):
+        """ Create an object that simplifies the process of adding arbitrary lumerical code """
+        temp_code = LumericalCodeObj()
+        self._sim_db.append(temp_code)
+        return temp_code
+
     ''' Simulation Solvers '''
-    def add_FDTD_solver(self):
+    def add_FDTD_solver(self) -> FDTDSolver:
         """ Create a blank FDTD solver, add it to the db, and return it to the user for manipulation """
         temp_fdtd = FDTDSolver()
         self._sim_db.append(temp_fdtd)
