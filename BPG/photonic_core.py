@@ -403,6 +403,17 @@ class PhotonicBagLayout(BagLayout):
                 monitor_list=monitor_list,
             )
 
+    def rotate_all_by(self, angle=0.0):
+        """
+        This method rotates all of the shapes in the db
+
+        Parameters
+        ----------
+        angle : float
+            angle in radians to rotate all shapes by
+        """
+        pass
+
     def move_all_by(self,
                     dx: "dim_type" = 0.0,
                     dy: "dim_type" = 0.0,

@@ -3,10 +3,11 @@ import abc
 import numpy as np
 import logging
 import math
+import copy
 
 # bag imports
 import bag.io
-from bag.layout.template import TemplateBase
+from bag.layout.template import TemplateBase, DesignMaster
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from BPG.photonic_core import PhotonicBagLayout
 
@@ -43,21 +44,29 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
-        # This stores the angular offset from the cardinal axis that this master is drawn at
+        # Feature flag that when False, prevents users from creating rotated masters that contain other
+        # rotated masters
+        self.allow_rotation_hierarchy = False
+
+        # This stores the angular offset from the cardinal axes that this master is drawn at
         self._angle = self.params.get('angle', 0.0)
 
         # Check that the provided angle is in modulo format for debugging purposes
         if self._angle < 0 or self._angle > math.pi / 2:
             logging.warning(f"{self.__class__.__name__}'s angle {self._angle} is not in modulo format")
 
+    @property
+    def angle(self) -> float:
+        return self._angle
+
     @abc.abstractmethod
-    def draw_layout(self):
+    def draw_layout(self) -> None:
         pass
 
     def photonic_ports_names_iter(self) -> Iterable[str]:
         return self._photonic_ports.keys()
 
-    def add_obj(self, obj):
+    def add_obj(self, obj) -> None:
         """
         Takes a provided layout object and adds it to the db. Automatically detects what type of object is
         being added, and sends it to the appropriate category in the layoutDB.
@@ -240,10 +249,53 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_path(new_path)
         return new_path
 
+    def new_template(self, params=None, temp_cls=None, debug=False, angle=0.0, **kwargs):
+        """
+        Creates a new master that can be placed using self.add_instance() or self.add_instances_port_to_port()
+        This performs the exact same thing as TemplateBase.new_template(), but has the additional angle argument
+        built in which allows for any-angle rotation. This method takes the current masters angle and adds the
+        desired rotation to it. This is required since all rotation is performed relative to 0 degrees.
+
+        Parameters
+        ----------
+        params : dict
+            dictionary of parameters to be passed to the layout generator
+        temp_cls :
+            subclass of PhotonicTemplateBase that will be used to generate the new template
+        debug : bool
+            if True, prints debugging information during template creation
+        angle : float
+            angle at which the new template will be rotated
+
+        Returns
+        -------
+        master : PhotonicTemplateBase
+            Newly created generator object
+        """
+        if self.angle != 0 and angle != 0 and self.allow_rotation_hierarchy is False:
+            print(f'self master angle={self.angle}')
+            print(f'new master angle={angle}')
+            print(f'allow rotation hierarchy={self.allow_rotation_hierarchy}')
+            raise ValueError('Adding non-cardinal masters in an already rotated layout is currently not supported')
+        return TemplateBase.new_template(self,
+                                         params=params,
+                                         temp_cls=temp_cls,
+                                         debug=debug,
+                                         hidden_params=dict(angle=self.angle + angle),
+                                         **kwargs
+                                         )
+
     def finalize(self):
         # TODO: Implement port polygon adding here?
-        # Need to remove match port's polygons?
-        # Anything else?
+        self.draw_layout()
+
+        # Perform any tech specific finalization routines
+        self.grid.tech_info.finalize_template(self)
+        self._layout.rotate_all_by(angle=self.angle)
+
+        # Freeze the layout db so no other changes can be made
+        self._layout.finalize()
+        self.children = self._layout.get_masters_set()
 
         # Call super finalize routine
         TemplateBase.finalize(self)
@@ -253,6 +305,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           name: str = None,
                           center: coord_type = None,
                           orient: str = None,
+                          angle: float = 0.0,
                           width: dim_type = None,
                           layer: layer_or_lpp_type = None,
                           overwrite_purpose: bool = False,
@@ -274,6 +327,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             (x, y) location of the port
         orient : str
             orientation pointing INTO the port
+        angle : float
+            angle of a unit vector pointing into the port. This is used in combination with orient to place the port
         width : dim_type
             the port width
         layer : Union[str, Tuple[str, str]]
@@ -300,6 +355,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
+        # TODO: Actually pass the angle parameter to the port
+        if angle != 0.0:
+            raise ValueError('Any angle rotation of ports is not yet supported!')
 
         # Create a temporary port object unless one is passed as an argument
         if port is None:
@@ -412,6 +470,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                      inst_name: Optional[str] = None,
                      loc: coord_type = (0, 0),
                      orient: str = "R0",
+                     angle: float = 0.0,
                      nx: int = 1,
                      ny: int = 1,
                      spx: dim_type = 0,
@@ -431,6 +490,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             instance location.
         orient : str
             instance orientation.  Defaults to "R0"
+        angle : float
+            angle in radians to rotate this instance
         nx : int
             number of columns.  Must be positive integer.
         ny : int
@@ -447,6 +508,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         inst : PhotonicInstance
             the added instance.
         """
+        # TODO: Actually pass the angle parameter to PhotonicInstance
+        if angle != 0.0:
+            raise ValueError('Any angle rotation of instances is not yet supported!')
+
         res = self.grid.resolution
         if not unit_mode:
             loc = int(round(loc[0] / res)), int(round(loc[1] / res))
@@ -900,3 +965,39 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             min_area_on_bot_top_layer=min_area_on_bot_top_layer,
             unit_mode=unit_mode
         )
+
+    def new_template_with(self, angle=0.0, **kwargs):
+        """
+        Create a new template with the given parameters
+
+        This method will update the parameter values with the given kwargs, then create a new template with those
+        parameters and return it. This procedure also takes on the angle provided by the caller. Unlike
+        self.new_template the masters initial angle is completely ignored. This method should only be called by
+        PhotonicInstance
+
+        Parameters
+        ----------
+        angle : float
+            angle in radians fo the rotation to be performed
+        kwargs : dict
+            a dictionary of new parameter values
+
+        Returns
+        -------
+        master : PhotonicTemplateBase
+            Newly created master from the given parameters
+        """
+        # Create a new parameter dictionary based on the provided changes
+        new_params = copy.deepcopy(self.params)
+        for key, val in kwargs.items():
+            if key in new_params:
+                new_params[key] = val
+
+        # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params
+        del new_params['angle']
+        return TemplateBase.new_template(self,
+                                         params=new_params,
+                                         temp_cls=self.__class__,
+                                         hidden_params=dict(angle=angle),
+                                         **kwargs
+                                         )
