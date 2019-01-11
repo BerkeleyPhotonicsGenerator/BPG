@@ -48,8 +48,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
             port to communicate with cadence
         """
         PhotonicBagProject.__init__(self, bag_config_path=bag_config_path, port=port)
-        self.load_paths(spec_file=spec_file)
-        self.photonic_tech_info.load_tech_files()
+
+        self.load_spec_file_paths(spec_file=spec_file)
 
         self.tdb: "PhotonicTemplateDB" = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored

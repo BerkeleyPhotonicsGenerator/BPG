@@ -3,7 +3,7 @@
 # Layer/via names changed to reflect dummy BPG process
 
 # PDK library name.
-tech_lib: BPG_soi_dummy
+tech_lib: dummyLib
 # layout unit, in meters.
 layout_unit: 1.0e-6
 # layout resolution, in layout units.

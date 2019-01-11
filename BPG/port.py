@@ -12,7 +12,7 @@ class PhotonicPort:
     def __init__(self,
                  name: str,
                  center: "coord_type",
-                 orientation: str,
+                 orient: str,
                  width: "dim_type",
                  layer: "lpp_type",
                  resolution: float,
@@ -26,7 +26,7 @@ class PhotonicPort:
             the name of the port
         center : Tuple[Union[float, int], Union[float, int]]
             the (x, y) point of the port
-        orientation : str
+        orient : str
             the orientation pointing into the object of the port
         width : Union[float, int]
             the port width
@@ -56,7 +56,7 @@ class PhotonicPort:
         self._layer = layer
         self._used = False
         self._width_unit = width
-        self._orientation = orientation
+        self._orientation = orient
 
     def __repr__(self):
         return "PhotonicPort: name: {}, layer: {}, location: ({}, {})".format(
@@ -211,7 +211,7 @@ class PhotonicPort:
 
         return PhotonicPort(name=self._name,
                             center=new_center,
-                            orientation=new_orient,
+                            orient=new_orient,
                             width=self._width_unit,
                             layer=self._layer,
                             resolution=self._res,
