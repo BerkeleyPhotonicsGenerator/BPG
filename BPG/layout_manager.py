@@ -396,8 +396,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
                               )
             f.write(test)
 
-            print(f'json str:  {test}')
-
     def load_content_list(self,
                           content_list: str,
                           filepath: str = None,
@@ -445,8 +443,6 @@ def _json_convert_to_dict(obj: object) -> dict:
     obj_dict : dict
         The dict form of the object
     """
-    print(f'_json_convert_to_dict       obj={obj}')
-    print(f'obj.__dict__=    {obj.__dict__}')
     # Initialize the object dictionary with its class and module
     obj_dict = dict(
         __class__=obj.__class__.__name__,
@@ -459,7 +455,6 @@ def _json_convert_to_dict(obj: object) -> dict:
     else:
         obj_dict.update(obj.__dict__)
 
-    print(f'obj_dict=    {obj_dict}')
     return obj_dict
 
 
@@ -478,7 +473,6 @@ def _json_convert_from_dict(obj_dict: dict) -> object:
     obj : object
         The object
     """
-    print(obj_dict)
     if "__class__" in obj_dict and "__module__" in obj_dict:
         class_name = obj_dict.pop("__class__")
 
