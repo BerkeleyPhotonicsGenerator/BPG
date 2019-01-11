@@ -1,4 +1,5 @@
 import BPG
+from BPG.port import PhotonicPort
 
 
 class SubObject(BPG.PhotonicTemplateBase):
@@ -39,12 +40,16 @@ class SubObject(BPG.PhotonicTemplateBase):
             layer=('SI', 'phot'),
         )
 
-        self.add_photonic_port(
+        port2 = PhotonicPort(
             name='Port2',
             center=(0, 10),
             orient='R0',
             width=1,
             layer=('SI', 'phot'),
+            resolution=self.grid.resolution
+        )
+        self.add_photonic_port(
+            port=port2
         )
 
         self.add_photonic_port(

@@ -82,13 +82,32 @@ class PhotonicBagProject(BagProject):
         self.tech_info = create_tech_info(bag_config_path=bag_config_path)
         self.photonic_tech_info = create_photonic_tech_info(bpg_config=self.bpg_config,
                                                             tech_info=self.tech_info)
+        self.photonic_tech_info.load_tech_files()
 
-    def load_paths(self, spec_file):
+    def load_spec_file_paths(self, spec_file):
         """ Receives a specification file from the user and configures the project paths accordingly """
         self.specs = read_yaml(spec_file)
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
+
+        # If user specifies a particular bag or tech config in the yaml, reload the tech_info / photonic_tech_info
+        if 'bag_config_path' in self.specs:
+            self.bag_config = self.load_yaml(self.specs['bag_config_path'])
+            self.tech_info = create_tech_info(bag_config_path=self.specs['bag_config_path'])
+            # BAG might reset the photonic_tech_info config, need to reset it
+            self.photonic_tech_info = create_photonic_tech_info(
+                bpg_config=self.bag_config['bpg_config'],
+                tech_info=self.tech_info,
+            )
+            self.photonic_tech_info.load_tech_files()
+
+        if 'photonic_tech_config_path' in self.specs:
+            self.photonic_tech_info = create_photonic_tech_info(
+                bpg_config=dict(photonic_tech_config_path=self.specs['photonic_tech_config_path']),
+                tech_info=self.tech_info,
+            )
+            self.photonic_tech_info.load_tech_files()
 
         # Setup relevant output files and directories
         if 'project_dir' in self.specs:

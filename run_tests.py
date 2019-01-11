@@ -15,4 +15,4 @@ if __name__ == '__main__':
                                 category=RuntimeWarning,
                                 message='.*polygon with more than 199 points was created.*')
 
-    pytest.main(test_set)
+        pytest.main(test_set)
