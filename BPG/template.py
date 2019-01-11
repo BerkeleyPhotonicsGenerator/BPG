@@ -765,6 +765,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         -------
 
         """
+        # If the bottom layer and top layer are the same, do not draw any vias
+        if bot_layer == top_layer:
+            return
+
         if not unit_mode:
             loc = (int(round(loc[0] / self.grid.resolution)), int(round(loc[1] / self.grid.resolution)))
 
@@ -822,15 +826,15 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
                 # Fix minimum area violations:
                 if bot_lay_id > bot_layer_id_global or min_area_on_bot_top_layer:
-                    min_area = self.grid.tech_info.get_min_area(bot_lay_type)
-                    if (2 * enc_b[0] + dim[0]) * (2 * enc_b[1] + dim[1]) < min_area:
-                        min_side_len_unit = int(np.ceil(np.sqrt(min_area)))
+                    min_area_unit = self.grid.tech_info.get_min_area_unit(bot_lay_type)
+                    if (2 * enc_b[0] + dim[0]) * (2 * enc_b[1] + dim[1]) < min_area_unit:
+                        min_side_len_unit = int(np.ceil(np.sqrt(min_area_unit)))
                         enc_b = [np.ceil((min_side_len_unit - dim[0]) / 2), np.ceil((min_side_len_unit - dim[1]) / 2)]
 
                 if bot_lay_id + 1 < top_layer_id_global or min_area_on_bot_top_layer:
-                    min_area = self.grid.tech_info.get_min_area(top_lay_type)
-                    if (2 * enc_t[0] + dim[0]) * (2 * enc_t[1] + dim[1]) < min_area:
-                        min_side_len_unit = int(np.ceil(np.sqrt(min_area)))
+                    min_area_unit = self.grid.tech_info.get_min_area_unit(top_lay_type)
+                    if (2 * enc_t[0] + dim[0]) * (2 * enc_t[1] + dim[1]) < min_area_unit:
+                        min_side_len_unit = int(np.ceil(np.sqrt(min_area_unit)))
                         enc_t = [np.ceil((min_side_len_unit - dim[0]) / 2), np.ceil((min_side_len_unit - dim[1]) / 2)]
 
                 self.add_via_primitive(
