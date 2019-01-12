@@ -301,20 +301,20 @@ class Transformable2D:
     supporting quick translation and rotation of the point.
     """
 
-    # TODO: are we using these properly
-    SMALL_ANGLE_ERROR = 1e-4  # small deviation in angle assumed to be cardinal
-    NEGLIGIBLE_ANGLE = 3e-8  # tiny angle that can always be snapped to cardinal
+    # small deviation in angle assumed to be cardinal
+    SMALL_ANGLE_TOLERANCE = 1e-6
 
     OrientationsNoFlip = ['R0', 'R90', 'R180', 'R270']
     OrientationsWithFlip = ['MX', 'MXR90', 'MY', 'MYR90']  # Mirror first, then rotate if applicable
     OrientationsAll = OrientationsNoFlip + OrientationsWithFlip
 
+    # TODO: While implementing the changes in templateBase, look into whether is_cardinal is a forcing flag or not...
     def __init__(self,
                  center: "coord_type",
                  resolution: float,
                  orientation: str = 'R0',
                  angle: float = 0.0,
-                 invert_y: bool = False,  # TODO: Why have this and also orient that can accept MX or such?
+                 mirrored: bool = False,  # TODO: Why have this and also orient that can accept MX or such?
                  is_cardinal: bool = True,
                  unit_mode: bool = False,
                  ):
@@ -331,8 +331,9 @@ class Transformable2D:
             the orientation string of the port.
         angle : float
             angle in radians [0, pi/2) representing the angle at which this port is placed
-        invert_y : bool
+        mirrored : bool
             If true, specifies a reflection across the x-axis (y-->-y) before any rotation
+            This operation (coupled with the orientation) more generally indicates that a block has been mirrored.
         is_cardinal : bool
             Tracks whether the angle is cardinal and should be snapped to 90deg where applicable
         unit_mode : bool
@@ -348,10 +349,10 @@ class Transformable2D:
 
         # Convert the input angle+orientation to angle+invert representation
         angle, temp_invert_y = self.orient2angle(orient=orientation, mod_angle=angle)
-        invert_y = invert_y ^ temp_invert_y  # Todo: Make sure this is right after discussion about invert_y in the init
+        mirrored = mirrored ^ temp_invert_y  # Todo: Make sure this is right after discussion about invert_y in the init
 
         # Store information internally in mod_angle and cadence orientation format
-        orient, mod_angle, seems_cardinal, _ = self.angle2orient(angle, invert_y)
+        orient, mod_angle, seems_cardinal, _ = self.angle2orient(angle, mirrored)
         self._orient = orient
         self.mod_angle = mod_angle
 
@@ -438,12 +439,12 @@ class Transformable2D:
     @property
     def is_horizontal(self) -> bool:
         """ Returns True if angle is 0, 180deg, etc. """
-        return self.unit_vec[1] == 0  # TODO: check if within NEGLIGIBLE_ANGLE
+        return abs(self.unit_vec[1]) <= Transformable2D.SMALL_ANGLE_TOLERANCE
 
     @property
     def is_vertical(self) -> bool:
         """ Returns True if angle is 90deg, 270deg, etc. """
-        return self.unit_vec[0] == 0  # TODO: check if within NEGLIGIBLE_ANGLE
+        return abs(self.unit_vec[0]) <= Transformable2D.SMALL_ANGLE_TOLERANCE
 
     @property
     def resolution(self) -> float:
@@ -574,23 +575,25 @@ class Transformable2D:
         #   self._is_cardinal = seems_cardinal
         if is_cardinal is True:
             # Transformation is explicitly cardinal, so do not change is_cardinal flag
-            if np.abs(np.cos(rotation) * np.sin(rotation)) > Transformable2D.SMALL_ANGLE_ERROR:
+            if np.abs(np.cos(rotation) * np.sin(rotation)) > Transformable2D.SMALL_ANGLE_TOLERANCE:
                 raise RuntimeError('rotation specified as cardinal, but angle is not a multiple of pi/2')
         else:
             self._is_cardinal = seems_cardinal
 
     @staticmethod
     def angle2orient(angle: float,
-                     invert_y: bool,
+                     mirrored: bool,
                      ) -> Tuple[str, float, bool, int]:
         """
-        Converts an unbounded floating-point angle and invert_y into an equivalent
+        Converts an unbounded floating-point angle and mirrored into an equivalent
         bounded [0, pi/2) angle rotation (mod_angle) and cadence orientation string.
 
         Parameters
         ----------
         angle : float
-        invert_y : bool
+            The unbounded angle (radians) of the orientation
+        mirrored : bool
+            True if the orientation is mirrored.
 
         Returns
         -------
@@ -604,16 +607,16 @@ class Transformable2D:
         num_90deg = int(np.floor(angle / (np.pi / 2)))
         mod_angle = angle - num_90deg * (np.pi / 2)
 
-        if 0 <= mod_angle < Transformable2D.NEGLIGIBLE_ANGLE:
+        if 0 <= mod_angle < Transformable2D.SMALL_ANGLE_TOLERANCE:
             mod_angle = 0
             is_cardinal = True
-        elif np.pi / 2 > mod_angle > np.pi / 2 - Transformable2D.NEGLIGIBLE_ANGLE:
+        elif np.pi / 2 > mod_angle > np.pi / 2 - Transformable2D.SMALL_ANGLE_TOLERANCE:
             mod_angle = 0
             num_90deg = num_90deg + 1
             is_cardinal = True
         else:
             is_cardinal = False
-        index = (num_90deg % 4) + invert_y * 4
+        index = (num_90deg % 4) + mirrored * 4
         orient = Transformable2D.OrientationsAll[index]
         return orient, mod_angle, is_cardinal, num_90deg
 
@@ -623,7 +626,7 @@ class Transformable2D:
                      ) -> Tuple[float, bool]:
         """
         Converts a small-angle [0, pi/2) rotation mod_angle and Cadence orientation vector into
-        an equivalent [0, 2pi) angle and invert_y.
+        an equivalent [0, 2pi) angle and mirrored representation.
 
         Parameters
         ----------
@@ -635,9 +638,9 @@ class Transformable2D:
         Returns
         -------
         out_tuple : Tuple[float, bool]
-            (angle, invert_y)
+            (angle, mirrored)
             angle : the [0, 2pi) equivalent angle
-            invert_y : True if the orientation string indicated a mirroring orientation, False if it did not.
+            mirrored : True if the orientation string indicated a mirroring orientation, False if it did not.
 
         """
         if orient not in Transformable2D.OrientationsAll:
@@ -645,11 +648,11 @@ class Transformable2D:
 
         if orient in Transformable2D.OrientationsNoFlip:  # ['R0','R90','R180','R270']):
             rotate_by = Transformable2D.OrientationsNoFlip.index(orient) * np.pi / 2
-            invert_y = False
+            mirrored = False
             angle = rotate_by + mod_angle
         else:  # Transformable2D.OrientationsWithFlip  ['MX','MXR90','MY','MYR90']):
             # The list above is MX followed by   ['R0','R90','R180','R270'], so
             rotate_by = Transformable2D.OrientationsWithFlip.index(orient) * np.pi / 2
-            invert_y = True
+            mirrored = True
             angle = rotate_by + mod_angle
-        return angle, invert_y
+        return angle, mirrored
