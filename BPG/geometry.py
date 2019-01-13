@@ -1,20 +1,16 @@
 from decimal import Decimal
-<<<<<<< HEAD
-from BPG.port import PhotonicPort
-from bag.layout.util import BBox
 
-from typing import Tuple, Union
-=======
 import numpy as np
 import math
 import warnings
 
-from typing import TYPE_CHECKING, Tuple
+from bag.layout.util import BBox
+
+from typing import TYPE_CHECKING, Tuple, Union
 
 if TYPE_CHECKING:
     from BPG.bpg_custom_types import coord_type
     from BPG.port import PhotonicPort
->>>>>>> Added initial Transformable2D implementation based on previous AnyAngle efforts. Fixed bugs and raised TODOs for discussion
 
 
 class CoordBase:
@@ -354,7 +350,7 @@ class Transformable2D:
         # Store information internally in mod_angle and cadence orientation format
         orient, mod_angle, seems_cardinal, _ = self.angle2orient(angle, mirrored)
         self._orient = orient
-        self.mod_angle = mod_angle
+        self.mod_angle = mod_angle  # Set using setter to ensure mod_angle < pi/2
 
         # Handle the case where the object may or may not be cardinal
         if is_cardinal:
@@ -365,7 +361,7 @@ class Transformable2D:
             self._is_cardinal = seems_cardinal
 
     def __str__(self):
-        return f'Transformable2D(center={self.center}, angle={self.angle}, invertY={self.invert_y})'
+        return f'Transformable2D(center={self.center}, angle={self.angle}, mirrored={self.mirrored})'
 
     @property
     def center(self) -> np.array:
@@ -412,10 +408,10 @@ class Transformable2D:
         return temp_angle
 
     @property
-    def invert_y(self) -> bool:
+    def mirrored(self) -> bool:
         """ If true, the object has been mirrored across the x-axis """
-        _, temp_invert_y = self.orient2angle(self._orient, self._mod_angle)
-        return temp_invert_y
+        _, temp_mirrored = self.orient2angle(self._orient, self._mod_angle)
+        return temp_mirrored
 
     @property
     def orientation(self) -> str:
