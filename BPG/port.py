@@ -166,14 +166,15 @@ class PhotonicPort:
         return self._orientation
 
     def is_horizontal(self) -> bool:
-        """Returns True if port orientation is R0 or R180"""
-        if self.orientation == 'R0' or self.orientation == 'R180':
+        """Returns True if port orientation is pointing in a horizontal direction"""
+        horizontal_orientation = ['R0', 'R180', 'MX', 'MY']
+        if self.orientation in horizontal_orientation:
             return True
         else:
             return False
 
     def is_vertical(self) -> bool:
-        """Returns True if port orientation is vertical (R90 or R270)"""
+        """Returns True if port orientation is in a vertical direction"""
         return not self.is_horizontal()
 
     def transform(self,
