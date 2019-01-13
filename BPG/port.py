@@ -1,3 +1,5 @@
+from BPG.geometry import Transformable2D
+
 from typing import TYPE_CHECKING, Tuple
 import numpy as np
 from bag.layout.util import transform_point, transform_loc_orient
@@ -6,9 +8,8 @@ if TYPE_CHECKING:
     from BPG.bpg_custom_types import dim_type, coord_type, lpp_type, layer_or_lpp_type
 
 
-class PhotonicPort:
+class PhotonicPort(Transformable2D):
     # TODO:  __slots__ =
-    # TODO: Ensure unit mode is rounded properly
     def __init__(self,
                  name: str,
                  center: "coord_type",
@@ -16,6 +17,9 @@ class PhotonicPort:
                  width: "dim_type",
                  layer: "lpp_type",
                  resolution: float,
+                 angle: float = 0.0,
+                 mirrored: bool = False,
+                 is_cardinal: bool = True,
                  unit_mode: bool = False,
                  ) -> None:
         """Creates a new PhotonicPort object
@@ -31,22 +35,32 @@ class PhotonicPort:
         width : Union[float, int]
             the port width
         layer : Tuple[str, str]
-            the layer / layer purpose pair on which the port should be drawn
+            the LPP on which the port should be drawn
         resolution : float
             the grid resolution
+        angle : float
+            The offset angle of the port, within [0, pi/2). Defaults to 0.0
+        mirrored : bool
+            True if the port orientation is mirrored. Defaults to False.
+        is_cardinal : bool
+            Tracks whether the angle is cardinal and should be snapped to 90deg where applicable
+
         unit_mode : bool
             True if layout dimensions are specified in resolution units
 
-        Returns
-        -------
         """
 
-        self._res = resolution
-        if not unit_mode:
-            center = (int(round(center[0] / resolution)), int(round(center[1] / resolution)))
-            width = int(round(width / resolution))
+        # Set up _resolution, _mod_angle, _center_unit, _orient, _is_cardinal
+        Transformable2D.__init__(self,
+                                 center=center,
+                                 resolution=resolution,
+                                 orientation=orient,
+                                 angle=angle,
+                                 mirrored=mirrored,
+                                 is_cardinal=is_cardinal,
+                                 unit_mode=unit_mode
+                                 )
 
-        self._center_unit = np.array(center)  # type: np.array
         self._name = name
 
         if not (isinstance(layer, tuple) and (len(layer) == 2) and
@@ -55,40 +69,30 @@ class PhotonicPort:
 
         self._layer = layer
         self._used = False
-        self._width_unit = width
         self._orientation = orient
+        if unit_mode:
+            self._width_unit = int(round(width))
+        else:
+            self._width_unit = int(round(width / self.resolution))
 
     def __repr__(self):
-        return "PhotonicPort: name: {}, layer: {}, location: ({}, {})".format(
-            self.name, self.layer, self.center[0], self.center[1]
+        return f'PhotonicPort(name={self.name}, layer=({self.layer}), location=({self.center}), angle={self.angle})'
+
+    def __str__(self):
+        return f'PhotonicPort(name={self.name}, layer=({self.layer}), location=({self.center}), angle={self.angle})'
+
+    def __copy__(self):
+        return PhotonicPort(
+            name=self.name,
+            center=self.center_unit,
+            orient=self.orientation,
+            width=self.width_unit,
+            layer=self.layer,
+            resolution=self.resolution,
+            angle=self.angle,
+            mirrored=self.mirrored,
+            unit_mode=True
         )
-
-    @property
-    def used(self) -> bool:
-        """Returns True if port is used"""
-        # TODO: Implement?
-        return self._used
-
-    @used.setter
-    def used(self,
-             new_used: bool
-             ) -> None:
-        self._used = new_used
-
-    @property
-    def center(self) -> np.array:
-        """Return the center coordinates as np array"""
-        return self._center_unit * self._res
-
-    @property
-    def center_unit(self) -> np.array:
-        """Return the center coordinates as np array in resolution units"""
-        return self._center_unit
-
-    @property
-    def resolution(self) -> float:
-        """Returns the layout resolution of the port object"""
-        return self._res
 
     @property
     def name(self) -> str:
@@ -110,7 +114,7 @@ class PhotonicPort:
     @property
     def width(self) -> float:
         """Returns the width of the port """
-        return self._width_unit * self._res
+        return self._width_unit * self._resolution
 
     @property
     def width_unit(self) -> int:
@@ -120,45 +124,12 @@ class PhotonicPort:
     @width.setter
     def width(self, new_width: float) -> None:
         """Sets the port width"""
-        self._width_unit = int(round(new_width / self._res))
+        self._width_unit = int(round(new_width / self._resolution))
 
     @width_unit.setter
     def width_unit(self, new_width: int) -> None:
         """Sets the port width"""
-        self._width_unit = new_width
-
-    def width_vec(self,
-                  unit_mode: bool = True,
-                  normalized: bool = True,
-                  ) -> np.array:
-        """Returns a normalized vector pointing into the port object
-
-        Parameters
-        ----------
-        unit_mode : bool
-            True to return vector in resolution units
-        normalized : bool
-            True to normalize the vector. If False, vector magnitude is the port width
-
-        Returns
-        -------
-        vec : np.array
-            a vector whos orientation points into the port and whos magnitude is either 1 or the waveguide port width
-        """
-
-        # Create R0 vector of proper magnitude
-        if normalized:
-            point = (int(round(1 / self._res)), 0)
-        else:
-            point = (self._width_unit, 0)
-
-        # Rotate vector by port orientation
-        point = transform_point(point[0], point[1], (0, 0), self._orientation)
-
-        if unit_mode:
-            return point
-        else:
-            return point * self._res
+        self._width_unit = int(round(new_width))
 
     @property
     def orientation(self) -> str:
@@ -200,7 +171,7 @@ class PhotonicPort:
         """
         # Convert to nearest int unit mode value
         if not unit_mode:
-            res = self._res
+            res = self._resolution
             loc = (int(round(loc[0] / res)), int(round(loc[1] / res)))
 
         new_center, new_orient = transform_loc_orient(
@@ -215,7 +186,7 @@ class PhotonicPort:
                             orient=new_orient,
                             width=self._width_unit,
                             layer=self._layer,
-                            resolution=self._res,
+                            resolution=self._resolution,
                             unit_mode=True)
 
     @classmethod
