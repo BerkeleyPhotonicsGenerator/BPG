@@ -309,7 +309,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     layer = (layer[0], 'port')
 
             # Check arguments for validity
-            if all([name, center, orient, width, layer]) is None:
+            if all([name, center, orient, width, layer]) is False:
                 raise ValueError('User must define name, center, orient, width, and layer')
 
             port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
