@@ -2,36 +2,43 @@ via_info:
   VM1_POLY:
     bot_layer: !!python/tuple [POLY, drawing]
     top_layer: !!python/tuple [M1, drawing]
+    via_layer: !!python/tuple [V0, drawing]
     cut_width: 60
     cut_height: 60
   VM1_SI:
     bot_layer: !!python/tuple [SI, drawing]
     top_layer: !!python/tuple [M1, drawing]
+    via_layer: !!python/tuple [V0, drawing]
     cut_width: 60
     cut_height: 60
   VM2_M1:
     bot_layer: !!python/tuple [M1, drawing]
     top_layer: !!python/tuple [M2, drawing]
+    via_layer: !!python/tuple [V1, drawing]
     cut_width: 80
     cut_height: 80
   VM3_M2:
     bot_layer: !!python/tuple [M2, drawing]
     top_layer: !!python/tuple [M3, drawing]
+    via_layer: !!python/tuple [V2, drawing]
     cut_width: 80
     cut_height: 80
   VM4_M3:
     bot_layer: !!python/tuple [M3, drawing]
     top_layer: !!python/tuple [M4, drawing]
+    via_layer: !!python/tuple [V3, drawing]
     cut_width: 80
     cut_height: 80
   VM5_M4:
     bot_layer: !!python/tuple [M4, drawing]
     top_layer: !!python/tuple [M5, drawing]
+    via_layer: !!python/tuple [V4, drawing]
     cut_width: 100
     cut_height: 100
   VM6_M5:
     bot_layer: !!python/tuple [M5, drawing]
     top_layer: !!python/tuple [M6, drawing]
+    via_layer: !!python/tuple [V5, drawing]
     cut_width: 100
     cut_height: 100
 
@@ -50,26 +57,32 @@ layer_map:
   !!python/tuple [V0, drawing]: [20, 0]
   !!python/tuple [V0, phot]: [20, 10]
   !!python/tuple [M1, drawing]: [11, 0]
+  !!python/tuple [M1, label]: [11, 20]
   !!python/tuple [M1, phot]: [11, 10]
   !!python/tuple [V1, drawing]: [21, 0]
   !!python/tuple [V1, phot]: [21, 10]
   !!python/tuple [M2, drawing]: [12, 0]
+  !!python/tuple [M2, drawing]: [12, 20]
   !!python/tuple [M2, phot]: [12, 10]
   !!python/tuple [V2, drawing]: [22, 0]
   !!python/tuple [V2, phot]: [22, 10]
   !!python/tuple [M3, drawing]: [13, 0]
+  !!python/tuple [M3, label]: [13, 20]
   !!python/tuple [M3, phot]: [13, 10]
   !!python/tuple [V3, drawing]: [23, 0]
   !!python/tuple [V3, phot]: [23, 10]
   !!python/tuple [M4, drawing]: [14, 0]
+  !!python/tuple [M4, label]: [14, 20]
   !!python/tuple [M4, phot]: [14, 10]
   !!python/tuple [V4, drawing]: [24, 0]
   !!python/tuple [V4, phot]: [24, 10]
   !!python/tuple [M5, drawing]: [15, 0]
+  !!python/tuple [M5, label]: [15, 20]
   !!python/tuple [M5, phot]: [15, 10]
   !!python/tuple [V5, drawing]: [25, 0]
   !!python/tuple [V5, phot]: [25, 10]
   !!python/tuple [M6, drawing]: [16, 0]
+  !!python/tuple [M6, label]: [16, 20]
   !!python/tuple [M6, phot]: [16, 10]
   !!python/tuple [N, phot]: [50, 10]
   !!python/tuple [P, phot]: [60, 10]

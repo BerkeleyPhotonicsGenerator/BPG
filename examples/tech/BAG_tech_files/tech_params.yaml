@@ -15,6 +15,7 @@ use_flip_parity: False
 
 # mapping from metal layer ID to metal layer name.  Assume purpose is 'drawing'.
 layer_name:
+  0: SI
   1: M1
   2: M2
   3: M3
@@ -25,6 +26,7 @@ layer_name:
 # mapping from metal layer name to metal layer type.  The layer type
 # is used to figure out which EM rules to use.
 layer_type:
+  SI: si
   M1: x
   M2: x
   M3: x
@@ -46,6 +48,7 @@ via_name:
 via_id:
   !!python/tuple [!!python/tuple ['POLY', 'drawing'], 'M1']: VM1_POLY
   !!python/tuple [!!python/tuple ['SI', 'drawing'], 'M1']: VM1_SI
+  !!python/tuple ['SI', 'M1']: VM1_SI
   !!python/tuple ['M1', 'M2']: VM2_M1
   !!python/tuple ['M2', 'M3']: VM3_M2
   !!python/tuple ['M3', 'M4']: VM4_M3
