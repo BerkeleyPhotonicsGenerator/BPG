@@ -37,7 +37,8 @@ conda install rtree
 test suite:
 ```
 sh start_bag.sh
-run -i run_tests.py
+run -i BPG/run_tests.py
 ```
 - You should see something similar to the following output:
+
 ![](images/test_pass.png)
