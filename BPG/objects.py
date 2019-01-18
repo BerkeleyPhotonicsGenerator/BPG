@@ -18,7 +18,7 @@ from bag.layout.util import transform_point, BBox, transform_table
 
 
 from BPG.geometry import CoordBase
-from BPG.compiler.point_operations import coords_cleanup, radius_of_curvature
+from BPG.compiler.point_operations import coords_cleanup, create_polygon_from_path_and_width
 
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
 from BPG.bpg_custom_types import dim_type, coord_type, layer_or_lpp_type
@@ -833,7 +833,7 @@ class PhotonicRect(Rect):
 
 class PhotonicPath(Figure):
     """
-    A layout path.  Only 45/90 degree turns are allowed.
+    A path defined by a list of x,y points and a width.
 
     Parameters
     ----------
@@ -846,10 +846,6 @@ class PhotonicPath(Figure):
         width of this path, in layout units.
     points : List[Tuple[float, float]]
         list of path points.
-    end_style : str
-        the path ends style.  Currently support 'truncate', 'extend', and 'round'.
-    join_style : str
-        the ends style at intermediate points of the path.  Currently support 'extend' and 'round'.
     unit_mode : bool
         True if width and points are given as resolution units instead of layout units.
     """
@@ -859,149 +855,76 @@ class PhotonicPath(Figure):
                  layer: layer_or_lpp_type,
                  width: dim_type,
                  points: List[coord_type],
-                 end_style: str = 'truncate',
-                 join_style: str = 'extend',
                  unit_mode: bool = False,
                  ) -> None:
+        # If only a layer name is passed, assume 'phot' purpose
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Figure.__init__(self, resolution)
 
         self._layer = layer
-        self._end_style = end_style
-        self._join_style = join_style
         self._destroyed = False
-        self._width = 0
-        self._points_unit = None
+
+        if width <= 0:
+            raise ValueError(f'PhotonicPath: width argument must be a positive number')
 
         if unit_mode:
-            self._width = int(width)
+            self._width_unit = int(width)
         else:
-            self._width = int(round(width / resolution))
+            self._width_unit = int(round(width / resolution))
 
-        center_unit, upper_unit, lower_unit = self.process_points(
-            pts=points,
-            width=width,
-            eps=0.00001,
-            unit_mode=unit_mode,
+        # Remove coincident points from the passed list
+        # Scale to resolution unit, but do not snap input points to a grid.
+        points_cleaned = coords_cleanup(
+            np.array(points),
+            eps_grid=0.1 if unit_mode else self._res/10,
+            cyclic_points=False,
+            check_inline=False,
+        )
+        if unit_mode:
+            self._points_unit_scale = points_cleaned
+        else:
+            self._points_unit_scale = points_cleaned / self._res
+
+        self._polygon_points_unit = self.process_points(
+            points=self._points_unit_scale,
+            width=self._width_unit,
+            eps=0.1,
         )
 
-        self._points_unit = np.array(center_unit, dtype=int)
-        self._upper_unit = np.array(upper_unit, dtype=int)
-        self._lower_unit = np.array(lower_unit, dtype=int)
-
-    def process_points(self,
-                       pts: Union[np.ndarray, List[coord_type]],
-                       width: int,
-                       eps: float = 0.00001,
-                       unit_mode: bool = False,
-                       ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    @staticmethod
+    def process_points(points: np.ndarray,
+                       width: dim_type,
+                       eps: float = 1e-4,
+                       ) -> np.ndarray:
         """
-        Processes points to clean them.
-        Returns points in the unit mode
+        Takes a width and center point list, and returns the points describing the polygon of the path.
 
+        While the center points are not rounded to a grid, the points describing the polygon are snapped to the layout
+        grid.
+
+        The returned polygon points are in unit_mode (grid resolution units).
 
         Parameters
         ----------
-        pts
-        width
-        eps
-        unit_mode : bool
-            True if passed pts are already in unit mode.
+        points : np.ndarray
+            A numpy array of points describing the center of the path.
+        width : Union[int, float]
+            The width of the path
+        eps : float
+            The tolerance for determining whether two points are coincident
 
         Returns
         -------
+        polygon_points : np.ndarray
+            The numpy array of points describing the polygon of the path, rounded to the layout grid, and expressed in
+            resolution units (ints).
 
         """
-
-        # TODO: add points at end and beginning to make sure path ends are vertical/horizontal?
-
-        if isinstance(pts, np.ndarray):
-            pts = pts
-        else:
-            pts = np.array(pts)
-
-        # Round points to unit mode
-        if unit_mode:
-            pts_unit = pts
-            eps_unit = eps
-        else:
-            pts_unit = np.round(pts / self.resolution).astype(int)
-            eps_unit = eps / self.resolution
-
-        # First pass, get rid of all collinear and duplicate points
-        pts_center = coords_cleanup(pts_unit, eps_unit)
-        # TODO: radius of curvature checking
-
-        logger.debug(f'PhotonicPath.__init__:  length of pts_center: {len(pts_center)}')
-
-        # Add the polygon boundary based on the ideal curve
-        # Now that center points are clean, create the upper and lower points by finding perpendicular
-        pts_upper = []
-        pts_lower = []
-
-        # TODO: implement in point_operations.py a parallelized version
-        for ind, (x, y) in enumerate(pts):
-            prev_point = pts[max(ind - 1, 0)]
-            next_point = pts[min(ind + 1, len(pts) - 1)]
-
-            dx, dy = next_point[0] - prev_point[0], next_point[1] - prev_point[1]
-            norm = math.sqrt(math.pow(dx, 2) + math.pow(dy, 2))
-            tangent_vec = (dx / norm, dy / norm)
-
-            if abs(dx) > eps:
-                # Form a triangle with dx = 1, dy = m, and hypotenuse = sqrt(1+m^2)
-                m = dy / dx
-                hypotenuse = math.sqrt(1 + math.pow(m, 2))
-
-                point_dx, point_dy = -(width / 2) * (m / hypotenuse), (width / 2) * (1 / hypotenuse)
-
-                if dx > 0:
-                    new_upper = x + point_dx, y + point_dy
-                    new_lower = x - point_dx, y - point_dy
-                else:
-                    new_upper = x - point_dx, y - point_dy
-                    new_lower = x + point_dx, y + point_dy
-            else:
-                # Points are on a vertical line
-                if dy > 0:
-                    new_upper = x - width / 2, y
-                    new_lower = x + width / 2, y
-                else:
-                    new_upper = x + width / 2, y
-                    new_lower = x - width / 2, y
-
-            # Round the potential new upper and lower points to the resolution grid
-            if unit_mode:
-                new_upper = (int(new_upper[0]), int(new_upper[1]))
-                new_lower = (int(new_lower[0]), int(new_lower[1]))
-            else:
-                new_upper = (int(round(new_upper[0] / self.resolution)), int(round(new_upper[1] / self.resolution)))
-                new_lower = (int(round(new_lower[0] / self.resolution)), int(round(new_lower[1] / self.resolution)))
-
-            # Check that the new points on the left and right do not create a reentrant polygon
-            # This just means make sure that
-            if ind == 0:
-                pts_upper.append(new_upper)
-                pts_lower.append(new_lower)
-            else:
-                new_upper_vec = new_upper[0] - pts_upper[-1][0], new_upper[1] - pts_upper[-1][1]
-                new_lower_vec = new_lower[0] - pts_lower[-1][0], new_lower[1] - pts_lower[-1][1]
-
-                new_upper_dp = new_upper_vec[0] * tangent_vec[0] + new_upper_vec[1] * tangent_vec[1]
-                new_lower_dp = new_lower_vec[0] * tangent_vec[0] + new_lower_vec[1] * tangent_vec[1]
-
-                # TODO: can we always add, or should we check that the points are far enough away?
-                if new_upper != pts_upper[-1]:  # and new_upper_dp > 0.5 :
-                    pts_upper.append(new_upper)
-                if new_lower != pts_lower[-1]:  # and new_lower_dp > 0.5:
-                    pts_lower.append(new_lower)
-
-        return (
-            np.array(pts_center).astype(int),
-            np.array(pts_upper).astype(int),
-            np.array(pts_lower).astype(int)
-        )
+        # Create the polygon shape, not rounded to a grid.
+        poly_pts = create_polygon_from_path_and_width(points_list=points, width=width, eps=eps)
+        # Round to the grid and return
+        return np.round(poly_pts).astype(int)
 
     @property
     def layer(self) -> Tuple[str, str]:
@@ -1011,51 +934,32 @@ class PhotonicPath(Figure):
     @Figure.valid.getter
     def valid(self) -> bool:
         """Returns True if this instance is valid."""
-        return not self.destroyed and len(self._points_unit) >= 2 and self._width > 0
+        return not self.destroyed and len(self._points_unit_scale) >= 2 and self._width_unit > 0
 
     @property
     def width(self):
-        return self._width * self._res
+        return self._width_unit * self._res
 
     @property
     def width_unit(self) -> int:
-        return self._width
+        return self._width_unit
 
     @property
     def points(self):
-        return [(self._points_unit[idx][0] * self._res, self._points_unit[idx][1] * self._res)
-                for idx in range(self._points_unit.shape[0])]
-
-    @property
-    def lower(self):
-        return [(self._lower_unit[idx][0] * self._res, self._lower_unit[idx][1] * self._res)
-                for idx in range(self._lower_unit.shape[0])]
-
-    @property
-    def upper(self):
-        return [(self._upper_unit[idx][0] * self._res, self._upper_unit[idx][1] * self._res)
-                for idx in range(self._upper_unit.shape[0])]
-
-    @property
-    def points_unit(self):
-        return [(self._points_unit[idx][0], self._points_unit[idx][1])
-                for idx in range(self._points_unit.shape[0])]
+        """ Return non-unit mode python list of points"""
+        return (self._points_unit_scale * self._res).tolist()
 
     @property
     def polygon_points(self):
-        out = self.upper
-        out.extend(self.lower[::-1])
-
-        return out
+        """ Return non-unit_mode python list of points"""
+        return (self._polygon_points_unit * self._res).tolist()
 
     @property
     def content(self) -> Dict[str, Any]:
         """A dictionary representation of this path."""
         content = dict(layer=self.layer,
-                       width=self._width * self._res,
+                       width=self._width_unit * self._res,
                        points=self.points,
-                       end_style=self._end_style,
-                       join_style=self._join_style,
                        polygon_points=self.polygon_points
                        )
         return content
@@ -1079,9 +983,8 @@ class PhotonicPath(Figure):
         if not unit_mode:
             dx = int(round(dx / self._res))
             dy = int(round(dy / self._res))
-        self._points_unit += np.array([dx, dy])
-        self._upper_unit += np.array([dx, dy])
-        self._lower_unit += np.array([dx, dy])
+        self._points_unit_scale += np.array([dx, dy])
+        self._polygon_points_unit += np.array([dx, dy])
 
     def transform(self,
                   loc: coord_type = (0, 0),
@@ -1098,18 +1001,16 @@ class PhotonicPath(Figure):
             dy = int(round(loc[1] / res))
         dvec = np.array([dx, dy])
         mat = transform_table[orient]
-        new_points = np.dot(mat, self._points_unit.T).T + dvec
-        new_upper = np.dot(mat, self._upper_unit.T).T + dvec
-        new_lower = np.dot(mat, self._lower_unit.T).T + dvec
+        new_points = np.dot(mat, self._points_unit_scale.T).T + dvec
+        new_polypoints = np.dot(mat, self._polygon_points_unit.T).T + dvec
 
         if not copy:
             ans = self
         else:
             ans = deepcopy(self)
 
-        ans._points_unit = new_points
-        ans._upper_unit = new_upper
-        ans._lower_unit = new_lower
+        ans._points_unit_scale = new_points
+        ans._polygon_points_unit = new_polypoints
 
         return ans
 
@@ -1123,8 +1024,6 @@ class PhotonicPath(Figure):
             layer=content['layer'],
             width=content['width'],
             points=content['points'],
-            end_style=content['end_style'],
-            join_style=content['join_style'],
             unit_mode=False,
         )
 
