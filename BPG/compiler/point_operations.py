@@ -200,6 +200,9 @@ def create_polygon_from_path_and_width(points_list: np.ndarray,
     perpendicular_vec = np.gradient(tangent_normalized_vec, axis=0)
     perpendicular_normalized_vec = perpendicular_vec / np.tile(np.linalg.norm(perpendicular_vec, axis=1, keepdims=True), (1, 2))
 
+    invalid_perp = np.isnan(perpendicular_normalized_vec)
+
+
     second_deriv = np.gradient(tangent_vec, axis=0)
     curvature_radius = np.abs(
         second_deriv[:, 0] * tangent_vec[:, 1] - tangent_vec[:, 0] * second_deriv[:, 1]
@@ -223,5 +226,5 @@ def create_polygon_from_path_and_width(points_list: np.ndarray,
 
     # Clean up the polygon
     polygon_points = coords_cleanup(points_out, eps_grid=eps, cyclic_points=True)
-
+    # asdf
     return polygon_points

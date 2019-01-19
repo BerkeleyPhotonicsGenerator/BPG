@@ -10,7 +10,7 @@ layout_unit: 1.0e-6
 resolution: 0.001
 # True if this is a multi-patterning technology
 use_flip_parity: False
-
+pin_purpose: 'label'
 
 
 # mapping from metal layer ID to metal layer name.  Assume purpose is 'drawing'.
