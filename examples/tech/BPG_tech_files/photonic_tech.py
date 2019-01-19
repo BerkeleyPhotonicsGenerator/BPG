@@ -367,3 +367,16 @@ class PhotonicTechInfoExample(PhotonicTechInfo):
             raise ValueError('Layer {layer} not present in parameters for sheet resistance (Rs)'.format(layer=layer))
 
         return rs_values[layer]
+
+    def via_max_width(self,
+                      layer: Union[str, Tuple[str, str]],
+                      ) -> float:
+        if isinstance(layer, tuple):
+            layer = layer[0]
+
+        width_values = self.dataprep_parameters['MaxWidth']
+        if layer not in width_values:
+            raise ValueError(f'Layer {layer} not present in parameters for via_max_width.  In dummy technology, '
+                             f'via_max_width = MaxWidth')
+
+        return width_values[layer]
