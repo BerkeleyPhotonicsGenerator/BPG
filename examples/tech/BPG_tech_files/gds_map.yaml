@@ -96,6 +96,6 @@ layer_map:
   !!python/tuple [P3, drawing]: [63, 0]
   !!python/tuple [P4, drawing]: [64, 0]
   !!python/tuple [P5, drawing]: [65, 0]
-
+  !!python/tuple [SAL, drawing]: [65, 0]
   !!python/tuple [CLAD, phot]: [8, 10]
   !!python/tuple [BOX, phot]: [9, 10]
