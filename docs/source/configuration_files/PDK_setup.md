@@ -1,6 +1,6 @@
 # BPG Configuration
 
-I also hate RST but love sphinx
+Placeholder text
 
 ## Anchor1
 

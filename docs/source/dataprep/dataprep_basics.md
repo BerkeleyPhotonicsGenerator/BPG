@@ -1,3 +1,3 @@
 # Dataprep
 
-I also hate RST but love sphinx
+Placeholder text
