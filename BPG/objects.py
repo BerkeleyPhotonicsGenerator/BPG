@@ -835,6 +835,10 @@ class PhotonicPath(Figure):
     """
     A path defined by a list of x,y points and a width.
 
+    User beware!  If the points in the path are specified too finely (ie, change between multiple consecutive points is
+    less than the eps value), then the path may actually lose precision.
+    If this occurs, try specifying the points less finely.
+
     Parameters
     ----------
     resolution : float
@@ -847,7 +851,10 @@ class PhotonicPath(Figure):
     points : List[Tuple[float, float]]
         list of path points.
     unit_mode : bool
-        True if width and points are given as resolution units instead of layout units.
+        True if width, points, and tolerance are given as resolution units instead of layout units.
+    eps : float
+        The tolerance for determining whether two points are coincident or colinear.
+
     """
 
     def __init__(self,
@@ -856,6 +863,7 @@ class PhotonicPath(Figure):
                  width: dim_type,
                  points: List[coord_type],
                  unit_mode: bool = False,
+                 eps: float = None,
                  ) -> None:
         # If only a layer name is passed, assume 'phot' purpose
         if isinstance(layer, str):
@@ -868,28 +876,37 @@ class PhotonicPath(Figure):
         if width <= 0:
             raise ValueError(f'PhotonicPath: width argument must be a positive number')
 
+        if eps is None:
+            self._eps_unit = 0.1
+        else:
+            if unit_mode:
+                self._eps_unit = eps
+            else:
+                self._eps_unit = eps / resolution
+
         if unit_mode:
             self._width_unit = int(width)
         else:
             self._width_unit = int(round(width / resolution))
 
-        # Remove coincident points from the passed list
         # Scale to resolution unit, but do not snap input points to a grid.
-        points_cleaned = coords_cleanup(
-            np.array(points),
-            eps_grid=0.1 if unit_mode else self._res/10,
+        if unit_mode:
+            points_unit = np.array(points)
+        else:
+            points_unit = np.array(points) / self._res
+
+        # Remove coincident points from the passed list
+        self._points_unit_scale = coords_cleanup(
+            points_unit,
+            eps_grid=self._eps_unit,
             cyclic_points=False,
             check_inline=False,
         )
-        if unit_mode:
-            self._points_unit_scale = points_cleaned
-        else:
-            self._points_unit_scale = points_cleaned / self._res
 
         self._polygon_points_unit = self.process_points(
             points=self._points_unit_scale,
             width=self._width_unit,
-            eps=0.1,
+            eps=self._eps_unit,
         )
 
     @staticmethod
@@ -943,6 +960,14 @@ class PhotonicPath(Figure):
     @property
     def width_unit(self) -> int:
         return self._width_unit
+
+    @property
+    def eps(self):
+        return self._eps_unit * self._res
+
+    @property
+    def eps_unit(self):
+        return self._eps_unit
 
     @property
     def points(self):

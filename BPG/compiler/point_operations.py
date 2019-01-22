@@ -1,7 +1,6 @@
 import numpy as np
-import math
 
-from typing import Tuple, Union
+from typing import Union
 
 
 def cleanup_delete(coords_list_in: np.ndarray,
@@ -35,27 +34,27 @@ def cleanup_delete(coords_list_in: np.ndarray,
         Numpy array of bools telling whether to delete the coordinate or not
     """
 
-    coord_set_lsh = np.roll(coords_list_in, -1, axis=0)
-    coord_set_rsh = np.roll(coords_list_in, 1, axis=0)
+    coord_set_next = np.roll(coords_list_in, -1, axis=0)
+    coord_set_prev = np.roll(coords_list_in, 1, axis=0)
 
-    vec_l = coord_set_lsh - coords_list_in
-    vec_r = coords_list_in - coord_set_rsh
+    vec_to_next = coord_set_next - coords_list_in
+    vec_from_prev = coords_list_in - coord_set_prev
 
-    dx_l = vec_l[:, 0]
-    dy_l = vec_l[:, 1]
-    dx_r = vec_r[:, 0]
-    dy_r = vec_r[:, 1]
+    dx_next = vec_to_next[:, 0]
+    dy_next = vec_to_next[:, 1]
+    dx_prev = vec_from_prev[:, 0]
+    dy_prev = vec_from_prev[:, 1]
 
-    dx_l_abs = np.abs(dx_l)
-    dy_l_abs = np.abs(dy_l)
-    dx_r_abs = np.abs(dx_r)
-    dy_r_abs = np.abs(dy_r)
+    dx_next_abs = np.abs(dx_next)
+    dy_next_abs = np.abs(dy_next)
+    dx_prev_abs = np.abs(dx_prev)
+    dy_prev_abs = np.abs(dy_prev)
 
-    same_with_left = np.logical_and(dx_l_abs < eps_grid, dy_l_abs < eps_grid)
+    same_as_next = np.logical_and(dx_next_abs < eps_grid, dy_next_abs < eps_grid)
 
     if check_inline:
-        same_with_right = np.logical_and(dx_r_abs < eps_grid, dy_r_abs < eps_grid)
-        diff_from_lr = np.logical_not(np.logical_or(same_with_left, same_with_right))
+        same_as_prev = np.logical_and(dx_prev_abs < eps_grid, dy_prev_abs < eps_grid)
+        diff_from_lr = np.logical_not(np.logical_or(same_as_next, same_as_prev))
 
         """
         if x&y coords are accurate, we should have dy2_acc/dx2_acc = dy1_acc/dx1_acc
@@ -68,17 +67,17 @@ def cleanup_delete(coords_list_in: np.ndarray,
         # error_abs = np.abs(dx_l * dy_r - dx_r * dy_l)
         # in_line = error_abs  < eps_grid * (dx_l_abs + dy_l_abs + dx_r_abs + dy_r_abs)
         """
-        in_line = np.logical_or(np.logical_and(dx_l_abs < eps_grid, dx_r_abs < eps_grid),
-                                np.logical_and(dy_l_abs < eps_grid, dy_r_abs < eps_grid))
+        in_line = np.logical_or(np.logical_and(dx_next_abs < eps_grid, dx_prev_abs < eps_grid),
+                                np.logical_and(dy_next_abs < eps_grid, dy_prev_abs < eps_grid))
 
         in_line_and_diff_from_lr = np.logical_and(in_line, diff_from_lr)
     else:
         # If not checking for inline points, default all values of inline check to false
-        in_line_and_diff_from_lr = np.full_like(same_with_left, False)
+        in_line_and_diff_from_lr = np.full_like(same_as_next, False)
 
     # situation 1: the point is the same with its left neighbor
     # situation 2: the point is not the same with its neighbors, but it is in a line with them
-    delete_array = np.logical_or(same_with_left, in_line_and_diff_from_lr)
+    delete_array = np.logical_or(same_as_next, in_line_and_diff_from_lr)
 
     # If cleaning a path rather than a polygon, never delete the first or last point
     if not cyclic_points:
@@ -137,34 +136,6 @@ def coords_cleanup(coords_list: np.ndarray,
     return coords_list
 
 
-# TODO: Implement parallelized version via numpy
-def radius_of_curvature(pt0,  # type: Tuple[int, int]
-                        pt1,  # type: Tuple[int, int]
-                        pt2,  # type: Tuple[int, int]
-                        eps,  # type: float
-                        ) -> float:
-
-    ma = -(pt1[0] - pt0[0]) / (pt1[1] - pt0[1]) if abs(pt1[1] - pt0[1]) > eps else 'v'
-    mb = -(pt2[0] - pt1[0]) / (pt2[1] - pt1[1]) if abs(pt2[1] - pt1[1]) > eps else 'v'
-
-    xa, ya = (pt0[0] + pt1[0]) / 2, (pt0[1] + pt1[1]) / 2
-    xb, yb = (pt1[0] + pt2[0]) / 2, (pt1[1] + pt2[1]) / 2
-
-    # First two points form a horizontal line
-    if ma == 'v':
-        center = (xa, mb * (xa - xb) + yb)
-    # Second two points form a horizontal line
-    elif mb == 'v':
-        center = (xb, ma * (xb - xa) + ya)
-    else:
-        center = ((mb * xb - ma * xa - (yb - ya)) / (mb - ma), (ma * mb * (xb - xa) - (ma * yb - mb * ya)) / (mb - ma))
-
-    point = center[0] - pt1[0], center[1] - pt1[1]
-    radius = math.sqrt(math.pow(point[0], 2) + math.pow(point[1], 2))
-
-    return radius
-
-
 def create_polygon_from_path_and_width(points_list: np.ndarray,
                                        width: Union[float, int],
                                        eps: float = 1e-4
@@ -195,36 +166,17 @@ def create_polygon_from_path_and_width(points_list: np.ndarray,
     """
 
     tangent_vec = np.gradient(points_list, axis=0)
-    tangent_normalized_vec = tangent_vec / np.tile(np.linalg.norm(tangent_vec, axis=1, keepdims=True), (1, 2))
+    tangent_normalized_vec = \
+        tangent_vec / np.tile(np.linalg.norm(tangent_vec, axis=1, keepdims=True), (1, 2)) * width/2
 
-    perpendicular_vec = np.gradient(tangent_normalized_vec, axis=0)
-    perpendicular_normalized_vec = perpendicular_vec / np.tile(np.linalg.norm(perpendicular_vec, axis=1, keepdims=True), (1, 2))
-
-    invalid_perp = np.isnan(perpendicular_normalized_vec)
-
-
-    second_deriv = np.gradient(tangent_vec, axis=0)
-    curvature_radius = np.abs(
-        second_deriv[:, 0] * tangent_vec[:, 1] - tangent_vec[:, 0] * second_deriv[:, 1]
-    ) / np.power(
-        np.power(tangent_vec[:, 0], 2) + np.power(tangent_vec[:, 1], 2),
-        1.5
-    )
-
-    # if np.any(curvature_radius < width / 2):
-    #     raise ValueError(f'Radius of curvature too tight')
-
-    # Calculate the cross product to know which side is 'up' vs 'down'
-    cross_z = np.cross(tangent_vec, perpendicular_vec)
-
-    # Calculate the polygon points forming the path
-    pts0 = points_list + np.tile(np.sign(cross_z), (2, 1)).transpose() * perpendicular_normalized_vec * width / 2
-    pts1 = points_list - np.tile(np.sign(cross_z), (2, 1)).transpose() * perpendicular_normalized_vec * width / 2
+    # Find the points using the perpendicular to tangent line
+    pts0 = points_list + np.column_stack([-1 * tangent_normalized_vec[:, 1], tangent_normalized_vec[:, 0]])
+    pts1 = points_list + np.column_stack([tangent_normalized_vec[:, 1], -1 * tangent_normalized_vec[:, 0]])
 
     # Concatenate into a polygon
     points_out = np.concatenate((pts0, np.flipud(pts1)), axis=0)
 
     # Clean up the polygon
     polygon_points = coords_cleanup(points_out, eps_grid=eps, cyclic_points=True)
-    # asdf
+
     return polygon_points

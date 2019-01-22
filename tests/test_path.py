@@ -59,17 +59,17 @@ class Path(BPG.PhotonicTemplateBase):
 
         self.add_obj(poly2)
 
-        x2 = np.arange(0, 6, 0.0001)
-        y2 = np.polyval([0.5,-2,1], x2)
+        x2 = np.arange(0, 6, 0.01)
+        y2 = np.polyval([0.5, -2, 1], x2)
         points2 = [(x2[ind], y2[ind]) for ind in range(x2.shape[0])]
         path2 = PhotonicPath(
             resolution=self.grid.resolution,
             layer='SI',
             width=0.4,
             points=points2,
-            unit_mode=False
+            unit_mode=False,
+            eps=0.0001
         )
-
         self.add_obj(path2)
 
 
