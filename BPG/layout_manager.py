@@ -62,7 +62,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         # Template init
         self.template: "PhotonicTemplateType" = None
-        self.cell_name: str = ''
+        self.impl_cell: str = ''
 
         # Content List init
         self.content_list: List["ContentList"] = None
@@ -150,7 +150,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.template = self.template_plugin.new_template(params=layout_params,
                                                           temp_cls=temp_cls,
                                                           debug=False)
-        self.cell_name = cell_name
+        self.impl_cell = cell_name
         end_time_newtemp = time.time()
 
         # Generate the content list
@@ -202,8 +202,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         start_time = time.time()
         self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=[self.template],
-                                                                                 name_list=[self.cell_name],
-                                                                                 lib_name='_flat',
+                                                                                 name_list=[self.impl_cell],
                                                                                  rename_dict=None,
                                                                                  )[0]
         end_time_contentgen = time.time()

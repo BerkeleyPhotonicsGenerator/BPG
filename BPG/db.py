@@ -47,7 +47,7 @@ class PhotonicTemplateDB(TemplateDB):
                             )
 
         self.photonic_tech_info = photonic_tech_info
-        self.impl_cell = None  # TODO: impl_cell??
+        self.impl_cell = None
 
         # Storage for the cache used to speed up flattening.
         self.flattening_cache: Dict[Tuple, "ContentList"] = {}
@@ -75,7 +75,7 @@ class PhotonicTemplateDB(TemplateDB):
                                    grid=self.grid,
                                    content_list_flat=flat_content_list,
                                    is_lsf=is_lsf,
-                                   impl_cell=self.impl_cell,  # TODO: impl_cell??
+                                   impl_cell=self.impl_cell,
                                    )
         start = time.time()
         post_dataprep_flat_content_list = dataprep_object.dataprep()
@@ -86,7 +86,6 @@ class PhotonicTemplateDB(TemplateDB):
     def generate_content_list(self,
                               master_list: Sequence["DesignMaster"],
                               name_list: Optional[Sequence[Optional[str]]] = None,
-                              lib_name: str = '',
                               rename_dict: Optional[Dict[str, str]] = None,
                               ) -> List[ContentList]:
         """
@@ -98,8 +97,6 @@ class PhotonicTemplateDB(TemplateDB):
             list of masters to instantiate.
         name_list : Optional[Sequence[Optional[str]]]
             list of master cell names.  If not given, default names will be used.
-        lib_name : str
-            Library to create the masters in.  If empty or None, use default library.
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
 
@@ -149,12 +146,7 @@ class PhotonicTemplateDB(TemplateDB):
         for master, top_name in zip(master_list, name_list):
             self._instantiate_master_helper(info_dict, master)
 
-        if not lib_name:
-            lib_name = self.lib_name
-        if not lib_name:
-            raise ValueError('master library name is not specified.')
-
-        content_list = [master.get_content(lib_name, self.format_cell_name)
+        content_list = [master.get_content(lib_name=self.lib_name, rename_fun=self.format_cell_name)
                         for master in info_dict.values()]
 
         return content_list
@@ -162,7 +154,6 @@ class PhotonicTemplateDB(TemplateDB):
     def generate_flat_content_list(self,
                                    master_list: Sequence['PhotonicTemplateBase'],
                                    name_list: Optional[Sequence[Optional[str]]] = None,
-                                   lib_name: str = '',
                                    rename_dict: Optional[Dict[str, str]] = None,
                                    ) -> List["ContentList"]:
         """
@@ -174,8 +165,6 @@ class PhotonicTemplateDB(TemplateDB):
             list of masters to instantiate.
         name_list : Optional[Sequence[Optional[str]]]
             list of master cell names.  If not given, default names will be used.
-        lib_name : str
-            Library to create the masters in.  If empty or None, use default library.
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
         """
@@ -232,13 +221,6 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
         logging.info(f'Master content flattening took {end - start:.4g}s')
 
-        # TODO: ?? what is going on here
-        if not lib_name:
-            lib_name = self.lib_name + '_flattened'
-        if not lib_name:
-            raise ValueError('master library name is not specified.')
-
-        # TODO: ?? what is going on here
         if len(name_list) == 1:
             # If called from generate_flat_gds, name_list is just [self.specs['impl_cell']]
             self.impl_cell = name_list[0]
