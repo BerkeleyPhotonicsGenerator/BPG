@@ -17,7 +17,7 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Dict
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
@@ -146,10 +146,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
         temp_cls = getattr(lay_module, cls_name)
 
         start_time = time.time()
+
         # Generate the template
         self.template = self.template_plugin.new_template(params=layout_params,
                                                           temp_cls=temp_cls,
                                                           debug=False)
+
         self.impl_cell = cell_name
         end_time_newtemp = time.time()
 
@@ -362,6 +364,40 @@ class PhotonicLayoutManager(PhotonicBagProject):
         # 4) Export to LSF
         lmg.export_to_lsf()
 
+    def generate_schematic(self,
+                           ) -> None:
+        """
+        Generate the schematic.
+
+        Returns
+        -------
+
+        """
+        logging.info(f'\n\n{"Schematic generation":-^80}')
+
+        if not self.template:
+            raise RuntimeError(f'Must call PhotonicLayoutManager.generate_content before calling generate_schematic')
+
+        start_time = time.time()
+
+        # Get name of schematic template's library and cell
+        sch_lib = self.specs['sch_lib']
+        sch_cell = self.specs['sch_cell']
+
+        dsn = self.create_design_module(lib_name=sch_lib, cell_name=sch_cell)
+        end_create_design_module = time.time()
+
+        dsn.design(**self.template.sch_params)
+        end_design = time.time()
+
+        dsn.implement_design(lib_name=self.impl_lib, top_cell_name=self.impl_cell)
+        end_implement = time.time()
+
+        timing_logger.info(f'{end_implement - start_time:<15.6g} | Schematic Generation')
+        timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')'
+        timing_logger.info(f'  {end_design - end_create_design_module:<13.6g} | - Designing schematic')
+        timing_logger.info(f'  {end_implement - end_design:<13.6g} | - Instantiating schematic')
+
     def save_content_list(self,
                           content_list: str,
                           filepath: str = None,
@@ -380,6 +416,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         -------
 
         """
+        logging.info(f'\n\n{"Save content list":-^80}')
+        start = time.time()
+
         if content_list not in self.content_list_types:
             raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
 
@@ -394,6 +433,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
                               default=_json_convert_to_dict,
                               )
             f.write(test)
+
+        end = time.time()
+        logging.info(f'Saving content list: {content_list}  : {end-start:0.6g}s')
+
 
     def load_content_list(self,
                           content_list: str,
@@ -413,6 +456,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         -------
 
         """
+        logging.info(f'\n\n{"Load content list":-^80}')
+        start = time.time()
+
         if content_list not in self.content_list_types:
             raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
 
@@ -424,6 +470,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
             content = json.load(f, object_hook=_json_convert_from_dict)
 
         self.__dict__[content_list] = content
+
+        end = time.time()
+        logging.info(f'Loading content list: {content_list}  : {end - start:0.6g}s')
+
         return content
 
 
