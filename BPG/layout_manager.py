@@ -17,7 +17,7 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING, List, Dict
+from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
@@ -394,7 +394,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_implement = time.time()
 
         timing_logger.info(f'{end_implement - start_time:<15.6g} | Schematic Generation')
-        timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')'
+        timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')
         timing_logger.info(f'  {end_design - end_create_design_module:<13.6g} | - Designing schematic')
         timing_logger.info(f'  {end_implement - end_design:<13.6g} | - Instantiating schematic')
 
@@ -436,7 +436,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         end = time.time()
         logging.info(f'Saving content list: {content_list}  : {end-start:0.6g}s')
-
 
     def load_content_list(self,
                           content_list: str,
