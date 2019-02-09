@@ -62,7 +62,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         # Template init
         self.template_list: List["PhotonicTemplateType"] = []
-        self.cell_name_list: List[str] = None
+        self.cell_name_list: List[str] = []
 
         # Content List init
         self.content_list: List["ContentList"] = None
@@ -159,7 +159,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         # TODO: Generate a template for each set of parameters
         self.generate_template(temp_cls=temp_cls, layout_params=layout_params)
         # TODO: Properly support custom cell naming for now always set to None to use default names
-        # self.cell_name.append(cell_name)
+        self.cell_name_list.append(cell_name)
         end_time_newtemp = time.time()
 
         # Generate the content list
@@ -191,8 +191,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
-    def generate_flat_content(self,
-                              ) -> 'ContentList':
+    def generate_flat_content(self) -> 'ContentList':
         """
         Generates a flattened content list from the template passed to generate_content.
 
