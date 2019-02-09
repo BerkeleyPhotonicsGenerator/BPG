@@ -61,8 +61,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.init_plugins()  # Initializes all of the built-in plugins
 
         # Template init
-        self.template: "PhotonicTemplateType" = None
-        self.impl_cell: str = ''
+        self.template_list: List["PhotonicTemplateType"] = []
+        self.cell_name_list: List[str] = None
 
         # Content List init
         self.content_list: List["ContentList"] = None
@@ -109,12 +109,22 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
                                           lsf_filepath=self.lsf_path)
 
+    def generate_template(self,
+                          temp_cls,
+                          layout_params: dict) -> None:
+        """
+        Adds a generator template to the queue for content generation
+        """
+        self.template_list.append(self.template_plugin.new_template(params=layout_params,
+                                                                    temp_cls=temp_cls,
+                                                                    debug=False))
+
     def generate_content(self,
                          layout_params: dict = None,
                          cell_name: str = None,
                          ) -> List['ContentList']:
         """
-        Generates a content list.
+        Generates a set of content lists from all of the templates in the queue.
         If layout params and cell name are passed, use these parameters.
         If not provided, get these variables from the spec file
 
@@ -146,18 +156,15 @@ class PhotonicLayoutManager(PhotonicBagProject):
         temp_cls = getattr(lay_module, cls_name)
 
         start_time = time.time()
-
-        # Generate the template
-        self.template = self.template_plugin.new_template(params=layout_params,
-                                                          temp_cls=temp_cls,
-                                                          debug=False)
-
-        self.impl_cell = cell_name
+        # TODO: Generate a template for each set of parameters
+        self.generate_template(temp_cls=temp_cls, layout_params=layout_params)
+        # TODO: Properly support custom cell naming for now always set to None to use default names
+        # self.cell_name.append(cell_name)
         end_time_newtemp = time.time()
 
         # Generate the content list
-        self.content_list = self.template_plugin.generate_content_list(master_list=[self.template],
-                                                                       name_list=[cell_name])
+        self.content_list = self.template_plugin.generate_content_list(master_list=self.template_list,
+                                                                       name_list=self.cell_name_list)
         end_time_contentgen = time.time()
 
         # Save the content
@@ -199,12 +206,13 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Generating flat content list":-^80}')
 
-        if not self.template:
+        if not self.template_list:
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_flat_content')
 
         start_time = time.time()
-        self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=[self.template],
-                                                                                 name_list=[self.impl_cell],
+        # TODO: This only grabs the first element in the generated content list, use all of them!
+        self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=self.template_list,
+                                                                                 name_list=self.cell_name_list,
                                                                                  rename_dict=None,
                                                                                  )[0]
         end_time_contentgen = time.time()
@@ -292,7 +300,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.content_list_lumerical_tb = self.template_plugin.generate_flat_content_list(
             master_list=temp_list,
             name_list=cell_name_list,
-            lib_name='_tb',
             rename_dict=None,
         )
 
@@ -301,7 +308,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             tb_content_post_dataprep.append(self.template_plugin.dataprep(flat_content_list=content_list, is_lsf=True))
 
         # Export the actual data to LSF
-        self.lsf_plugin.export_content_list(tb_content_post_dataprep)       # TODO : fix naming here as well
+        self.lsf_plugin.export_content_list(tb_content_post_dataprep)  # TODO : fix naming here as well
 
         # Create the sweep LSF file
         filepath = self.lsf_plugin.lsf_filepath + '_sweep'
@@ -364,8 +371,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         # 4) Export to LSF
         lmg.export_to_lsf()
 
-    def generate_schematic(self,
-                           ) -> None:
+    def generate_schematic(self) -> None:
         """
         Generate the schematic.
 
@@ -375,8 +381,15 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Schematic generation":-^80}')
 
-        if not self.template:
+        if not self.template_list:
             raise RuntimeError(f'Must call PhotonicLayoutManager.generate_content before calling generate_schematic')
+
+        # TODO: Need to implement support for a list of templates
+        if len(self.template_list) > 1:
+            raise ValueError(f'schematic generation currently does not support multiple templates')
+        else:
+            template = self.template_list[0]
+            impl_cell = self.cell_name_list[0]
 
         start_time = time.time()
 
@@ -387,10 +400,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         dsn = self.create_design_module(lib_name=sch_lib, cell_name=sch_cell)
         end_create_design_module = time.time()
 
-        dsn.design(**self.template.sch_params)
+        dsn.design(**template.sch_params)
         end_design = time.time()
 
-        dsn.implement_design(lib_name=self.impl_lib, top_cell_name=self.impl_cell)
+        dsn.implement_design(lib_name=self.impl_lib, top_cell_name=impl_cell)
         end_implement = time.time()
 
         timing_logger.info(f'{end_implement - start_time:<15.6g} | Schematic Generation')
