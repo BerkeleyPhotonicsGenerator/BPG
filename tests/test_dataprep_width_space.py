@@ -250,17 +250,17 @@ def test_dataprep():
     plm.generate_dataprep_gds()
 
     assert(
-        len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'width_should_pass')).polygon_list) == 3
+        len(plm.content_list_post_dataprep[0].get_content_by_layer(('M1', 'width_should_pass')).polygon_list) == 3
     )
     assert (
-            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'width_should_fail')).polygon_list) == 0
+            len(plm.content_list_post_dataprep[0].get_content_by_layer(('M1', 'width_should_fail')).polygon_list) == 0
     )
 
     assert (
-            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'space_should_pass')).polygon_list) == 6
+            len(plm.content_list_post_dataprep[0].get_content_by_layer(('M1', 'space_should_pass')).polygon_list) == 6
     )
     assert (
-            len(plm.content_list_post_dataprep.get_content_by_layer(('M1', 'space_should_fail')).polygon_list) == 2
+            len(plm.content_list_post_dataprep[0].get_content_by_layer(('M1', 'space_should_fail')).polygon_list) == 2
     )
 
 

@@ -53,9 +53,10 @@ class PhotonicTemplateDB(TemplateDB):
         self.flattening_cache: Dict[Tuple, "ContentList"] = {}
 
     def dataprep(self,
-                 flat_content_list: "ContentList",
+                 flat_content_list: List["ContentList"],
+                 name_list: List[str],
                  is_lsf: bool = False,
-                 ) -> ContentList:
+                 ) -> List[ContentList]:
         """
         Initializes the dataprep plugin with the standard tech info and runs the dataprep procedure
 
@@ -63,22 +64,26 @@ class PhotonicTemplateDB(TemplateDB):
         ----------
         flat_content_list : ContentList
             The flattened Contentlist of the master
+        name_list : List[str]
+            The name to be provided to each dataprepped content list
         is_lsf : bool
             True if running LSF dataprep. False if running standard dataprep.
         Returns
         -------
-        post_dataprep_flat_content_list : ContentList
+        post_dataprep_flat_content_list : List[ContentList]
             The ContentList object (no longer layer separated) after running dataprep
         """
         logging.info(f'In PhotonicTemplateDB.dataprep with is_lsf set to {is_lsf}')
-        dataprep_object = Dataprep(photonic_tech_info=self.photonic_tech_info,
-                                   grid=self.grid,
-                                   content_list_flat=flat_content_list,
-                                   is_lsf=is_lsf,
-                                   impl_cell=self.impl_cell,
-                                   )
         start = time.time()
-        post_dataprep_flat_content_list = dataprep_object.dataprep()
+        post_dataprep_flat_content_list = []
+        for content, name in zip(flat_content_list, name_list):
+            dataprep_object = Dataprep(photonic_tech_info=self.photonic_tech_info,
+                                       grid=self.grid,
+                                       content_list_flat=content,
+                                       is_lsf=is_lsf,
+                                       impl_cell=name,
+                                       )
+            post_dataprep_flat_content_list.append(dataprep_object.dataprep())
         end = time.time()
         logging.info(f'All dataprep operations completed in {end - start:.4g} s')
         return post_dataprep_flat_content_list

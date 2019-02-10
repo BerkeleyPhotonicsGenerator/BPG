@@ -99,9 +99,9 @@ def test_add_rect():
     plm.generate_gds()
     plm.generate_flat_content()
     plm.generate_flat_gds()
-    # plm.dataprep()
-    # plm.generate_dataprep_gds()
-    # plm.generate_lsf()
+    plm.dataprep()
+    plm.generate_dataprep_gds()
+    plm.generate_lsf()
 
 
 if __name__ == '__main__':

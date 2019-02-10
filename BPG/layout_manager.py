@@ -68,8 +68,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         # Content List init
         self.content_list: List["ContentList"] = None
         self.content_list_flat: List["ContentList"] = None
-        self.content_list_post_dataprep: "ContentList" = None
-        self.content_list_post_lsf_dataprep: "ContentList" = None
+        self.content_list_post_dataprep: List["ContentList"] = None
+        self.content_list_post_lsf_dataprep: List["ContentList"] = None
         self.content_list_lumerical_tb: List["ContentList"] = []
 
         self.content_list_types = ['content_list', 'content_list_flat', 'content_list_post_dataprep',
@@ -252,67 +252,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
         #     raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
 
         self.content_list_post_lsf_dataprep = self.template_plugin.dataprep(
-            flat_content_list=self.content_list_flat[0],
+            flat_content_list=self.content_list_flat,
+            name_list=self.cell_name_list,
             is_lsf=True
         )
         # TODO: Fix naming here as well
-        self.lsf_plugin.export_content_list(content_lists=[self.content_list_post_lsf_dataprep])
-
-    def generate_tb(self, debug=False):
-        """ Generates the lumerical testbench lsf """
-        logging.info(f'\n\n{"Generating the tb .lsf file":-^80}')
-
-        # Grab the parameters to be passed to the TB
-        tb_params = self.specs['tb_params']
-        if tb_params is None:
-            tb_params = {}
-
-        if not isinstance(self.specs['layout_params'], list):
-            self.specs['layout_params'] = [self.specs['layout_params']]
-
-        # Construct the parameter list
-        layout_params_list = []
-        cell_name_list = []
-        for count, params in enumerate(self.specs['layout_params']):
-            temp_params = dict()
-            temp_params['layout_package'] = self.specs['layout_package']
-            temp_params['layout_class'] = self.specs['layout_class']
-            temp_params['layout_params'] = params
-            temp_params['tb_params'] = tb_params
-            layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
-
-        # Try importing the TB package and class
-        cls_package = self.specs['tb_package']
-        cls_name = self.specs['tb_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
-
-        # Create TB lsf file
-        temp_list = []
-        for lay_params in layout_params_list:
-            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
-            temp_list.append(template)
-
-        self.content_list_lumerical_tb = self.template_plugin.generate_flat_content_list(
-            master_list=temp_list,
-            name_list=cell_name_list,
-            rename_dict=None,
-        )
-
-        tb_content_post_dataprep = []
-        for content_list in self.content_list_lumerical_tb:
-            tb_content_post_dataprep.append(self.template_plugin.dataprep(flat_content_list=content_list, is_lsf=True))
-
-        # Export the actual data to LSF
-        self.lsf_plugin.export_content_list(tb_content_post_dataprep)  # TODO : fix naming here as well
-
-        # Create the sweep LSF file
-        filepath = self.lsf_plugin.lsf_filepath + '_sweep'
-        lsfwriter = LumericalSweepGenerator(filepath)
-        for script in cell_name_list:
-            lsfwriter.add_sweep_point(script_name=script)
-        lsfwriter.export_to_lsf()
+        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep)
 
     def dataprep(self):
         """
@@ -322,10 +267,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
-        # TODO: Handle multiple masters in dataprep
+
         start = time.time()
         self.content_list_post_dataprep = self.template_plugin.dataprep(
-            flat_content_list=self.content_list_flat[0],
+            flat_content_list=self.content_list_flat,
+            name_list=self.cell_name_list,
             is_lsf=False
         )
         end = time.time()
@@ -342,7 +288,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         start = time.time()
         # TODO: name
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep], name_append='_dataprep')
+        self.gds_plugin.export_content_list(content_lists=self.content_list_post_dataprep, name_append='_dataprep')
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, dataprep')
 
