@@ -110,59 +110,58 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                           lsf_filepath=self.lsf_path)
 
     def generate_template(self,
-                          temp_cls,
-                          layout_params: dict) -> None:
+                          temp_cls: "PhotonicTemplateType" = None,
+                          layout_params: dict = None,
+                          cell_name: str = None
+                          ) -> None:
         """
-        Adds a generator template to the queue for content generation
-        """
-        self.template_list.append(self.template_plugin.new_template(params=layout_params,
-                                                                    temp_cls=temp_cls,
-                                                                    debug=False))
-
-    def generate_content(self,
-                         layout_params: dict = None,
-                         cell_name: str = None,
-                         ) -> List['ContentList']:
-        """
-        Generates a set of content lists from all of the templates in the queue.
-        If layout params and cell name are passed, use these parameters.
-        If not provided, get these variables from the spec file
+        Adds a single generator template to the queue for future content creation. If no arguments are provided,
+        parameters are extracted from the provided spec file
 
         Parameters
         ----------
+        temp_cls : PhotonicTemplateType
+            A generator class to run with the provided parameters
         layout_params : dict
-            Optional dictionary of parameters to be sent to the layout generator class.
+            A dictionary of parameters to pass to the generator class
         cell_name : str
-            Optional name of the cell to be created from the layout generator.
-
-        Returns
-        -------
-        content_list : ContentList
-            A db of all generated shapes
+            Name of the cell to be associated with the template
         """
-        logging.info(f'\n\n{"Generating content list":-^80}')
+        logging.info(f'\n\n{"Generating template":-^80}')
+
         if layout_params is None:
             layout_params = self.specs['layout_params']
+        if temp_cls is None:
+            cls_package = self.specs['layout_package']
+            cls_name = self.specs['layout_class']
+            lay_module = importlib.import_module(cls_package)
+            temp_cls = getattr(lay_module, cls_name)
         if cell_name is None:
             cell_name = self.specs['impl_cell']
 
-        if isinstance(layout_params, list):
-            raise ValueError('Content generation from multiple masters is not supported in BPG.')
+        start_time = time.time()
+        self.template_list.append(self.template_plugin.new_template(params=layout_params,
+                                                                    temp_cls=temp_cls,
+                                                                    debug=False))
+        self.cell_name_list.append(cell_name)
+        end_time = time.time()
 
-        # Import the class listed in the spec file
-        cls_package = self.specs['layout_package']
-        cls_name = self.specs['layout_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
+        timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls} Template generation')
+
+    def generate_content(self) -> List['ContentList']:
+        """
+        Generates a set of content lists from all of the templates in the queue.
+
+        Returns
+        -------
+        content_list : List[ContentList]
+            A list of databases that contain all generated shapes
+        """
+        logging.info(f'\n\n{"Generating content list":-^80}')
+        if not self.template_list:
+            raise ValueError('Must call PhotonicLayoutManager.generate_template before calling generate_content')
 
         start_time = time.time()
-        # TODO: Generate a template for each set of parameters
-        self.generate_template(temp_cls=temp_cls, layout_params=layout_params)
-        # TODO: Properly support custom cell naming for now always set to None to use default names
-        self.cell_name_list.append(cell_name)
-        end_time_newtemp = time.time()
-
-        # Generate the content list
         self.content_list = self.template_plugin.generate_content_list(master_list=self.template_list,
                                                                        name_list=self.cell_name_list)
         end_time_contentgen = time.time()
@@ -172,8 +171,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
-        timing_logger.info(f'  {end_time_newtemp - start_time:<13.6g} | - New template generation')
-        timing_logger.info(f'  {end_time_contentgen - end_time_newtemp:<13.6g} | - Content list generation')
+        timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | - Content list generation')
         timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
