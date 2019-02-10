@@ -170,8 +170,8 @@ class PhotonicTemplateDB(TemplateDB):
         """
         logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
-        if len(master_list) > 1:
-            raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
+        # if len(master_list) > 1:
+        #     raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
 
         if name_list is None:
             name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]

@@ -8,6 +8,7 @@ from collections import UserDict
 
 # BAG imports
 from bag.layout import RoutingGrid
+from bag.util.cache import _get_unique_name
 from BPG.photonic_core import PhotonicBagProject
 
 # Plugin imports
@@ -66,7 +67,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         # Content List init
         self.content_list: List["ContentList"] = None
-        self.content_list_flat: "ContentList" = None
+        self.content_list_flat: List["ContentList"] = None
         self.content_list_post_dataprep: "ContentList" = None
         self.content_list_post_lsf_dataprep: "ContentList" = None
         self.content_list_lumerical_tb: List["ContentList"] = []
@@ -143,6 +144,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.template_list.append(self.template_plugin.new_template(params=layout_params,
                                                                     temp_cls=temp_cls,
                                                                     debug=False))
+        if cell_name in self.cell_name_list:
+            cell_name = _get_unique_name(cell_name, self.cell_name_list)
+
         self.cell_name_list.append(cell_name)
         end_time = time.time()
 
@@ -189,12 +193,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
-    def generate_flat_content(self) -> 'ContentList':
+    def generate_flat_content(self) -> List["ContentList"]:
         """
-        Generates a flattened content list from the template passed to generate_content.
-
-        Parameters
-        ----------
+        Generates a flattened content list from generated templates.
 
         Returns
         -------
@@ -204,14 +205,13 @@ class PhotonicLayoutManager(PhotonicBagProject):
         logging.info(f'\n\n{"Generating flat content list":-^80}')
 
         if not self.template_list:
-            raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_flat_content')
+            raise ValueError('Must call PhotonicLayoutManager.generate_template before calling generate_flat_content')
 
         start_time = time.time()
-        # TODO: This only grabs the first element in the generated content list, use all of them!
         self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=self.template_list,
                                                                                  name_list=self.cell_name_list,
                                                                                  rename_dict=None,
-                                                                                 )[0]
+                                                                                 )
         end_time_contentgen = time.time()
 
         # Save the content
@@ -234,7 +234,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_flat_gds')
 
         start = time.time()
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_flat], name_append='_flat')  # TODO:name
+        self.gds_plugin.export_content_list(content_lists=self.content_list_flat, name_append='_flat')  # TODO:name
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, flat')
 
@@ -248,11 +248,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_lsf')
 
-        if isinstance(self.content_list_flat, list):
-            raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
+        # if isinstance(self.content_list_flat, list):
+        #     raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
 
         self.content_list_post_lsf_dataprep = self.template_plugin.dataprep(
-            flat_content_list=self.content_list_flat,
+            flat_content_list=self.content_list_flat[0],
             is_lsf=True
         )
         # TODO: Fix naming here as well
@@ -322,10 +322,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
-
+        # TODO: Handle multiple masters in dataprep
         start = time.time()
         self.content_list_post_dataprep = self.template_plugin.dataprep(
-            flat_content_list=self.content_list_flat,
+            flat_content_list=self.content_list_flat[0],
             is_lsf=False
         )
         end = time.time()
