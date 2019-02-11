@@ -167,7 +167,7 @@ class LumericalMaterialGenerator(LumericalCodeGenerator):
         name : str
             name of the new material being created
         """
-        self.add_code(f'matname = {name}')
+        self.add_code(f'matname = "{name}"')
         self.add_code('newmaterial = addmaterial("Lorentz")')  # TODO: What is Lorentz, do we need other options here?
         self.add_code(f'setmaterial(newmaterial, "name", matname)')
 
