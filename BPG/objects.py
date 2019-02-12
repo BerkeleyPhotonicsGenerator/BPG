@@ -148,7 +148,7 @@ class PhotonicInstance(Instance):
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
 
-        self._photonic_port_list[port_name].used(True)
+        self._photonic_port_list[port_name].used = True
 
     def get_port_used(self,
                       port_name: str,
@@ -156,7 +156,10 @@ class PhotonicInstance(Instance):
         if port_name not in self._photonic_port_list:
             raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
 
-        return self._photonic_port_list[port_name].used()
+        return self._photonic_port_list[port_name].used
+
+    def get_all_photonic_ports(self) -> Dict[str, "PhotonicPort"]:
+        return self._photonic_port_list
 
     def get_photonic_port(self,
                           name: str,
