@@ -276,6 +276,25 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
+    def dataprep_calibre(self):
+        """
+        Performs dataprep on the design
+        """
+        logging.info(f'\n\n{"Running dataprep calibre":-^80}')
+
+        # if not self.content_list_flat:
+        #     raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
+
+        start = time.time()
+        self.template_plugin.dataprep_calibre(
+            is_lsf=False,
+            calibre_outfile_path=str(self.data_dir / 'calibre_dataprep.cal'),
+            file_in=self.gds_path + '_flat.gds',
+            file_out=self.gds_path + '_dataprep_calibre.gds',
+        )
+        end = time.time()
+        timing_logger.info(f'{end - start:<15.6g} | Dataprep_calibre')
+
     def generate_dataprep_gds(self) -> None:
         """
         Exports the dataprep content to GDS format

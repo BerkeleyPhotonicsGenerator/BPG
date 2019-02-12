@@ -13,6 +13,7 @@ from .content_list import ContentList
 
 # Plugin Imports
 from .compiler.dataprep_gdspy import Dataprep
+from .compiler.dataprep_calibre import DataprepCalibre
 
 # Typing Imports
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, List, Tuple
@@ -87,6 +88,23 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
         logging.info(f'All dataprep operations completed in {end - start:.4g} s')
         return post_dataprep_flat_content_list
+
+    def dataprep_calibre(self,
+                         is_lsf: bool = False,
+                         calibre_outfile_path: str = None,
+                         file_in: str = None,
+                         file_out: str = None,
+                         ):
+        logging.info(f'In PhotonicTemplateDB.dataprep_calibre with is_lsf set to {is_lsf}')
+        dataprep_object = DataprepCalibre(photonic_tech_info=self.photonic_tech_info,
+                                          grid=self.grid,
+                                          is_lsf=is_lsf,
+                                          impl_cell=self.impl_cell,  # TODO: impl_cell??
+                                          calibre_outfile_path=calibre_outfile_path,
+                                          file_in=file_in,
+                                          file_out=file_out,
+                                          )
+        dataprep_object.dataprep()
 
     def generate_content_list(self,
                               master_list: Sequence["DesignMaster"],
