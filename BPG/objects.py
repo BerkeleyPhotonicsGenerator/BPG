@@ -444,6 +444,17 @@ class PhotonicRound(Arrayable):
         print("WARNING: USING THIS BREAKS POWER FILL ALGORITHM.")
 
     @property
+    def bound_box(self) -> BBox:
+        return BBox(
+            left=self.center_unit[0] - self.rout_unit,
+            bottom=self.center_unit[1] - self.rout_unit,
+            right=self.center_unit[0] + self.rout_unit,
+            top=self.center_unit[1] + self.rout_unit,
+            resolution=self._res,
+            unit_mode=True
+        )
+
+    @property
     def content(self):
         """A dictionary representation of this rectangle."""
         content = dict(layer=list(self.layer),
@@ -523,88 +534,6 @@ class PhotonicRound(Arrayable):
         ans.theta0 = new_theta0
         ans.theta1 = new_theta1
         return ans
-
-    @classmethod
-    def lsf_export(cls,
-                   rout: dim_type,
-                   rin: dim_type,
-                   theta0: dim_type,
-                   theta1: dim_type,
-                   layer_prop: Dict,
-                   center: coord_type,
-                   nx: int = 1,
-                   ny: int = 1,
-                   spx: dim_type = 0.0,
-                   spy: dim_type = 0.0,
-                   ) -> List[str]:
-        """
-
-        Parameters
-        ----------
-        rout
-        rin
-        theta0
-        theta1
-        layer_prop
-        center
-        nx
-        ny
-        spx
-        spy
-
-        Returns
-        -------
-
-        """
-        x0, y0 = center[0] * 1e-6, center[1] * 1e-6
-        spx, spy = spx * 1e-6, spy * 1e-6
-        lsf_code = []
-
-        if rin == 0:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addcircle;\n')
-
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                    # Set radius
-                    lsf_code.append('set(radius, {});\n'.format(rout * 1e-6))
-
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
-
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
-        else:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addring;\n')
-
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                    # Set dimensions/angles
-                    lsf_code.append('set("outer radius", {});\n'.format(rout * 1e-6))
-                    lsf_code.append('set("inner radius", {});\n'.format(rin * 1e-6))
-                    lsf_code.append('set("theta start", {});\n'.format(theta0))
-                    lsf_code.append('set("theta stop", {});\n'.format(theta1))
-
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
-
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
-
-        return lsf_code
 
     @staticmethod
     def num_of_sparse_point_round(radius: float,
@@ -699,6 +628,10 @@ class PhotonicRect(Rect):
             unit_mode=False,
         )
 
+    @property
+    def bound_box(self) -> BBox:
+        return BBox(*self.bbox.get_bounds(unit_mode=True), resolution=self._res, unit_mode=True)
+
     def transform(self,
                   loc: coord_type = (0, 0),
                   orient: str = 'R0',
@@ -714,71 +647,6 @@ class PhotonicRect(Rect):
         ans._bbox = ans._bbox.transform(loc=loc, orient=orient, unit_mode=unit_mode)
 
         return ans
-
-    @classmethod
-    def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
-        """
-        Describes the current rectangle shape in terms of lsf parameters for lumerical use.
-        Note that Lumerical uses meters as the base unit, and all input coords are assumed to be in
-        microns. This method inherently resizes
-
-        Parameters
-        ----------
-        bbox : [[float, float], [float, float]]
-            lower left and upper right corner xy coordinates
-        layer_prop : dict
-            dictionary containing material properties for the desired layer
-        nx : int
-            number of arrayed rectangles in the x-direction
-        ny : int
-            number of arrayed rectangles in the y-direction
-        spx : float
-            space between arrayed rectangles in the x-direction
-        spy : float
-            space between arrayed rectangles in the y-direction
-
-        Returns
-        -------
-        lsf_code : List[str]
-            list of str containing the lsf code required to create specified rectangles
-        """
-
-        # Calculate the width and length of the rectangle in meters
-        x_span = CoordBase(bbox[1][0] - bbox[0][0]).meters
-        y_span = CoordBase(bbox[1][1] - bbox[0][1]).meters
-
-        # Calculate the center of the first rectangle in meters
-        base_x_center = CoordBase((bbox[1][0] + bbox[0][0]) / 2).meters
-        base_y_center = CoordBase((bbox[1][1] + bbox[0][1]) / 2).meters
-
-        # Get vertical dimensions
-        z_min = CoordBase(layer_prop['z_min']).meters
-        z_max = CoordBase(layer_prop['z_max']).meters
-
-        # Write the lumerical code for each rectangle in the array
-        lsf_code = []
-        for x_count in range(nx):
-            for y_count in range(ny):
-                lsf_code.append('\n')
-                lsf_code.append('addrect;\n')
-                lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                # Compute the x and y coordinates for each rectangle
-                lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + CoordBase(spx * x_count).meters))
-                lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + CoordBase(spy * y_count).meters))
-
-                # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(z_min))
-                lsf_code.append('set("z max", {});\n'.format(z_max))
-
-                if 'mesh_order' in layer_prop:
-                    lsf_code.append('set("override mesh order from material database", 1);\n')
-                    lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
-
-        return lsf_code
 
     @classmethod
     def polygon_pointlist_export(cls,
@@ -992,6 +860,12 @@ class PhotonicPath(Figure):
                        )
         return content
 
+    @property
+    def bound_box(self) -> BBox:
+        left, bottom = np.amin(self._polygon_points_unit, axis=0)
+        right, top = np.amax(self._polygon_points_unit, axis=0)
+        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=True)
+
     def move_by(self,
                 dx: dim_type = 0,
                 dy: dim_type = 0,
@@ -1150,6 +1024,12 @@ class PhotonicPolygon(Polygon):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
 
+    @property
+    def bound_box(self):
+        left, bottom = np.amin(self._points, axis=0)
+        right, top = np.amax(self._points, axis=0)
+        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=True)
+
     @classmethod
     def from_content(cls, content, resolution):
         return PhotonicPolygon(
@@ -1158,49 +1038,6 @@ class PhotonicPolygon(Polygon):
             points=content['points'],
             unit_mode=False,
         )
-
-    @classmethod
-    def lsf_export(cls, vertices, layer_prop) -> List[str]:
-        """
-        Describes the current polygon shape in terms of lsf parameters for lumerical use
-
-        Parameters
-        ----------
-        vertices : List[Tuple[float, float]]
-            ordered list of x,y coordinates representing the points of the polygon
-        layer_prop : dict
-            dictionary containing material properties for the desired layer
-
-        Returns
-        -------
-        lsf_code : List[str]
-            list of str containing the lsf code required to create specified rectangles
-        """
-        # Grab the number of vertices in the polygon to preallocate Lumerical matrix size
-        poly_len = len(vertices)
-
-        # Write the lumerical code for the polygon
-        lsf_code = ['\n',
-                    'addpoly;\n',
-                    'set("material", "{}");\n'.format(layer_prop['material']),
-                    'set("alpha", {});\n'.format(layer_prop['alpha']),
-
-                    # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
-                    'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
-                    'set("vertices", V);\n',
-
-                    # Set the thickness values from the layermap file
-                    'set("z min", {});\n'.format(CoordBase(layer_prop['z_min']).meters),
-                    'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
-                    ]
-
-        if 'mesh_order' in layer_prop:
-            lsf_code.append('set("override mesh order from material database", 1);\n')
-            lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
-
-        return lsf_code
 
     @classmethod
     def polygon_pointlist_export(cls,

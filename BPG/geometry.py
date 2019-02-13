@@ -1,7 +1,8 @@
 from decimal import Decimal
 from BPG.port import PhotonicPort
+from bag.layout.util import BBox
 
-from typing import Tuple
+from typing import Tuple, Union
 
 
 class CoordBase:
@@ -241,3 +242,41 @@ class Box:
         center = port.center_unit
         self.geometry['x']['center'] = center[0] + offset[0]
         self.geometry['y']['center'] = center[1] + offset[1]
+
+
+class BBoxMut(BBox):
+    """
+    A special bounding box that mutates is own properties instead of returning a new object.
+    This is useful when performing a large number of transformations of the same boundary.
+    """
+
+    def merge(self, bbox: Union[BBox, 'BBoxMut']) -> 'BBoxMut':
+        """
+        Returns a new bounding box that's the union of this bounding box and the given one.
+        BBoxMut is often initialized with 0 area, so in this case a merge should cause the
+        BBoxMut to inherit the same size as the given BBox.
+
+        Parameters
+        ----------
+        bbox : bag.layout.util.BBox
+            the bounding box to merge with.
+
+        Returns
+        -------
+        total : bag.layout.util.BBox
+            the merged bounding box.
+        """
+        if not self.is_physical():
+            self._left_unit = bbox._left_unit
+            self._right_unit = bbox._right_unit
+            self._bot_unit = bbox._bot_unit
+            self._top_unit = bbox._top_unit
+            return self
+        elif not bbox.is_valid():
+            return self
+
+        self._left_unit = min(self._left_unit, bbox._left_unit)
+        self._right_unit = max(self._right_unit, bbox._right_unit)
+        self._bot_unit = min(self._bot_unit, bbox._bot_unit)
+        self._top_unit = max(self._top_unit, bbox._top_unit)
+        return self

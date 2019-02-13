@@ -150,7 +150,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.cell_name_list.append(cell_name)
         end_time = time.time()
 
-        timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls} Template generation')
+        timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls.__name__} Template generation')
 
     def generate_content(self) -> List['ContentList']:
         """

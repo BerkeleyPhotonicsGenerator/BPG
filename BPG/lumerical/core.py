@@ -4,7 +4,7 @@ import yaml
 
 from BPG.abstract_plugin import AbstractPlugin
 from .code_generator import LumericalDesignGenerator
-from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
+from BPG.lumerical.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 
 from typing import TYPE_CHECKING, List
 

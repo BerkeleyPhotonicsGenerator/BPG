@@ -16,6 +16,7 @@ from bag.layout.core import BagLayout
 
 # BPG imports
 from BPG.content_list import ContentList
+from BPG.geometry import BBoxMut
 
 from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict
 from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
@@ -223,6 +224,13 @@ class PhotonicBagLayout(BagLayout):
         self._source_list = []
         self._monitor_list = []
 
+        # Initialize the boundary of this cell with zero area at the origin
+        self._bound_box = BBoxMut(0, 0, 0, 0, resolution=self._res, unit_mode=True)
+
+    @property
+    def bound_box(self) -> BBoxMut:
+        return self._bound_box
+
     def finalize(self):
         # type: () -> None
         """ Prevents any further changes to this layout. """
@@ -291,6 +299,28 @@ class PhotonicBagLayout(BagLayout):
             self._is_empty = True
         else:
             self._is_empty = False
+
+        # Calculate the bounding box for the overall layout
+        for inst in self._inst_list:
+            self._bound_box.merge(inst.bound_box)
+        for rect in self._rect_list:
+            self._bound_box.merge(rect.bound_box)
+        if self._via_list != []:
+            logging.warning("vias are currently not considered in master bounding box calculations")
+        # if self._pin_list != []:
+        #     logging.warning("pins are currently not considered in master bounding box calculations")
+        for path in self._path_list:
+            self._bound_box.merge(path.bound_box)
+        if self._blockage_list != []:
+            logging.warning("blockages are currently not considered in master bounding box calculations")
+        if self._boundary_list != []:
+            logging.warning("boundaries are currently not considered in master bounding box calculations")
+        for poly in self._polygon_list:
+            self._bound_box.merge(poly.bound_box)
+        if self._round_list != []:
+            logging.warning("round bounding boxes currently overestimate the size")
+            for round in self._round_list:
+                self._bound_box.merge(round.bound_box)
 
     def get_content(self,
                     lib_name: str,
