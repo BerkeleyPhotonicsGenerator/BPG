@@ -238,9 +238,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # Call super finalize routine
         TemplateBase.finalize(self)
-        print(self.__class__.__name__)
         self.prim_bound_box = self._layout.bound_box
-        print(self.prim_bound_box)
 
     def add_photonic_port(self,
                           name: str = None,
