@@ -13,7 +13,6 @@ from BPG.photonic_core import PhotonicBagProject
 
 # Plugin imports
 from .db import PhotonicTemplateDB
-from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
@@ -108,11 +107,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                     lib_name=self.impl_lib)
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
-                                          lsf_filepath=self.lsf_path)
+                                          scripts_dir=self.scripts_dir)
 
     def generate_template(self,
                           temp_cls: "PhotonicTemplateType" = None,
-                          layout_params: dict = None,
+                          params: dict = None,
                           cell_name: str = None
                           ) -> None:
         """
@@ -123,15 +122,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         ----------
         temp_cls : PhotonicTemplateType
             A generator class to run with the provided parameters
-        layout_params : dict
+        params : dict
             A dictionary of parameters to pass to the generator class
         cell_name : str
             Name of the cell to be associated with the template
         """
         logging.info(f'\n\n{"Generating template":-^80}')
-
-        if layout_params is None:
-            layout_params = self.specs['layout_params']
+        if params is None:
+            params = self.specs['layout_params']
         if temp_cls is None:
             cls_package = self.specs['layout_package']
             cls_name = self.specs['layout_class']
@@ -141,12 +139,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
             cell_name = self.specs['impl_cell']
 
         start_time = time.time()
-        self.template_list.append(self.template_plugin.new_template(params=layout_params,
+        self.template_list.append(self.template_plugin.new_template(params=params,
                                                                     temp_cls=temp_cls,
                                                                     debug=False))
         if cell_name in self.cell_name_list:
             cell_name = _get_unique_name(cell_name, self.cell_name_list)
-
+        print(cell_name)
         self.cell_name_list.append(cell_name)
         end_time = time.time()
 
@@ -257,7 +255,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
             is_lsf=True
         )
         # TODO: Fix naming here as well
-        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep)
+        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
+                                            name_list=self.cell_name_list)
 
     def dataprep(self):
         """

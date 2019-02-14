@@ -111,20 +111,19 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         # Run a loop over all of the layout scripts
         self.add_formatted_line('\n# Main execution loop')
         self.add_formatted_line('for(i=1:sweep_len){')
-        self.add_formatted_line('# Setup logic')
-        self.add_code('addanalysisgroup')
-        self.add_code('set("name", script_list{i})')
-        # self.set('name', 'script_list{i}')
-        self.add_code('groupscope(script_list{i})')
+        self.add_formatted_line('\t# Setup logic')
+        self.add_code('\taddanalysisgroup')
+        self.add_code('\tset("name", script_list{i})')
+        self.add_code('\tgroupscope(script_list{i})')
 
-        self.add_formatted_line('\n# Run the script')
-        self.add_code('feval(script_list{i})')
+        self.add_formatted_line('\n\t# Run the script')
+        self.add_code('\tfeval(script_list{i})')
 
-        self.add_formatted_line('\n# Teardown logic')
-        self.add_code('switchtolayout')
-        self.add_code('groupscope(script_list{i})')
-        self.add_code('delete')
-        self.add_code('groupscope("::model")')
+        self.add_formatted_line('\n\t# Teardown logic')
+        self.add_code('\tswitchtolayout')
+        self.add_code('\tgroupscope(script_list{i})')
+        self.add_code('\tdelete')
+        self.add_code('\tgroupscope("::model")')
         self.add_formatted_line('}')
 
     def export_to_lsf(self):
