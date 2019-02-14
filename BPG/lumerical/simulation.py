@@ -102,7 +102,10 @@ class LumericalSimObj(LumericalCodeGenerator, metaclass=abc.ABCMeta):
 
 
 class LumericalCodeObj(LumericalSimObj):
-    """ Class that enables the easy addition of arbitrary lumerical code """
+    """
+    Class that enables the easy addition of arbitrary lumerical code. No restrictions on which properties can be set
+    are enforced. All set statements and code blocks are executed in the order in which they are written.
+    """
 
     def __init__(self):
         LumericalSimObj.__init__(self)
