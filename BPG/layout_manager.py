@@ -144,7 +144,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                                     debug=False))
         if cell_name in self.cell_name_list:
             cell_name = _get_unique_name(cell_name, self.cell_name_list)
-        print(cell_name)
         self.cell_name_list.append(cell_name)
         end_time = time.time()
 
