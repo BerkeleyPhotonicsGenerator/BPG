@@ -96,6 +96,7 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         self._script_list.append(script_name + '.lsf')
 
     def create_sweep_loop(self):
+        self.add_code('newproject')
         self.add_code('clear')
         self.add_code('redrawoff')
 

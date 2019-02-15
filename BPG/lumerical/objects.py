@@ -1296,6 +1296,10 @@ class PhotonicPolygon(Polygon):
                     'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
                     'set("vertices", V);\n',
 
+                    # Set center reference to (0, 0) to fix lumericals relative coordinates
+                    'set("x", 0);\n',
+                    'set("y", 0);\n',
+
                     # Set the thickness values from the layermap file
                     'set("z min", {});\n'.format(CoordBase(layer_prop['z_min']).meters),
                     'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
