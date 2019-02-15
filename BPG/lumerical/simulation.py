@@ -340,10 +340,12 @@ class varFDTDSolver(LumericalSimObj):
             "simulation temperature": 300,
             "x": 0,
             "y": 0,
-            "z": 0,
+            "z": None,
             "x span": 0,
             "y span": 0,
-            "z span": 0,
+            "z span": None,
+            "z min": None,
+            "z max": None,
             "mesh accuracy": 3,
             "x min bc": 'PML',
             "x max bc": 'PML',
@@ -351,6 +353,10 @@ class varFDTDSolver(LumericalSimObj):
             "y max bc": 'PML',
             "z min bc": 'PML',
             "z max bc": 'PML',
+            "x0": None,
+            "y0": None,
+            "wavelength stop": None,
+            "wavelength start": None,
         }
 
     @property
@@ -374,10 +380,18 @@ class varFDTDSolver(LumericalSimObj):
         # Set the geometry
         self.set('x', self['x'])
         self.set('y', self['y'])
-        self.set('z', self['z'])
         self.set('x span', self['x span'])
         self.set('y span', self['y span'])
-        self.set('z span', self['z span'])
+
+        if self['z'] is not None and self['z span'] is not None:
+            self.set('z', self['z'])
+            self.set('z span', self['z span'])
+        elif self['z min'] is not None and self['z max'] is not None:
+            self.set('z min', self['z min'])
+            self.set('z max', self['z max'])
+        else:
+            raise ValueError(f'For varFDTDSolver, either z and z span must be specified, or z min and z max must be '
+                             f'specified.')
 
         # Finally set the meshing and boundary condition settings
         self.set("mesh accuracy", self['mesh accuracy'])
@@ -387,6 +401,10 @@ class varFDTDSolver(LumericalSimObj):
         self.set("y max bc", self['y max bc'])
         self.set("z min bc", self['z min bc'])
         self.set("z max bc", self['z max bc'])
+        self.set("x0", self['x0'])
+        self.set("y0", self['y0'])
+        self.set("wavelength stop", self['wavelength stop'])
+        self.set("wavelength start", self['wavelength start'])
 
         return self._code
 
@@ -423,7 +441,7 @@ class PowerMonitor(LumericalSimObj):
         lsf_code : List[str]
             list of Lumerical code to create the FDESolver object
         """
-        self.add_code('\naddmode')
+        self.add_code('\naddpower')
         self.set("name", self['name'])
         self.set("monitor type", self['monitor type'])
 
@@ -498,7 +516,6 @@ class VarFDTDModeSource(LumericalSimObj):
             "set wavelength": 1,
             "wavelength start": 1.1e-6,
             "wavelength stop": 1.3e-6,
-
         }
 
     @property
@@ -506,7 +523,7 @@ class VarFDTDModeSource(LumericalSimObj):
         return None
 
     def lsf_export(self):
-        self.add_code('\naddmode')
+        self.add_code('\naddmodesource')
         self.set("name", self['name'])
 
         # General
