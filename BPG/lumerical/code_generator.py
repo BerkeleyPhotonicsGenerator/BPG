@@ -2,7 +2,7 @@
 Module containing classes used to systematically generate clean Lumerical script code
 """
 import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 
 class LumericalCodeGenerator:
@@ -11,7 +11,7 @@ class LumericalCodeGenerator:
         self.config: Dict[str, Any] = config
         self._code: List[str] = []
 
-    def add_code(self, code: str) -> None:
+    def add_code(self, code: Union[str, list]) -> None:
         """
         Adds provided statement of code to the script file, and formats it accordingly
         Adds a semicolon and a newline character to each line to match standard LSF syntax
@@ -21,7 +21,10 @@ class LumericalCodeGenerator:
         code : str
             Single string containing lumerical script
         """
-        self._code.append(code + ';\n')
+        if isinstance(code, str):
+            code = [code]
+        for line in code:
+            self._code.append(line + ';\n')
 
     def add_formatted_code_block(self, code: List[str]):
         """

@@ -154,7 +154,7 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
             width0=port.width,
             width1=port.width,
             length=length,
-            layer=port.layer
+            layer=(port.layer[0], 'drawing')
         )
         taper_master = self.new_template(params=taper_params, temp_cls=LinearTaper)
 

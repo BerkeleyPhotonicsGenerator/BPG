@@ -4,10 +4,10 @@
 dataprep_groups:
   # Place buried oxide and cladding around all areas covered by Si
   - lpp_in:
-      - {lpp: ['SI', 'phot']}
+      - {lpp: ['SI', 'drawing']}
     lpp_ops:
-      - {lpp: ['BOX', 'phot'], operation: 'rad', amount: 5.0}
-      - {lpp: ['CLAD', 'phot'], operation: 'rad', amount: 5.0}
+      - {lpp: ['BOX', 'drawing'], operation: 'rad', amount: 5.0}
+      - {lpp: ['CLAD', 'drawing'], operation: 'rad', amount: 5.0}
 
 # Don't use final OUUO operation for Lumerical export
 over_under_under_over:
@@ -15,17 +15,17 @@ over_under_under_over:
 # Map between valid GDS layers and their properties in Lumerical. Material name can be the built-ins within the
 # Lumerical material database or those added in the materials key below
 lumerical_prop_map:
-  !!python/tuple [SI, phot]:
+  !!python/tuple [SI, drawing]:
     material: 'Si (Silicon) - Palik'
     z_min: 0
     z_max: .22
     alpha: 1
-  !!python/tuple [BOX, phot]:
+  !!python/tuple [BOX, drawing]:
     material: 'SiO2 (Glass) - Palik'
     z_min: !!python/float -1
     z_max: 0
     alpha: 2
-  !!python/tuple [CLAD, phot]:
+  !!python/tuple [CLAD, drawing]:
     material: 'SiO2 (Glass) - Palik'
     z_min: 0
     z_max: !!python/float 2
