@@ -3,10 +3,15 @@ import importlib
 import abc
 import logging
 
-from typing import Dict, Any, List
+from typing import TYPE_CHECKING, Dict, Any, List
 from .simulation import *
+from Photonic_Core_Layout.Taper.LinearTaper import LinearTaper
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+    from BPG.port import PhotonicPort
+    from BPG.objects import PhotonicInstance
 
 
 class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
@@ -18,14 +23,14 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
-        self.layout_package: str = self.params['layout_package']
-        self.layout_class: str = self.params['layout_class']
-        self.layout_params: Dict[str, Any] = self.params['layout_params']
-        self.params: Dict[str, Any] = params['tb_params']
+        self.layout_package: str = params['layout_package']
+        self.layout_class: str = params['layout_class']
+        self.layout_params: Dict[str, Any] = params['layout_params']
+        self.tb_params: Dict[str, Any] = params['tb_params']
 
         # Contains the master and instance of the design to be tested
         self.dut_master = None
-        self.dut_inst = None
+        self.dut_inst: "PhotonicInstance" = None
 
         # Store the simulation objects to be created
         self._sim_db: List[LumericalSimObj] = []
@@ -72,7 +77,9 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         return temp_fde
 
     def add_var_FDTD_solver(self):
-        pass
+        temp_varfdtd = varFDTDSolver()
+        self._sim_db.append(temp_varfdtd)
+        return temp_varfdtd
 
     def add_EME_solver(self):
         pass
@@ -83,6 +90,11 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
     ''' Simulation Sources '''
     def add_mode_source(self):
         pass
+
+    def add_varfdtd_mode_source(self):
+        temp_mode_source = VarFDTDModeSource()
+        self._sim_db.append(temp_mode_source)
+        return temp_mode_source
 
     def add_point_source(self):
         pass
@@ -117,6 +129,42 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
 
     def add_mode_expansion_monitor(self):
         pass
+
+    def extend_waveguide(self,
+                         port: "PhotonicPort",
+                         length: float,
+                         ) -> "PhotonicPort":
+        """
+        Extends a constant-width waveguide of the DUT by some length.  Useful for adding sources and monitors and
+        distances away from the DUT.
+        Returns the PhotonicPort on the end of the newly added waveguide
+
+        Parameters
+        ----------
+        port : PhotonicPort
+            The PhotonicPort to which the waveguide should be added.
+        length : float
+            The length of the
+
+        Returns
+        -------
+
+        """
+        taper_params = dict(
+            width0=port.width,
+            width1=port.width,
+            length=length,
+            layer=port.layer
+        )
+        taper_master = self.new_template(params=taper_params, temp_cls=LinearTaper)
+
+        wg_inst = self.add_instances_port_to_port(
+            inst_master=taper_master,
+            instance_port_name='PORT1',
+            self_port=port,
+        )
+
+        return wg_inst['PORT0']
 
     def draw_layout(self):
         """ This method is used internally to assemble the instance and the TB sources. DO NOT CALL THIS """

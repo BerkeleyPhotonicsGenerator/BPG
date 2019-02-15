@@ -57,10 +57,11 @@ class LumericalCodeGenerator:
         value : any
             value that the parameter will be assigned
         """
-        if isinstance(value, str):
-            self.add_code('set("{}", "{}")'.format(key, value))
-        else:
-            self.add_code('set("{}", {})'.format(key, value))
+        if value is not None:
+            if isinstance(value, str):
+                self.add_code('set("{}", "{}")'.format(key, value))
+            else:
+                self.add_code('set("{}", {})'.format(key, value))
 
     def get_file_header(self):
         """
