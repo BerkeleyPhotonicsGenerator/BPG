@@ -325,6 +325,72 @@ class FDTDSolver(LumericalSimObj):
         return self._code
 
 
+class varFDTDSolver(LumericalSimObj):
+    """ Lumerical Simulation Object for variational Finite-Difference Time Domain Solver """
+
+    def __init__(self):
+        super(varFDTDSolver, self).__init__()
+
+    @classmethod
+    def get_default_property_values(cls) -> dict:
+        return {
+            # General
+            "background index": 1,
+            "simulation time": 1000,
+            "simulation temperature": 300,
+            "x": 0,
+            "y": 0,
+            "z": 0,
+            "x span": 0,
+            "y span": 0,
+            "z span": 0,
+            "mesh accuracy": 3,
+            "x min bc": 'PML',
+            "x max bc": 'PML',
+            "y min bc": 'PML',
+            "y max bc": 'PML',
+            "z min bc": 'PML',
+            "z max bc": 'PML',
+        }
+
+    @property
+    def geometry(self):
+        return None
+
+    ''' LSF Export Methods '''
+    ''' DO NOT CALL THESE METHODS DIRECTLY '''
+
+    def lsf_export(self) -> List[str]:
+        """
+        Returns a list of Lumerical code describing the creation of a FDESolver object
+
+        Returns
+        -------
+        lsf_code : List[str]
+            list of Lumerical code to create the FDESolver object
+        """
+        self.add_code('\naddvarfdtd')
+
+        # Set the geometry
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('z', self['z'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('z span', self['z span'])
+
+        # Finally set the meshing and boundary condition settings
+        self.set("mesh accuracy", self['mesh accuracy'])
+        self.set("x min bc", self['x min bc'])
+        self.set("x max bc", self['x max bc'])
+        self.set("y min bc", self['y min bc'])
+        self.set("y max bc", self['y max bc'])
+        self.set("z min bc", self['z min bc'])
+        self.set("z max bc", self['z max bc'])
+
+        return self._code
+
+
 class PowerMonitor(LumericalSimObj):
     """ Lumerical Simulation Object that describes a power monitor """
 
@@ -409,3 +475,54 @@ class ModeSource(LumericalSimObj):
         self.set('x span', self['x span'])
         self.set('y span', self['y span'])
         self.set('z span', self['z span'])
+
+
+class VarFDTDModeSource(LumericalSimObj):
+    """ Lumerical Simulation Object that controls and places a varFDTD mode source """
+
+    def __init__(self):
+        super(VarFDTDModeSource, self).__init__()
+
+    @classmethod
+    def get_default_property_values(cls) -> dict:
+        return {
+            "name": None,
+            "injection axis": "x",
+            "direction": "forward",
+            "x": None,
+            "y": None,
+            "x span": None,
+            "y span": None,
+            "use relative coordinates": 1,
+            "override global source settings": 1,
+            "set wavelength": 1,
+            "wavelength start": 1.1e-6,
+            "wavelength stop": 1.3e-6,
+
+        }
+
+    @property
+    def geometry(self):
+        return None
+
+    def lsf_export(self):
+        self.add_code('\naddmode')
+        self.set("name", self['name'])
+
+        # General
+        self.set("injection axis", self['injection axis'])
+        self.set("direction", self['direction'])
+
+        # Geometry
+        self.set('x', self['x'])
+        self.set('y', self['y'])
+        self.set('x span', self['x span'])
+        self.set('y span', self['y span'])
+        self.set('use relative coordinates', self['use relative coordinates'])
+
+        # Frequency/Wavelength
+        self.set('override global source settings', self['override global source settings'])
+        self.set('set wavelength', self['set wavelength'])
+        self.set('wavelength start', self['wavelength start'])
+        self.set('wavelength stop', self['wavelength stop'])
+        self.add_code('updatesourcemode')
