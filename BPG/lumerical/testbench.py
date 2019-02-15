@@ -18,9 +18,9 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         BPG.PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
-        self.layout_package: str = params['layout_package']
-        self.layout_class: str = params['layout_class']
-        self.layout_params: Dict[str, Any] = params['layout_params']
+        self.layout_package: str = self.params['layout_package']
+        self.layout_class: str = self.params['layout_class']
+        self.layout_params: Dict[str, Any] = self.params['layout_params']
         self.params: Dict[str, Any] = params['tb_params']
 
         # Contains the master and instance of the design to be tested
@@ -36,7 +36,7 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
     def get_params_info(cls):
         return dict(
             layout_package='Python package containing the photonic layout generator class',
-            layout_class='Python class that generates the photonic layout',
+            layout_class='Python class name within the package that generates the photonic layout',
             layout_params='Dictionary containing all parameters to be passed to the layout class',
             tb_params='Parameters to be used in your testbench'
         )
