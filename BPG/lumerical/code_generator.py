@@ -126,9 +126,9 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
 
         self.add_formatted_line('\n\t# Teardown logic')
         self.add_code('\tswitchtolayout')
-        self.add_code('\tgroupscope(script_list{i})')
-        self.add_code('\tdelete')
         self.add_code('\tgroupscope("::model")')
+        self.add_code('\tgroupscope("::model::"+script_list{i})')
+        self.add_code('\tdelete')
         self.add_formatted_line('}')
 
     def export_to_lsf(self):
