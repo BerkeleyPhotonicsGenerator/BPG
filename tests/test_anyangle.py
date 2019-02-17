@@ -50,15 +50,18 @@ class AnyAngleNoHierarchyPortToPortLevel1Type1(BPG.PhotonicTemplateBase):
 
     def draw_layout(self):
 
-        self.add_rect(
+        self.add_polygon(
             layer='SI',
-            coord1=(5, 6),
-            coord2=(10, 8),
+            points=[
+                (0, -0.2),
+                (0, 0.2),
+                (1, 0)
+            ]
         )
 
         self.add_photonic_port(
             name="PORT0",
-            center=(5, 7),
+            center=(0, 0),
             orient='R0',
             angle=0,
             width=0.4,
@@ -68,9 +71,9 @@ class AnyAngleNoHierarchyPortToPortLevel1Type1(BPG.PhotonicTemplateBase):
         )
 
         self.add_photonic_port(
-            name="SubLevel1Type1Port0",
-            center=(9, 2),
-            orient='R90',
+            name="PORT1",
+            center=(1, 0),
+            orient='R0',
             angle=0,
             width=0.4,
             layer='SI',
@@ -78,11 +81,38 @@ class AnyAngleNoHierarchyPortToPortLevel1Type1(BPG.PhotonicTemplateBase):
             unit_mode=False,
         )
 
+class AnyAngleNoHierarchyPortToPortLevel1Type2(BPG.PhotonicTemplateBase):
+    """
+    For test:  test_instance_port_to_port_at_angle_no_hierarchy
+
+    Sub hiearchy level.
+    """
+    @classmethod
+    def get_params_info(cls):
+        return dict(
+            port_angle='Angle at which to place the port',
+            top_angle='Angle of the port to which this port is being connected'
+        )
+
+    def draw_layout(self):
+        angle = self.params['port_angle']
+        top_angle = self.params['top_angle']
+
+        # Make polygon point in direction of original port, after it will be rotated. Makes checking easy
+        self.add_polygon(
+            layer='SI',
+            points=[
+                (0, -0.2),
+                (0, 0.2),
+                (np.cos(-(np.pi + top_angle - angle) + angle), np.sin(-(np.pi + top_angle - angle) + angle))
+            ]
+        )
+
         self.add_photonic_port(
-            name="SubLevel1Type1Port1",
-            center=(9, 2),
-            orient='R90',
-            angle=np.pi/5,
+            name="PORT0",
+            center=(0, 0),
+            orient='R0',
+            angle=angle,
             width=0.4,
             layer='SI',
             resolution=self.grid.resolution,
@@ -103,55 +133,120 @@ class AnyAngleNoHierarchyPortToPort(BPG.PhotonicTemplateBase):
         return dict()
 
     def draw_layout(self):
+        #####
+        # Row 0:  Add an array of ports with nothing connected.
+        #####
+        angle_step = 2*np.pi/36
+        num_tests = int(round(2*np.pi/angle_step)) + 1
+        port_port_pitch = 4
+        for ind in range(num_tests):
 
-        self.add_polygon(
-            layer='SI',
-            points=[
-                (0, 0),
-                (5, 1),
-                (7, 7),
-                (3, 6),
-            ],
-            resolution=self.grid.resolution
+            port_name = f'TopPort_Test0_{np.rad2deg(ind * angle_step):.2f}_deg'
 
-        )
-        self.add_rect(
-            layer='SI',
-            coord1=(10, 10),
-            coord2=(12, 15),
-            unit_mode=False,
-        )
-        print('AnyAngleNoHierarchy  Before first port')
-        self.add_photonic_port(
-            name="BasePort",
-            center=(15, 15),
-            orient='R0',
-            angle=np.pi / 6,
-            width=0.4,
-            layer='SI',
-            resolution=self.grid.resolution,
-            unit_mode=False,
-        )
-        print('AnyAngleNoHierarchy  After first port')
+            port_angle = ind*angle_step
 
-        self.add_photonic_port(
-            name="DummyTopPort",
-            center=(10, 2),
-            orient='R0',
-            angle=5 * np.pi / 7,
-            width=0.4,
-            layer='SI',
-            resolution=self.grid.resolution,
-            unit_mode=False,
-        )
+            port = self.add_photonic_port(
+                name=port_name,
+                center=(ind*port_port_pitch, 0),
+                orient='R0',
+                angle=port_angle,
+                width=0.4,
+                layer='SI',
+                resolution=self.grid.resolution,
+                unit_mode=False,
+            )
 
-        subinst_master = self.new_template(temp_cls=AnyAngleNoHierarchyPortToPortLevel1Type1)
-        self.add_instances_port_to_port(
-            inst_master=subinst_master,
-            instance_port_name='PORT0',
-            self_port_name='BasePort',
-            instance_name='SubInstLevel1Inst1',
-        )
+            if abs(port_angle % (np.pi/2)) < Transformable2D.SMALL_ANGLE_TOLERANCE :
+                assert port.is_cardinal
+            else:
+                assert not port.is_cardinal
+
+        #####
+        # Row 1:  Add an array of ports.
+        #   Connect a small rectangle with port at R0 using port-to-port
+        #####
+        sub_inst_master = self.new_template(temp_cls=AnyAngleNoHierarchyPortToPortLevel1Type1)
+
+        angle_step = 2 * np.pi / 36
+        num_tests = int(round(2 * np.pi / angle_step)) + 1
+        port_port_pitch = 4
+        for ind in range(num_tests):
+
+            port_name = f'TopPort_Test1_{np.rad2deg(ind * angle_step):.2f}_deg'
+
+            port_angle = ind * angle_step
+
+            port = self.add_photonic_port(
+                name=port_name,
+                center=(ind * port_port_pitch, 10),
+                orient='R0',
+                angle=port_angle,
+                width=0.4,
+                layer='SI',
+                resolution=self.grid.resolution,
+                unit_mode=False,
+            )
+
+            self.add_instance_port_to_port(
+                inst_master=sub_inst_master,
+                instance_port_name='PORT0',
+                self_port=port,
+                instance_name='SubInstLevel1Inst1',
+            )
+
+        #####
+        # Row 2:  Add an array of ports.
+        #   Connect a small rectangle with port at R0 using port-to-port
+        #   Have the port in the subinst be at an arbitrary angle
+        #   add a port pointing to the random direction at the top level
+        #####
+
+        angle_step = 2 * np.pi / 36
+        num_tests = int(round(2 * np.pi / angle_step)) + 1
+        port_port_pitch = 4
+        for ind in range(num_tests):
+            port_name = f'TopPort_Test2_{np.rad2deg(ind * angle_step):.2f}_deg'
+            port_angle = ind * angle_step
+
+            sub_inst_angle = random.uniform(0, 2*np.pi)
+            sub_inst_master = self.new_template(
+                params=dict(
+                    port_angle=sub_inst_angle,
+                    top_angle=port_angle
+                ),
+                temp_cls=AnyAngleNoHierarchyPortToPortLevel1Type2
+            )
+
+            port = self.add_photonic_port(
+                name=port_name,
+                center=(ind * port_port_pitch, 20),
+                orient='R0',
+                angle=port_angle,
+                width=0.4,
+                layer='SI',
+                resolution=self.grid.resolution,
+                unit_mode=False,
+            )
+
+            self.add_instance_port_to_port(
+                inst_master=sub_inst_master,
+                instance_port_name='PORT0',
+                self_port=port,
+                instance_name='SubInstLevel1Inst1',
+            )
+
+            self.add_photonic_port(
+                name=f'{port_name}_angle',
+                center=(ind * port_port_pitch, 21),
+                orient='R0',
+                angle=sub_inst_angle,
+                width=0.4,
+                layer='SI',
+                resolution=self.grid.resolution,
+                unit_mode=False,
+            )
+
+
 
 
 def test_anyangle_conversion_functions():

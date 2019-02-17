@@ -135,47 +135,6 @@ class PhotonicPort(Transformable2D):
         """A vector pointing in the direction of the port, whose length is the width of the port."""
         return self.width_unit * np.cos(self.angle), self.width_unit * np.sin(self.angle)
 
-    def transform(self,
-                  loc: "coord_type" = (0, 0),
-                  orient: str = 'R0',
-                  unit_mode: bool = False,
-                  ) -> "PhotonicPort":
-        """Return a new transformed photonic port
-
-        Parameters
-        ----------
-        loc : Tuple[Union[float, int], Union[float, int]]
-            the x, y coordinate to move the port
-        orient : str
-            the orientation to rotate the port
-        unit_mode : bool
-            true if layout dimensions are specified in resolution units
-
-        Returns
-        -------
-        port : PhotonicPort
-            the transformed photonic port object
-        """
-        # Convert to nearest int unit mode value
-        if not unit_mode:
-            res = self._resolution
-            loc = (int(round(loc[0] / res)), int(round(loc[1] / res)))
-
-        new_center, new_orient = transform_loc_orient(
-            loc=self._center_unit,
-            orient=self._orientation,
-            trans_loc=loc,
-            trans_orient=orient,
-        )
-
-        return PhotonicPort(name=self._name,
-                            center=new_center,
-                            orient=new_orient,
-                            width=self._width_unit,
-                            layer=self._layer,
-                            resolution=self._resolution,
-                            unit_mode=True)
-
     @classmethod
     def from_dict(cls,
                   center: "coord_type",

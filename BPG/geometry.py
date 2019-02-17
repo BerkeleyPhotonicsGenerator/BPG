@@ -298,6 +298,7 @@ class Transformable2D:
     """
 
     # small deviation in angle assumed to be cardinal
+    # An error of 1.0e-9 radians is sufficient to have <1nm snapping error at 30mm distance
     SMALL_ANGLE_TOLERANCE = 1.0e-9
 
     OrientationsNoFlip = ['R0', 'R90', 'R180', 'R270']
@@ -356,7 +357,8 @@ class Transformable2D:
         if is_cardinal:
             self._is_cardinal = is_cardinal
             if not seems_cardinal:
-                warnings.warn(f'Transformable2D initialized as is_cardinal=True, but angle seems non-cardinal')
+                warnings.warn(f'Transformable2D initialized as is_cardinal=True, but angle seems non-cardinal. \n' 
+                              f'mod_angle={mod_angle}')
         else:
             self._is_cardinal = seems_cardinal
 
@@ -448,11 +450,7 @@ class Transformable2D:
     def unit_vec(self) -> np.ndarray:
         """ Returns a unit vector pointing in the direction of the angle """
         # convert angle to unit-vector, including snap-to-90deg when is_cardinal=True to avoid little errors
-        nhat = np.array([np.cos(self.angle), np.sin(self.angle)])
-        if self.is_cardinal:
-            return (np.round(nhat)).astype(int)
-        else:
-            return nhat
+        return np.array([np.cos(self.angle), np.sin(self.angle)])
 
     ''' Coordinate Manipulation Methods '''
 

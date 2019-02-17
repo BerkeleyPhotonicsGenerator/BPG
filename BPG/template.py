@@ -4,6 +4,7 @@ import numpy as np
 import logging
 import math
 import copy
+import warnings
 
 # bag imports
 import bag.io
@@ -534,6 +535,28 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    instance_name: Optional[str] = None,
                                    reflect: bool = False,
                                    ) -> PhotonicInstance:
+        warnings.warn(f'PhotonicTemplateBase.add_instances_port_to_port was renamed to '
+                      f'add_instance_port_to_port (no "s"). '
+                      f'The old method name will be removed in V1.0',
+                      DeprecationWarning)
+
+        return self.add_instance_port_to_port(
+            inst_master=inst_master,
+            instance_port_name=instance_port_name,
+            self_port=self_port,
+            self_port_name=self_port_name,
+            instance_name=instance_name,
+            reflect=reflect
+        )
+
+    def add_instance_port_to_port(self,
+                                  inst_master: "PhotonicTemplateBase",
+                                  instance_port_name: str,
+                                  self_port: Optional[PhotonicPort] = None,
+                                  self_port_name: Optional[str] = None,
+                                  instance_name: Optional[str] = None,
+                                  reflect: bool = False,
+                                  ) -> PhotonicInstance:
         """
         Instantiates a new instance of the inst_master template.
         The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
@@ -592,8 +615,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
         # TODO: why add self.angle and not subtract
         diff_angle = -(inst_master.angle + new_port.angle + self.angle) + my_port.angle + math.pi
-        print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
-              f'self.angle={np.rad2deg(self.angle)},  my_port.angle={np.rad2deg(my_port.angle)},  diff_angle={np.rad2deg(diff_angle)}')
+
+        # TODO:
+        # print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
+        #       f'self.angle={np.rad2deg(self.angle)},  my_port.angle={np.rad2deg(my_port.angle)},  diff_angle={np.rad2deg(diff_angle)}')
 
         # Place a rotated PhotonicInstance that is rotated but not in the correct location
         new_inst: "PhotonicInstance" = self.add_instance(
