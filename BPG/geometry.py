@@ -360,9 +360,6 @@ class Transformable2D:
         else:
             self._is_cardinal = seems_cardinal
 
-    def __str__(self):
-        return f'Transformable2D(center={self.center}, angle={self.angle}, mirrored={self.mirrored})'
-
     @property
     def center(self) -> np.array:
         """ Return the center coordinates as np array """

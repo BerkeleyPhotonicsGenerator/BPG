@@ -49,7 +49,6 @@ class PhotonicPort(Transformable2D):
             True if layout dimensions are specified in resolution units
 
         """
-
         # Set up _resolution, _mod_angle, _center_unit, _orient, _is_cardinal
         Transformable2D.__init__(self,
                                  center=center,
@@ -60,7 +59,6 @@ class PhotonicPort(Transformable2D):
                                  is_cardinal=is_cardinal,
                                  unit_mode=unit_mode
                                  )
-
         self._name = name
 
         if not (isinstance(layer, tuple) and (len(layer) == 2) and
