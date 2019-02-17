@@ -461,102 +461,47 @@ class Transformable2D:
 
     def rotate(self,
                rotation: float,
-               invert_y: bool,
+               mirror: bool,
+               is_cardinal: bool = False,
                ) -> np.array:
         """
+        Perform a rotation relative to the current position and angle of the Transformable2D object
+        First mirror, then rotate, to be consistent with Cadence orient + transform
+
         Returns the new position after the rotation is performed.
-        Inversion is performed first, then rotation.
 
         Parameters
         ----------
         rotation : float
             angle in radians to rotate this point
-        invert_y : bool
+        mirror : bool
             if true, the y-coordinate is flipped to perform a mirror across the x-axis
-
-        Returns
-        -------
-        new_center : np.array
-            new position of the center in unit_mode
-        """
-        # TODO: Improve accuracy on repeated rotations
-        if invert_y:
-            y_inv = -1
-        else:
-            y_inv = 1
-
-        new_center_x = math.cos(rotation) * self._center_unit[0] - math.sin(rotation) * self._center_unit[1] * y_inv
-        new_center_y = math.sin(rotation) * self._center_unit[0] + math.cos(rotation) * self._center_unit[1] * y_inv
-        return np.array([int(round(new_center_x)), int(round(new_center_y))])
-
-    def translate(self,
-                  translation: Tuple[int, int],
-                  ) -> np.array:
-        """
-        Returns the new position after the translation is performed
-
-        Parameters
-        ----------
-        translation : Tuple[int, int]
-            (x, y) coordinates of the translation vector to be applied to the current center. Assumed to be in unit_mode
-
-        Returns
-        -------
-        new_center : np.array
-            new position of the center in unit_mode
-        """
-        new_center_x = self._center_unit[0] + translation[0]
-        new_center_y = self._center_unit[1] + translation[1]
-        return np.array([int(round(new_center_x)), int(round(new_center_y))])
-
-    def transform(self,
-                  translation: "coord_type" = (0.0, 0.0),
-                  rotation: float = 0.0,
-                  invert_y: bool = False,
-                  is_cardinal: bool = False,
-                  unit_mode: bool = False,
-                  ) -> None:
-        """
-        Perform a rotation and a translation relative to the current position and angle of the Transformable2D object
-        First mirror, then rotate, then translate to be consistent with Cadence orient + transform
-
-        Parameters
-        ----------
-        translation : coord_type
-            displacement vector that the current Transformable2D object will be translated by
-        rotation : float
-            angle in radians to rotate the current point by
-        invert_y : bool
-            if true, flip across the x-axis
         is_cardinal : bool
             if true, restrict to cardinal rotations
-        unit_mode : bool
-            if true, translation tuple is assumed to be in unit_mode
-        """
-        # Convert the translation to a unit_mode np.array vector
-        if unit_mode:
-            dxy = np.array([int(round(translation[0])), int(round(translation[1]))])
-        else:
-            dxy = np.array([int(round(translation[0] / self._resolution)),
-                            int(round(translation[1] / self._resolution))])
 
+        Returns
+        -------
+        new_center : np.array
+            new position of the center in unit_mode
+        """
         # Flip the current inversion state if invertY is true
-        if invert_y is True:
+        if mirror is True:
             y_inv = -1
-            new_invert_y = not self.invert_y
+            new_mirrored_state = not self.mirrored
         else:
             y_inv = 1
-            new_invert_y = self.invert_y
+            new_mirrored_state = self.mirrored
 
         # Mirror (if needed) and rotate by the provided angle
-        new_center_unit = self.rotate(rotation=rotation, invert_y=invert_y)
-        # Translate
-        new_center_unit += dxy
+        new_center_x = math.cos(rotation) * self._center_unit[0] - math.sin(rotation) * self._center_unit[1] * y_inv
+        new_center_y = math.sin(rotation) * self._center_unit[0] + math.cos(rotation) * self._center_unit[1] * y_inv
+        new_center_unit = np.array([new_center_x, new_center_y])
+
         # Compute the new angle
         new_angle = y_inv * self.angle + rotation
 
         # Convert to mod_angle and orient
-        orient, mod_angle, seems_cardinal, _ = self.angle2orient(new_angle, new_invert_y)
+        orient, mod_angle, seems_cardinal, _ = self.angle2orient(new_angle, new_mirrored_state)
 
         # Store new values
         self.orientation = orient
@@ -575,6 +520,99 @@ class Transformable2D:
                 raise RuntimeError('rotation specified as cardinal, but angle is not a multiple of pi/2')
         else:
             self._is_cardinal = seems_cardinal
+
+        return np.array([int(round(new_center_x)), int(round(new_center_y))])
+
+    def move_by(self,
+                translation: Tuple[int, int],
+                unit_mode: bool = False,
+                ) -> "Transformable2D":
+        """
+        Returns the new position after the translation is performed
+
+        Parameters
+        ----------
+        translation : Tuple[int, int]
+            (x, y) coordinates of the translation vector to be applied to the current center. Assumed to be in unit_mode
+        unit_mode : bool
+            if true, translation tuple is assumed to be in unit_mode
+
+        Returns
+        -------
+        new_center : np.array
+            new position of the center in unit_mode
+        """
+        if not unit_mode:
+            translation = int(round(translation[0] / self.resolution)), int(round(translation[1] / self.resolution))
+        self._center_unit += translation
+
+        return self
+
+    def transform(self,
+                  loc: "coord_type" = (0, 0),
+                  orient: str = 'R0',
+                  unit_mode: bool = False,
+                  ) -> "Transformable2D":
+        """
+        Sets the current center and orientation to the provided values.
+        This method does not accept arbitrary angles, but is limited to just the orientation vector.
+
+        Parameters
+        ----------
+        loc : Tuple[]
+            Location at which the center should be placed
+        orient : str
+            Orientation at which the Transformable2D should be set
+        unit_mode : bool
+            True if loc is provided in resolution units, False if loc is provided in layout units.
+        """
+        if not unit_mode:
+            self._center_unit = np.array([int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))])
+        else:
+            self._center_unit = np.array([loc[0], loc[1]])
+
+        self._orient = orient
+
+        return self
+
+    def mirror_rotate_translate(self,
+                                translation: "coord_type" = (0.0, 0.0),
+                                rotation: float = 0.0,
+                                mirror: bool = False,
+                                is_cardinal: bool = False,
+                                unit_mode: bool = False,
+                                ) -> "Transformable2D":
+        """
+        Perform a rotation and a translation relative to the current position and angle of the Transformable2D object
+        First mirror, then rotate, then translate to be consistent with Cadence orient + transform
+
+        Parameters
+        ----------
+        translation : coord_type
+            displacement vector that the current Transformable2D object will be translated by
+        rotation : float
+            angle in radians to rotate the current point by
+        mirror : bool
+            if true, mirror the block
+        is_cardinal : bool
+            if true, restrict to cardinal rotations
+        unit_mode : bool
+            if true, translation tuple is assumed to be in unit_mode
+        """
+        # Mirror and rotate
+        self.rotate(
+            rotation=rotation,
+            mirror=mirror,
+            is_cardinal=is_cardinal
+        )
+
+        # Translate
+        self.move_by(
+            translation=translation,
+            unit_mode=unit_mode
+        )
+
+        return self
 
     @staticmethod
     def angle2orient(angle: float,
@@ -651,4 +689,6 @@ class Transformable2D:
             rotate_by = Transformable2D.OrientationsWithFlip.index(orient) * np.pi / 2
             mirrored = True
             angle = rotate_by + mod_angle
+
+        angle = angle % (2 * np.pi)
         return angle, mirrored

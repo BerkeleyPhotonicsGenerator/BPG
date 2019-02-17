@@ -132,6 +132,11 @@ class PhotonicPort(Transformable2D):
         self._width_unit = int(round(new_width))
 
     @property
+    def width_vec_unit(self):
+        """A vector pointing in the direction of the port, whose length is the width of the port."""
+        return self.width_unit * np.cos(self.angle), self.width_unit * np.sin(self.angle)
+
+    @property
     def orientation(self) -> str:
         """ Returns the orientation of the port """
         return self._orientation
@@ -151,7 +156,7 @@ class PhotonicPort(Transformable2D):
     def transform(self,
                   loc: "coord_type" = (0, 0),
                   orient: str = 'R0',
-                  unit_mode: bool= False,
+                  unit_mode: bool = False,
                   ) -> "PhotonicPort":
         """Return a new transformed photonic port
 

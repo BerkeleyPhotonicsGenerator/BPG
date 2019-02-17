@@ -17,7 +17,7 @@ import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
 
 
-from BPG.geometry import CoordBase
+from BPG.geometry import Transformable2D
 from BPG.compiler.point_operations import coords_cleanup, create_polygon_from_path_and_width
 
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
@@ -100,12 +100,41 @@ class PhotonicInstance(Instance):
                  spx: int = 0,
                  spy: int = 0,
                  unit_mode: bool = False,
+                 angle: float = 0,
+                 mirrored: bool = False,
                  ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
 
         self._photonic_port_list: Dict[str, "PhotonicPort"] = {}
-        self._photonic_port_creator()
+
+        self._origin = Transformable2D(
+            center=loc,
+            resolution=parent_grid.resolution,
+            orientation=orient,
+            angle=0,
+            mirrored=False,
+            is_cardinal=False,  # TODO
+            unit_mode=unit_mode,
+        )
+
+        # If the angle of this instance is not 0, rotate the instance
+        # TODO: is_cardinal / close enough to cardinal?
+        if angle != 0.0:
+            logging.debug(f'PhotonicInstance with master {master} is at angle {angle}')
+            self.rotate(
+                loc=self.location_unit,
+                angle=self.master.angle + angle,
+                mirror=mirrored,
+                unit_mode=unit_mode
+            )
+
+    def __repr__(self):
+        return f'PhotonicInstance(master={self.master}, name={self._inst_name}, loc={self.location}, ' \
+               f'angle={self.angle}, orientation={self.orientation}'
+
+    def __str__(self):
+        return self.__repr__()
 
     def __getitem__(self, item: str):
         """ Allow dictionary syntax to grab photonic ports """
@@ -128,35 +157,62 @@ class PhotonicInstance(Instance):
                                     master_key=self.master.key
                                     )
 
-    def _photonic_port_creator(self) -> None:
-        """
-        Helper for creating the photonic ports of this instance
-        Returns
-        -------
+    @property
+    def master(self) -> "PhotonicTemplateBase":
+        """ The master template of this instance. """
+        return self._master
 
+    @property
+    def orientation(self) -> str:
+        """ Return the orientation string of this instance"""
+        return self._origin.orientation
+
+    @orientation.setter
+    def orientation(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow orientation to be set directly')
+
+    @property
+    def location(self) -> coord_type:
+        return self._origin.center
+
+    @location.setter
+    def location(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow location to be changed directly, use transform()')
+
+    @property
+    def location_unit(self) -> coord_type:
+        return self._origin.center_unit
+
+    @location_unit.setter
+    def location_unit(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow location to be changed directly, use transform()')
+
+    @property
+    def angle(self) -> float:
+        return self._origin.angle
+
+    @property
+    def mod_angle(self) -> float:
+        return self._origin.mod_angle
+
+    @property
+    def mirrored(self) -> bool:
+        return self._origin.mirrored
+
+    def _import_photonic_ports(self) -> None:
+        """
+        Takes all ports from the provided master and adds them to this instance. Transformations are
+        performed to match the current orientation and location.
         """
         for port_name in self._master.photonic_ports_names_iter():
-            self._photonic_port_list[port_name] = self._master.get_photonic_port(port_name).transform(
-                loc=self._loc_unit,
-                orient=self._orient,
+            port_copy: "PhotonicPort" = deepcopy(self._master.get_photonic_port(port_name))
+            self._photonic_port_list[port_name] = port_copy.mirror_rotate_translate(
+                translation=self.location_unit,
+                rotation=self.angle,
+                mirror=self.mirrored,
+                is_cardinal=False,  # TODO,
                 unit_mode=True
             )
-
-    def set_port_used(self,
-                      port_name: str,
-                      ) -> None:
-        if port_name not in self._photonic_port_list:
-            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
-
-        self._photonic_port_list[port_name].used = True
-
-    def get_port_used(self,
-                      port_name: str,
-                      ) -> bool:
-        if port_name not in self._photonic_port_list:
-            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
-
-        return self._photonic_port_list[port_name].used
 
     def get_all_photonic_ports(self) -> Dict[str, "PhotonicPort"]:
         return self._photonic_port_list
@@ -186,11 +242,6 @@ class PhotonicInstance(Instance):
         # TODO: Confirm that this works for arrayable instances
         return self._photonic_port_list[name]
 
-    @property
-    def master(self) -> "PhotonicTemplateBase":
-        """The master template of this instance."""
-        return self._master
-
     def get_bound_box_of(self,
                          row: int = 0,
                          col: int = 0,
@@ -205,51 +256,122 @@ class PhotonicInstance(Instance):
     def move_by(self,
                 dx: dim_type = 0,
                 dy: dim_type = 0,
-                unit_mode: bool = False,
+                unit_mode: bool = False
                 ) -> None:
-        """Move this instance by the given amount.
+        """
+        Move this instance by the given amount. This movement is relative to the instances current location.
 
         Parameters
         ----------
-        dx : Union[float, int]
+        dx : dim_type
             the X shift.
-        dy : Union[float, int]
+        dy : dim_type
             the Y shift.
         unit_mode : bool
             True if shifts are given in resolution units
         """
         if not unit_mode:
-            dx = int(round(dx / self.resolution))
-            dy = int(round(dy / self.resolution))
-        self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
+            dx, dy = int(round(dx / self.resolution)), int(round(dy / self.resolution))
 
-        # Translate each port in the instance as well
-        for port in self._photonic_port_list.values():
-            port.transform(
-                loc=(dx, dy),
-                orient='R0',
-                unit_mode=True
-            )
+        # Move the origin
+        self._origin.move_by(translation=(dx, dy), unit_mode=True)
+        # import ports with the new locations
+        self._import_photonic_ports()
 
     def transform(self,
                   loc: coord_type = (0, 0),
                   orient: str = 'R0',
                   unit_mode: bool = False,
-                  copy: bool = False,
-                  ) -> Optional[Figure]:
-        """Transform this figure."""
+                  copy: bool = False
+                  ) -> "PhotonicInstance":
+        """
+        Moves the Instance to the provided location and orientation values.
+        This transformation method cannot perform anyAngle rotation!
+        Can perform the transformation on a copy of the Instance and return it.
+
+        Note all location and orientation transformations are performed relative to the
+        master's origin and angle, not the current instance's origin and angle.
+
+        Parameters
+        ----------
+        loc : tuple
+            (x, y) coordinates where the Instance origin should be placed
+        orient : str
+            represents the new orientation of the Instance
+        unit_mode : bool
+            If true, loc should be an integer representing multiples of the unit_size
+        copy : bool
+            If true, this method performs a transformation on a copy of the instance instead
+
+        Returns
+        -------
+        instance : PhotonicInstance
+            The transformed instance. If copy is true, this is a newly created instance. If false, returns itself
+        """
+        logging.debug(f'CALLING TRANSFORM ON {self.master.__class__.__name__}')
         if not unit_mode:
-            res = self.resolution
-            loc = int(round(loc[0] / res)), int(round(loc[1] / res))
+            loc = int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))
 
         if not copy:
-            ans = self
-        else:
-            ans = deepcopy(self)
+            # Modify the origin's location and orientation
+            self._origin.center_unit = loc
+            self._origin.orientation = orient
 
-        ans._loc_unit = loc
-        ans._orient = orient
-        return ans
+            # Now that origin is correctly placed, regenerate the ports accordingly
+            self._import_photonic_ports()
+            return self
+
+        else:
+            return PhotonicInstance(parent_grid=self._parent_grid,
+                                    lib_name=self._lib_name,
+                                    master=self.master,
+                                    loc=self.location_unit,
+                                    orient=self.orientation,
+                                    name=self._inst_name,
+                                    nx=self.nx, ny=self.ny,
+                                    spx=self.spx_unit, spy=self.spy_unit,
+                                    unit_mode=True)
+
+    def rotate(self,
+               loc: "coord_type" = (0, 0),
+               angle: float = 0.0,
+               mirror: bool = False,
+               unit_mode=False
+               ) -> None:
+        """
+        This method regenerates the instance's master to rotate the shapes and ports given an angle. The provided angle
+        and loc values are all relative to R0 and (0, 0) of the master placing this instance
+        Parameters
+        ----------
+        loc : coord_type
+            (x, y) location about which all rotation is performed
+        angle : float
+            angle in radians of the rotation to be performed
+        mirror : bool
+            if true, flip the instance
+        unit_mode : bool
+            if True, the provided coordinates are assumed to be in unit-mode
+        """
+        if not unit_mode:
+            loc = int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))
+
+        logging.debug(f'Calling rotate loc={loc}, angle={angle}')
+        logging.debug(f'Origin is {self._origin}')
+        # Rotate and translate the origin of the instance
+        self._origin.mirror_rotate_translate(
+            translation=loc,
+            rotation=angle,
+            mirror=mirror,
+            is_cardinal=False,  # TODO
+            unit_mode=True
+        )
+        logging.debug(f'Origin is {self._origin}')
+
+        # Regenerate the master based on the new origin
+        self.new_master_with(angle=self.mod_angle)
+
+        # Re-extract the port locations
+        self._import_photonic_ports()
 
 
 class PhotonicRound(Arrayable):
