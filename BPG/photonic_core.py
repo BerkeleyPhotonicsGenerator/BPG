@@ -8,7 +8,6 @@ import math
 from .logger import setup_logger
 from pathlib import Path
 from itertools import chain
-import numpy as np
 
 # BAG imports
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
@@ -25,7 +24,7 @@ from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
 
 # Typing imports
 if TYPE_CHECKING:
-    from BPG.objects import PhotonicRound, PhotonicPath, PhotonicInstance
+    from BPG.objects import PhotonicRound, PhotonicPath
     from bag.layout.objects import InstanceInfo
     from bag.layout.core import TechInfo
 
@@ -228,16 +227,17 @@ class PhotonicBagLayout(BagLayout):
         # The angle to rotate this master by upon finalization
         self._mod_angle = 0
 
+        # TODO: fix bound box during rotation
         # Initialize the boundary of this cell with zero area at the origin
         self._bound_box = BBoxMut(0, 0, 0, 0, resolution=self._res, unit_mode=True)
 
     @property
-    def angle(self):
+    def mod_angle(self):
         """ Angle that this master must be rotated by during finalization """
         return self._mod_angle
 
-    @angle.setter
-    def angle(self, val):
+    @mod_angle.setter
+    def mod_angle(self, val):
         """ Ensure that the provided angle is between 0 and pi/2 """
         if val < 0 or val > math.pi / 2:
             raise ValueError(f"Angle {val} is not in modulo format")
@@ -250,8 +250,9 @@ class PhotonicBagLayout(BagLayout):
     def finalize(self):
         # type: () -> None
         """ Prevents any further changes to this layout. """
-        if self.angle != 0:  # TODO: change this to be a 'close to 0' check
-            self.rotate_all_by(self.angle)
+        # TODO: change this to be a 'close to 0' check
+        if self.mod_angle != 0:
+            self.rotate_all_by(self.mod_angle)
 
         self._finalized = True
 
@@ -422,7 +423,9 @@ class PhotonicBagLayout(BagLayout):
                 monitor_list=monitor_list,
             )
 
-    def rotate_all_by(self, angle=0.0, origin=(0, 0)) -> None:
+    def rotate_all_by(self,
+                      mod_angle: float = 0.0,
+                      ) -> None:
         """
         Rotates all shapes generated on this level of the hierarchy and rotates them by the given angle about the
         origin. All shapes are converted to polygons to perform this rotation. It is assumed that the angles of
@@ -430,7 +433,7 @@ class PhotonicBagLayout(BagLayout):
 
         Parameters
         ----------
-        angle : float
+        mod_angle : float
             An angle between 0 and pi/2 representing the amount that all shapes should be rotated by
         """
         if self._finalized:
@@ -441,7 +444,7 @@ class PhotonicBagLayout(BagLayout):
         for _ in range(len(self._polygon_list)):
             temp_poly = self._polygon_list.pop(0)  # Pull the current polygon off the list
             # Rotate the polygons and add them to the list
-            temp_poly.rotate(angle=angle)
+            temp_poly.rotate(angle=mod_angle)
             temp_poly_list.append(temp_poly)
 
         # Only add polygons to the content list after popping all of them off once. Otherwise there is an infinite loop
@@ -454,7 +457,7 @@ class PhotonicBagLayout(BagLayout):
             poly_list = rect.export_to_polygon()  # Convert the arrayed rectangle to a list of polygons
             for poly in poly_list:
                 # Rotate the polygons and add them to the list
-                poly.rotate(angle=angle)
+                poly.rotate(angle=mod_angle)
                 self.add_polygon(poly)
 
         # Rotate all round shapes
@@ -463,14 +466,14 @@ class PhotonicBagLayout(BagLayout):
             poly_list = circ.export_to_polygon()
             for poly in poly_list:
                 # Rotate the polygons and add them to the list
-                poly.rotate(angle=angle)
+                poly.rotate(angle=mod_angle)
                 self.add_polygon(poly)
 
         # Rotate all path shapes
         for _ in range(len(self._path_list)):
             path = self._path_list.pop(0)  # Pull the current arrayed path off the list
             poly = path.export_to_polygon()
-            poly.rotate(angle=angle)
+            poly.rotate(angle=mod_angle)
             self.add_polygon(poly)
 
         # Remove all pin shaptes from pin list
@@ -481,39 +484,20 @@ class PhotonicBagLayout(BagLayout):
 
         # Rotate and add them back in
         for pin in temp_pin_list:
-            new_bbox = self.bbox_rotate(bbox=pin.bbox, angle=angle)
+            new_bbox = self.bbox_rotate(bbox=pin.bbox, angle=mod_angle)
             self.add_label(
                 label=pin.label,
                 layer=pin.layer,
                 bbox=new_bbox
             )
 
-        for inst in self._inst_list:
-            inst: "PhotonicInstance"
-            origin_center = inst.origin.center
-            print(f'rotation:  inst={inst}')
+        for inst in self._inst_list:  # type: "PhotonicInstance"
             inst.rotate(
                 loc=(0, 0),
-                angle=angle,
+                angle=mod_angle,
                 mirror=False,
                 unit_mode=False,
             )
-            # location = np.array(
-            #     [
-            #         np.cos(angle) * origin_center[0] - np.sin(angle) * origin_center[1],
-            #         np.sin(angle) * origin_center[0] + np.cos(angle) * origin_center[1]
-            #     ]
-            # )
-
-            # inst.transform(
-            #     loc=location.tolist(),
-            #     orient=inst.orientation,
-            #     unit_mode=False,
-            #     copy=False
-            # )
-            print(f'post rotation:  inst={inst}')
-
-
 
         # TODO: Rotate all vias
 

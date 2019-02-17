@@ -112,7 +112,7 @@ class PhotonicInstance(Instance):
             orientation=orient,
             angle=0,
             mirrored=False,
-            is_cardinal=False,  # TODO
+            force_cardinal=False,  # TODO
             unit_mode=unit_mode,
         )
         self._import_photonic_ports()
@@ -213,7 +213,7 @@ class PhotonicInstance(Instance):
                 translation=self.location_unit,
                 rotation=self.angle,
                 mirror=self.mirrored,
-                is_cardinal=False,  # TODO,
+                force_cardinal=False,  # TODO,
                 unit_mode=True
             )
 
@@ -365,13 +365,12 @@ class PhotonicInstance(Instance):
             translation=loc,
             rotation=angle,
             mirror=mirror,
-            is_cardinal=False,  # TODO
+            force_cardinal=False,  # TODO
             unit_mode=True
         )
         logging.debug(f'Origin is {self._origin}')
 
         # Regenerate the master based on the new origin
-        print(f'PhotonicInstance.rotate:   creating new master {self.master.__class__.__name__}  at angle  {np.rad2deg(self.mod_angle)}')
         self.new_master_with(angle=self.mod_angle)
 
         # Re-extract the port locations

@@ -51,7 +51,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # This stores the angular offset from the cardinal axes that this master is drawn at
         self._angle = self.params.get('_angle', 0.0)
-        self._layout.angle = self.angle
+        self._layout.mod_angle = self.angle
 
     @property
     def angle(self) -> float:
@@ -270,12 +270,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         master : PhotonicTemplateBase
             Newly created generator object
         """
-        # TODO: Properly check for hierarchy
-        if self.angle != 0 and angle != 0 and self.allow_rotation_hierarchy is False:
-            print(f'self master angle={self.angle}')
-            print(f'new master angle={angle}')
-            print(f'allow rotation hierarchy={self.allow_rotation_hierarchy}')
-            raise ValueError('Adding non-cardinal masters in an already rotated layout is currently not supported')
         return TemplateBase.new_template(self,
                                          params=params,
                                          temp_cls=temp_cls,
@@ -609,19 +603,12 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
 
-        print(f'my_port:  {my_port},     new_port:  {new_port}')
-
-
         # Compute the angle that the instsance must be rotated by in order to have its port align to the port being
         # connected to
         # For now, assume self.angle = 0,
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
         # TODO: why add self.angle and not subtract
         diff_angle = -(inst_master.angle + new_port.angle) + my_port.angle + math.pi
-
-        # TODO:
-        print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
-              f'self.angle={np.rad2deg(self.angle)},  my_port.angle={np.rad2deg(my_port.angle)},  diff_angle={np.rad2deg(diff_angle)}')
 
         # Place a rotated PhotonicInstance that is rotated but not in the correct location
         new_inst: "PhotonicInstance" = self.add_instance(
@@ -636,7 +623,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # Translate the new instance
         translation_vec = my_port.center_unit - new_inst[instance_port_name].center_unit
-        print(f'translation_vec:   {translation_vec}')
         new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
 
         return new_inst
