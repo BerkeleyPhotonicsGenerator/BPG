@@ -1,16 +1,17 @@
-import sys
 import os
 import bag
 import bag.io
 import abc
 import yaml
 import logging
+import math
 from .logger import setup_logger
 from pathlib import Path
 from itertools import chain
 
 # BAG imports
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
+from bag.layout.util import BBox
 from bag.io.file import read_yaml
 from bag.layout.core import BagLayout
 
@@ -202,7 +203,6 @@ def create_photonic_tech_info(bpg_config: Dict,
     return photonic_tech_info
 
 
-# From bag/layout/core
 class PhotonicBagLayout(BagLayout):
     """
     This class contains layout information of a cell.
@@ -224,8 +224,23 @@ class PhotonicBagLayout(BagLayout):
         self._source_list = []
         self._monitor_list = []
 
+        # The angle to rotate this master by upon finalization
+        self._mod_angle = 0
+
         # Initialize the boundary of this cell with zero area at the origin
         self._bound_box = BBoxMut(0, 0, 0, 0, resolution=self._res, unit_mode=True)
+
+    @property
+    def angle(self):
+        """ Angle that this master must be rotated by during finalization """
+        return self._mod_angle
+
+    @angle.setter
+    def angle(self, val):
+        """ Ensure that the provided angle is between 0 and pi/2 """
+        if val < 0 or val > math.pi / 2:
+            raise ValueError(f"Angle {val} is not in modulo format")
+        self._mod_angle = val
 
     @property
     def bound_box(self) -> BBoxMut:
@@ -234,6 +249,9 @@ class PhotonicBagLayout(BagLayout):
     def finalize(self):
         # type: () -> None
         """ Prevents any further changes to this layout. """
+        if self.angle != 0:
+            self.rotate_all_by(self.angle)
+
         self._finalized = True
 
         # get rectangles
@@ -403,16 +421,102 @@ class PhotonicBagLayout(BagLayout):
                 monitor_list=monitor_list,
             )
 
-    def rotate_all_by(self, angle=0.0):
+    def rotate_all_by(self, angle=0.0) -> None:
         """
-        This method rotates all of the shapes in the db
+        Rotates all shapes generated on this level of the hierarchy and rotates them by the given angle about the
+        origin. All shapes are converted to polygons to perform this rotation. It is assumed that the angles of
+        the instances have already been rotated as needed.
 
         Parameters
         ----------
         angle : float
-            angle in radians to rotate all shapes by
+            An angle between 0 and pi/2 representing the amount that all shapes should be rotated by
         """
-        pass
+        if self._finalized:
+            raise Exception('Layout is already finalized.')
+
+        # Rotate all polygons first! Otherwise the other shapes get rotated twice
+        temp_poly_list = []
+        for _ in range(len(self._polygon_list)):
+            temp_poly = self._polygon_list.pop(0)  # Pull the current polygon off the list
+            # Rotate the polygons and add them to the list
+            temp_poly.rotate(angle=angle)
+            temp_poly_list.append(temp_poly)
+
+        # Only add polygons to the content list after popping all of them off once. Otherwise there is an infinite loop
+        for poly in temp_poly_list:
+            self.add_polygon(poly)
+
+        # Rotate all rects
+        for _ in range(len(self._rect_list)):
+            rect = self._rect_list.pop(0)  # Pull the current arrayed rectangle off the list
+            poly_list = rect.export_to_polygon()  # Convert the arrayed rectangle to a list of polygons
+            for poly in poly_list:
+                # Rotate the polygons and add them to the list
+                poly.rotate(angle=angle)
+                self.add_polygon(poly)
+
+        # Rotate all round shapes
+        for _ in range(len(self._round_list)):
+            circ = self._round_list.pop(0)  # Pull the current arrayed round off the list
+            poly_list = circ.export_to_polygon()
+            for poly in poly_list:
+                # Rotate the polygons and add them to the list
+                poly.rotate(angle=angle)
+                self.add_polygon(poly)
+
+        # Rotate all path shapes
+        for _ in range(len(self._path_list)):
+            path = self._path_list.pop(0)  # Pull the current arrayed path off the list
+            poly = path.export_to_polygon()
+            poly.rotate(angle=angle)
+            self.add_polygon(poly)
+
+        # Remove all pin shaptes from pin list
+        temp_pin_list = []
+        for _ in range(len(self._pin_list)):
+            pin = self._pin_list.pop(0)  # Pull the current pin off the list
+            temp_pin_list.append(pin)
+
+        # Rotate and add them back in
+        for pin in temp_pin_list:
+            new_bbox = self.bbox_rotate(bbox=pin.bbox, angle=angle)
+            self.add_label(
+                label=pin.label,
+                layer=pin.layer,
+                bbox=new_bbox
+            )
+
+        # TODO: Rotate all vias
+
+        # TODO: Rotate all blockages
+
+        # TODO: Rotate all boundaries
+
+    def bbox_rotate(self, bbox: BBox, angle: float) -> BBox:
+        """
+        Given a bbox, finds coordinates for new rotated bbox
+        Parameters
+        ----------
+        bbox : BBox
+            input bbox
+        angle : float
+            angle in radians to rotate the bbox
+        Returns
+        -------
+        bbox : BBox
+            output bbox
+        """
+        ll = [bbox.left, bbox.bottom]
+        new_x = math.cos(angle) * ll[0] - math.sin(angle) * ll[1]
+        new_y = math.sin(angle) * ll[0] + math.cos(angle) * ll[1]
+        return BBox(left=new_x,
+                    bottom=new_y,
+                    right=new_x + self._res,
+                    top=new_y + self._res,
+                    unit_mode=False,
+                    resolution=self._res
+                    )
 
     def move_all_by(self,
                     dx: "dim_type" = 0.0,

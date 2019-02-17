@@ -7,7 +7,7 @@ import copy
 
 # bag imports
 import bag.io
-from bag.layout.template import TemplateBase, DesignMaster
+from bag.layout.template import TemplateBase
 from bag.layout.util import transform_point, BBox, BBoxArray, transform_loc_orient
 from BPG.photonic_core import PhotonicBagLayout
 
@@ -50,10 +50,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # This stores the angular offset from the cardinal axes that this master is drawn at
         self._angle = self.params.get('angle', 0.0)
-
-        # Check that the provided angle is in modulo format for debugging purposes
-        if self._angle < 0 or self._angle > math.pi / 2:
-            logging.warning(f"{self.__class__.__name__}'s angle {self._angle} is not in modulo format")
+        self._layout.angle = self.angle
 
     @property
     def angle(self) -> float:
@@ -272,6 +269,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         master : PhotonicTemplateBase
             Newly created generator object
         """
+        # TODO: Properly check for hierarchy
         if self.angle != 0 and angle != 0 and self.allow_rotation_hierarchy is False:
             print(f'self master angle={self.angle}')
             print(f'new master angle={angle}')
@@ -286,23 +284,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          )
 
     def finalize(self):
-
+        """ Call the old finalize method, but then also grab the bounding box from the layout content """
         TemplateBase.finalize(self)
-
-        # # TODO: Implement port polygon adding here?
-        # self.draw_layout()
-        #
-        # # Perform any tech specific finalization routines
-        # self.grid.tech_info.finalize_template(self)
-        # self._layout.rotate_all_by(angle=self.angle)
-        #
-        # # Freeze the layout db so no other changes can be made
-        # self._layout.finalize()
-        # self.children = self._layout.get_masters_set()
-        #
-        # # Call super finalize routine
-        # TemplateBase.finalize(self)
-
         self.prim_bound_box = self._layout.bound_box
 
     def add_photonic_port(self,
@@ -384,7 +367,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if all([name, center, orient, width, layer]) is False:
                 raise ValueError('User must define name, center, orient, width, and layer')
 
-            port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
+            port = PhotonicPort(name=name,
+                                center=center,
+                                orient=orient,
+                                width=width,
+                                layer=layer,
+                                resolution=resolution,
+                                unit_mode=unit_mode)
 
         # Add port to port list. If name already is taken, remap port if overwrite is true
         if port.name not in self._photonic_ports.keys() or overwrite:

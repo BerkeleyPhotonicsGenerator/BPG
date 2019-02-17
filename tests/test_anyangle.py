@@ -1,6 +1,40 @@
+import BPG
 from BPG.geometry import Transformable2D
 import random
 import math
+
+
+class AnyAngleBase(BPG.PhotonicTemplateBase):
+
+    @classmethod
+    def get_params_info(cls):
+        return dict(
+            point1='Rectangle corner 1',
+            point2='Rectangle corner 2',
+        )
+
+    def draw_layout(self):
+        self.add_rect(
+            layer='SI',
+            coord1=self.params['point1'],
+            coord2=self.params['point2'],
+            unit_mode=False,
+        )
+
+
+class AnyAngleTest(BPG.PhotonicTemplateBase):
+
+    @classmethod
+    def get_params_info(cls):
+        return dict(
+            point1='Rectangle corner 1',
+            point2='Rectangle corner 2',
+        )
+
+    def draw_layout(self):
+        master = self.new_template(params=self.params, temp_cls=AnyAngleBase)
+        self.add_instance(master)
+        self.add_instance(master, loc=(0, 5), angle=math.pi/4, unit_mode=False)
 
 
 def test_anyangle_conversion_functions():
@@ -44,5 +78,19 @@ def test_anyangle_conversion_functions():
                 f'(ang, mir) = ({new_angle / math.pi:.3}pi, {new_mirrored})'
 
 
+def test_rectangle_rotation():
+    spec_file = 'BPG/tests/specs/any_angle_specs.yaml'
+    plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_template()
+    plm.generate_content()
+    plm.generate_gds()
+    plm.generate_flat_content()
+    plm.generate_flat_gds()
+    plm.dataprep()
+    plm.generate_dataprep_gds()
+    plm.generate_lsf()
+
+
 if __name__ == '__main__':
     test_anyangle_conversion_functions()
+    test_rectangle_rotation()
