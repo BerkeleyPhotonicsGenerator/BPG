@@ -19,11 +19,6 @@ class AddRect(BPG.PhotonicTemplateBase):
             point2='Rectangle corner 2',
         )
 
-    @classmethod
-    def get_default_param_values(cls):
-        return dict(
-        )
-
     def draw_layout(self):
         """ Specifies the creation of the lumerical shapes """
 

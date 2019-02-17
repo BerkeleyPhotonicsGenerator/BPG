@@ -701,6 +701,36 @@ class PhotonicRound(Arrayable):
 
         return output_list_p, output_list_n
 
+    def export_to_polygon(self):
+        """
+        Convert the PhotonicRound geometry to a PhotonicPolygon and returns it
+        Returns
+        -------
+        poly : List[PhotonicPolygon]
+            polygon representation of the given rectangle
+        """
+        [list_p, _] = PhotonicRound.polygon_pointlist_export(self.rout,
+                                                             self.rin,
+                                                             self.theta0,
+                                                             self.theta1,
+                                                             self.center,
+                                                             nx=self.nx,
+                                                             ny=self.ny,
+                                                             spx=self.spx,
+                                                             spy=self.spy,
+                                                             resolution=self.resolution,
+                                                             )
+
+        poly_list = []
+        for points in list_p:
+            poly = PhotonicPolygon(resolution=self.resolution,
+                                   layer=self.layer,
+                                   points=points,
+                                   unit_mode=False,
+                                   )
+            poly_list.append(poly)
+        return poly_list
+
 
 class PhotonicRect(Rect):
     """
@@ -822,6 +852,32 @@ class PhotonicRect(Rect):
                 output_list_p.append(polygon_list)
 
         return output_list_p, output_list_n
+
+    def export_to_polygon(self):
+        """
+        Convert the PhotonicRect geometry to a PhotonicPolygon and returns it
+
+        Returns
+        -------
+        poly : List[PhotonicPolygon]
+            polygon representation of the given rectangle
+        """
+        bbox = [[self.bbox.left, self.bbox.bottom], [self.bbox.right, self.bbox.top]]
+        [list_p, _] = PhotonicRect.polygon_pointlist_export(bbox=bbox,
+                                                            nx=self.nx,
+                                                            ny=self.ny,
+                                                            spx=self.spx,
+                                                            spy=self.spy,
+                                                            )
+        poly_list = []
+        for points in list_p:
+            poly = PhotonicPolygon(resolution=self.resolution,
+                                   layer=self.layer,
+                                   points=points,
+                                   unit_mode=False,
+                                   )
+            poly_list.append(poly)
+        return poly_list
 
 
 class PhotonicPath(Figure):
@@ -1069,6 +1125,14 @@ class PhotonicPath(Figure):
         """
         return [vertices], []
 
+    def export_to_polygon(self) -> 'PhotonicPolygon':
+        return PhotonicPolygon(
+            layer=self.layer,
+            resolution=self.resolution,
+            points=self._polygon_points_unit,
+            unit_mode=True,
+        )
+
 
 class PhotonicPathCollection(PathCollection):
     """
@@ -1178,6 +1242,23 @@ class PhotonicPolygon(Polygon):
             The positive and negative polygon pointlists describing this polygon
         """
         return [vertices], []
+
+    def rotate(self, angle: float = 0.0) -> None:
+        """
+        Rotates the polygon about the given axis by the given angle
+
+        Parameters
+        ----------
+        angle : float
+            the amount in radians that the polygon will be rotated
+        """
+        # TODO: Make this rotation function better by vectorizing the operation in numpy
+        rotated_point_list = []
+        for point in self._points:
+            qx = math.cos(angle) * point[0] - math.sin(angle) * point[1]
+            qy = math.sin(angle) * point[0] + math.cos(angle) * point[1]
+            rotated_point_list.append((qx, qy))
+        self._points = np.array(rotated_point_list)
 
 
 class PhotonicAdvancedPolygon(Polygon):
