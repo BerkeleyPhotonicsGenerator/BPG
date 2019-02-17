@@ -264,14 +264,10 @@ class AnyAngleHierarchyLevel1(BPG.PhotonicTemplateBase):
         return dict()
 
     def draw_layout(self):
-
-        self.add_polygon(
+        self.add_rect(
             layer='SI',
-            points=[
-                (0, -0.2),
-                (0, 0.2),
-                (1, 0)
-            ]
+            coord1=(0, -1),
+            coord2=(10, 1)
         )
 
         self.add_photonic_port(
@@ -287,8 +283,8 @@ class AnyAngleHierarchyLevel1(BPG.PhotonicTemplateBase):
 
         p1 = self.add_photonic_port(
             name="PORT1_level1",
-            center=(-1, 0),
-            orient='R0',
+            center=(0, 1),
+            orient='R270',
             angle=np.pi/6,
             width=0.4,
             layer='SI',
@@ -298,11 +294,17 @@ class AnyAngleHierarchyLevel1(BPG.PhotonicTemplateBase):
 
         l2master = self.new_template(temp_cls=AnyAngleHierarchyLevel2)
 
-        self.add_instance_port_to_port(
+        inst2 = self.add_instance_port_to_port(
             inst_master=l2master,
             instance_port_name='PORT0_level2',
             self_port=p1,
             instance_name='LEVEL2'
+        )
+
+        self.extract_photonic_ports(
+            inst=inst2,
+            port_names='PORT0_level2',
+            port_renaming={'PORT0_level2': 'DEBUGPORT'}
         )
 
 
@@ -318,19 +320,15 @@ class AnyAngleHierarchyLevel2(BPG.PhotonicTemplateBase):
 
     def draw_layout(self):
 
-        self.add_polygon(
+        self.add_rect(
             layer='SI',
-            points=[
-                (0, 0),
-                (0, 1),
-                (2, 1),
-                (2, 0)
-            ]
+            coord1=(0, -3),
+            coord2=(2, 3)
         )
 
         self.add_photonic_port(
             name="PORT0_level2",
-            center=(0, 0.5),
+            center=(0, 1),
             orient='R0',
             angle=0,
             width=0.4,
@@ -341,14 +339,16 @@ class AnyAngleHierarchyLevel2(BPG.PhotonicTemplateBase):
 
         self.add_photonic_port(
             name="PORT1_level2",
-            center=(1, 1),
-            orient='R90',
+            center=(1.5, 3),
+            orient='R270',
             angle=0,
             width=0.4,
             layer='SI',
             resolution=self.grid.resolution,
             unit_mode=False,
         )
+
+
 
 
 class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
@@ -367,9 +367,9 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
 
         p1 = self.add_photonic_port(
             name='P1',
-            center=(10, 0),
-            orient='R0',
-            angle=angle1,
+            center=(0, 0),
+            orient='R180',
+            angle=np.pi/10,
             width=0.4,
             layer='SI',
             resolution=self.grid.resolution,
@@ -380,7 +380,7 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
             name='P2',
             center=(0, 10),
             orient='R0',
-            angle=angle2,
+            angle=0,
             width=0.4,
             layer='SI',
             resolution=self.grid.resolution,
@@ -390,13 +390,14 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
         l1master = self.new_template(temp_cls=AnyAngleHierarchyLevel1)
         l2master = self.new_template(temp_cls=AnyAngleHierarchyLevel2)
 
+        print('adding full 2 level hierarchy')
         self.add_instance_port_to_port(
             inst_master=l1master,
             instance_port_name='PORT0_level1',
             self_port=p1,
             instance_name='L1'
         )
-
+        print('done adding full 2 level hierarchy')
         self.add_instance_port_to_port(
             inst_master=l2master,
             instance_port_name='PORT0_level2',

@@ -8,6 +8,7 @@ import math
 from .logger import setup_logger
 from pathlib import Path
 from itertools import chain
+import numpy as np
 
 # BAG imports
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
@@ -24,7 +25,7 @@ from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
 
 # Typing imports
 if TYPE_CHECKING:
-    from BPG.objects import PhotonicRound, PhotonicPath
+    from BPG.objects import PhotonicRound, PhotonicPath, PhotonicInstance
     from bag.layout.objects import InstanceInfo
     from bag.layout.core import TechInfo
 
@@ -249,7 +250,7 @@ class PhotonicBagLayout(BagLayout):
     def finalize(self):
         # type: () -> None
         """ Prevents any further changes to this layout. """
-        if self.angle != 0:
+        if self.angle != 0:  # TODO: change this to be a 'close to 0' check
             self.rotate_all_by(self.angle)
 
         self._finalized = True
@@ -421,7 +422,7 @@ class PhotonicBagLayout(BagLayout):
                 monitor_list=monitor_list,
             )
 
-    def rotate_all_by(self, angle=0.0) -> None:
+    def rotate_all_by(self, angle=0.0, origin=(0, 0)) -> None:
         """
         Rotates all shapes generated on this level of the hierarchy and rotates them by the given angle about the
         origin. All shapes are converted to polygons to perform this rotation. It is assumed that the angles of
@@ -486,6 +487,27 @@ class PhotonicBagLayout(BagLayout):
                 layer=pin.layer,
                 bbox=new_bbox
             )
+
+        for inst in self._inst_list:
+            inst: "PhotonicInstance"
+            origin_center = inst.origin.center
+            print(f'rotation:  inst={inst}')
+            location = np.array(
+                [
+                    np.cos(angle) * origin_center[0] - np.sin(angle) * origin_center[1],
+                    np.sin(angle) * origin_center[0] + np.cos(angle) * origin_center[1]
+                ]
+            )
+
+            # inst.transform(
+            #     loc=location.tolist(),
+            #     orient=inst.orientation,
+            #     unit_mode=False,
+            #     copy=False
+            # )
+            print(f'post rotation:  inst={inst}')
+
+
 
         # TODO: Rotate all vias
 

@@ -609,16 +609,19 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
 
+        print(f'my_port:  {my_port},     new_port:  {new_port}')
+
+
         # Compute the angle that the instsance must be rotated by in order to have its port align to the port being
         # connected to
         # For now, assume self.angle = 0,
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
         # TODO: why add self.angle and not subtract
-        diff_angle = -(inst_master.angle + new_port.angle + self.angle) + my_port.angle + math.pi
+        diff_angle = -(inst_master.angle + new_port.angle) + self.angle + my_port.angle + math.pi
 
         # TODO:
-        # print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
-        #       f'self.angle={np.rad2deg(self.angle)},  my_port.angle={np.rad2deg(my_port.angle)},  diff_angle={np.rad2deg(diff_angle)}')
+        print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
+              f'self.angle={np.rad2deg(self.angle)},  my_port.angle={np.rad2deg(my_port.angle)},  diff_angle={np.rad2deg(diff_angle)}')
 
         # Place a rotated PhotonicInstance that is rotated but not in the correct location
         new_inst: "PhotonicInstance" = self.add_instance(
@@ -633,6 +636,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         # Translate the new instance
         translation_vec = my_port.center_unit - new_inst[instance_port_name].center_unit
+        print(f'translation_vec:   {translation_vec}')
         new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
 
         return new_inst
@@ -741,7 +745,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 name=new_name,
                 center=old_port.center_unit.tolist(),
                 orient='R0',
-                angle=old_port.angle,
+                angle=old_port.angle - self.angle,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
@@ -926,7 +930,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # Create a new parameter dictionary based on the provided changes
         new_params = copy.deepcopy(self.params)
         for key, val in kwargs.items():
-            if key in new_params:
+            if key in new_parakms:
                 new_params[key] = val
 
         # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params

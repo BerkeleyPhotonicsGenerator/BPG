@@ -198,6 +198,10 @@ class PhotonicInstance(Instance):
     def mirrored(self) -> bool:
         return self._origin.mirrored
 
+    @property
+    def origin(self) -> "Transformable2D":
+        return self._origin
+
     def _import_photonic_ports(self) -> None:
         """
         Takes all ports from the provided master and adds them to this instance. Transformations are
@@ -367,6 +371,7 @@ class PhotonicInstance(Instance):
         logging.debug(f'Origin is {self._origin}')
 
         # Regenerate the master based on the new origin
+        print(f'PhotonicInstance.rotate:   creating new master {self.master.__class__.__name__}  at angle  {np.rad2deg(self.mod_angle)}')
         self.new_master_with(angle=self.mod_angle)
 
         # Re-extract the port locations
