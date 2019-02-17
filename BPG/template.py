@@ -247,37 +247,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self._layout.add_path(new_path)
         return new_path
 
-    def new_template(self, params=None, temp_cls=None, debug=False, angle=0.0, **kwargs):
-        """
-        Creates a new master that can be placed using self.add_instance() or self.add_instances_port_to_port()
-        This performs the exact same thing as TemplateBase.new_template(), but has the additional angle argument
-        built in which allows for any-angle rotation. This method takes the current masters angle and adds the
-        desired rotation to it. This is required since all rotation is performed relative to 0 degrees.
-
-        Parameters
-        ----------
-        params : dict
-            dictionary of parameters to be passed to the layout generator
-        temp_cls :
-            subclass of PhotonicTemplateBase that will be used to generate the new template
-        debug : bool
-            if True, prints debugging information during template creation
-        angle : float
-            angle at which the new template will be rotated
-
-        Returns
-        -------
-        master : PhotonicTemplateBase
-            Newly created generator object
-        """
-        return TemplateBase.new_template(self,
-                                         params=params,
-                                         temp_cls=temp_cls,
-                                         debug=debug,
-                                         hidden_params={'_angle': self.angle + angle},
-                                         **kwargs
-                                         )
-
     def finalize(self):
         """ Call the old finalize method, but then also grab the bounding box from the layout content """
         TemplateBase.finalize(self)
@@ -479,6 +448,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             instance orientation.  Defaults to "R0"
         angle : float
             angle in radians to rotate this instance
+        reflect : bool
+            True to mirror reflect the instance
         nx : int
             number of columns.  Must be positive integer.
         ny : int
@@ -495,8 +466,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         inst : PhotonicInstance
             the added instance.
         """
-        # TODO: Actually pass the angle parameter to PhotonicInstance
-
         res = self.grid.resolution
         if not unit_mode:
             loc = int(round(loc[0] / res)), int(round(loc[1] / res))
@@ -920,7 +889,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 new_params[key] = val
 
         # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params
-        del new_params['_angle']
+        new_params.pop('_angle', None)
         return TemplateBase.new_template(self,
                                          params=new_params,
                                          temp_cls=self.__class__,

@@ -422,7 +422,7 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
             instance_name='L2'
         )
 
-        l3master = self.new_template(temp_cls=AnyAngleHierarchyLevel1, angle=5*np.pi/3)
+        l3master = self.new_template(temp_cls=AnyAngleHierarchyLevel1)#, angle=5*np.pi/3)
 
         self.add_instance(
             master=l3master,
@@ -434,7 +434,7 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
 
         self.add_instance(
             master=l3master,
-            inst_name='NewTemplateWithDirectAngle',
+            inst_name='NewTemplateWithDirectAngle2',
             loc=(-100, 30),
             orient='R90',
             angle=0,
@@ -442,10 +442,18 @@ class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
 
         self.add_instance(
             master=l3master,
-            inst_name='NewTemplateWithDirectAngle',
-            loc=(-100, 60),
-            orient='R90',
+            inst_name='NewTemplateWithDirectAngle3',
+            loc=(-100, 50),
+            orient='R0',
             angle=0.01,
+        )
+
+        self.add_instance(
+            master=l3master,
+            inst_name='NewTemplateWithDirectAngle4',
+            loc=(-10, 50),
+            orient='R0',
+            angle=0.0,
         )
 
 

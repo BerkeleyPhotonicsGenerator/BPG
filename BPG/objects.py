@@ -116,7 +116,6 @@ class PhotonicInstance(Instance):
             unit_mode=unit_mode,
         )
         self._import_photonic_ports()
-
         # If the angle of this instance is not 0, rotate the instance
         # TODO: is_cardinal / close enough to cardinal?
         if angle != 0.0:
@@ -213,7 +212,7 @@ class PhotonicInstance(Instance):
                 translation=self.location_unit,
                 rotation=self.angle,
                 mirror=self.mirrored,
-                force_cardinal=False,  # TODO,
+                force_cardinal=False,  # TODO
                 unit_mode=True
             )
 
