@@ -50,7 +50,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self.allow_rotation_hierarchy = False
 
         # This stores the angular offset from the cardinal axes that this master is drawn at
-        self._angle = self.params.get('angle', 0.0)
+        self._angle = self.params.get('_angle', 0.0)
         self._layout.angle = self.angle
 
     @property
@@ -280,7 +280,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          params=params,
                                          temp_cls=temp_cls,
                                          debug=debug,
-                                         hidden_params=dict(angle=self.angle + angle),
+                                         hidden_params={'_angle': self.angle + angle},
                                          **kwargs
                                          )
 
@@ -696,11 +696,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                inst: Union[PhotonicInstance, "Instance"],
                                port_names: Optional[Union[str, List[str]]] = None,
                                port_renaming: Optional[Dict[str, str]] = None,
-                               unmatched_only: bool = True,  # TODO: matched vs non-matched ports.
-                                                             # TODO: if two ports are connected, do we export them
                                show: bool = True,
                                ) -> None:
-        """Brings ports from lower level of hierarchy to the current hierarchy level
+        """
+        Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
         ----------
@@ -712,12 +711,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             a dictionary containing key-value pairs mapping inst's port names (key)
             to the new desired port names (value).
             If not supplied, extracted ports will be given their original names
-        unmatched_only : bool
         show : bool
-
-        Returns
-        -------
-
         """
         if port_names is None:
             port_names = inst.master.photonic_ports_names_iter()
@@ -731,13 +725,13 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         for port_name in port_names:
             old_port = inst.master.get_photonic_port(port_name)
             translation = inst.location_unit
-            rotation = inst.orientation
+            orientation = inst.orientation
 
             # Find new port location
             new_location, new_orient = transform_loc_orient(old_port.center_unit,
                                                             old_port.orientation,
                                                             translation,
-                                                            rotation,
+                                                            orientation,
                                                             )
 
             # Get new desired name
@@ -755,6 +749,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 name=new_name,
                 center=new_location,
                 orient=new_orient,
+                angle=old_port.mod_angle,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
@@ -943,10 +938,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 new_params[key] = val
 
         # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params
-        del new_params['angle']
+        del new_params['_angle']
         return TemplateBase.new_template(self,
                                          params=new_params,
                                          temp_cls=self.__class__,
-                                         hidden_params=dict(angle=angle),
+                                         hidden_params={'_angle': angle},
                                          **kwargs
                                          )
