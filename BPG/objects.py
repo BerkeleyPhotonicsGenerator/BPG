@@ -130,7 +130,7 @@ class PhotonicInstance(Instance):
 
     def __repr__(self):
         return f'PhotonicInstance(master={self.master}, name={self._inst_name}, loc={self.location}, ' \
-            f'angle={self.angle}, orientation={self.orientation}'
+            f'angle={np.rad2deg(self.angle)}, orientation={self.orientation}'
 
     def __str__(self):
         return self.__repr__()

@@ -723,16 +723,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             port_renaming = {}
 
         for port_name in port_names:
-            old_port = inst.master.get_photonic_port(port_name)
+            old_port = inst[port_name]
             translation = inst.location_unit
             orientation = inst.orientation
-
-            # Find new port location
-            new_location, new_orient = transform_loc_orient(old_port.center_unit,
-                                                            old_port.orientation,
-                                                            translation,
-                                                            orientation,
-                                                            )
 
             # Get new desired name
             if port_name in port_renaming.keys():
@@ -744,12 +737,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if new_name in self._photonic_ports:
                 # Append unique number
                 new_name = self._get_unused_port_name(new_name)
-
             self.add_photonic_port(
                 name=new_name,
-                center=new_location,
-                orient=new_orient,
-                angle=old_port.mod_angle,
+                center=old_port.center_unit.tolist(),
+                orient='R0',
+                angle=old_port.angle,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
