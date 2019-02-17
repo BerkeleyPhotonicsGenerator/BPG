@@ -343,9 +343,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # TODO: Add support for renaming?
         # TODO: Remove force append?
         # TODO: Actually pass the angle parameter to the port
-        if angle != 0.0:
-            raise ValueError('Any angle rotation of ports is not yet supported!')
-
         # Create a temporary port object unless one is passed as an argument
         if port is None:
             if resolution is None:
@@ -503,8 +500,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             the added instance.
         """
         # TODO: Actually pass the angle parameter to PhotonicInstance
-        if angle != 0.0:
-            raise ValueError('Any angle rotation of instances is not yet supported!')
 
         res = self.grid.resolution
         if not unit_mode:
@@ -594,7 +589,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # connected to
         # For now, assume self.angle = 0,
         #   We find the
-        diff_angle = (new_port.angle + self.angle) - my_port.angle + math.pi
+        # TODO: why add self.angle and not subtract
+        diff_angle = (inst_master.angle + new_port.angle + self.angle) - my_port.angle + math.pi
 
         # Place a rotated PhotonicInstance that is rotated but not in the correct location
         new_inst: "PhotonicInstance" = self.add_instance(

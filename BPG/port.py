@@ -76,10 +76,11 @@ class PhotonicPort(Transformable2D):
             self._width_unit = int(round(width / self.resolution))
 
     def __repr__(self):
-        return f'PhotonicPort(name={self.name}, layer=({self.layer}), location=({self.center}), angle={self.angle})'
+        return (f'PhotonicPort(name={self.name}, layer=({self.layer}), location=({self.center}), '
+                f'angle={np.rad2deg(self.angle)} deg')
 
     def __str__(self):
-        return f'PhotonicPort(name={self.name}, layer=({self.layer}), location=({self.center}), angle={self.angle})'
+        return self.__repr__()
 
     def __copy__(self):
         return PhotonicPort(
@@ -135,23 +136,6 @@ class PhotonicPort(Transformable2D):
     def width_vec_unit(self):
         """A vector pointing in the direction of the port, whose length is the width of the port."""
         return self.width_unit * np.cos(self.angle), self.width_unit * np.sin(self.angle)
-
-    @property
-    def orientation(self) -> str:
-        """ Returns the orientation of the port """
-        return self._orientation
-
-    def is_horizontal(self) -> bool:
-        """Returns True if port orientation is pointing in a horizontal direction"""
-        horizontal_orientation = ['R0', 'R180', 'MX', 'MY']
-        if self.orientation in horizontal_orientation:
-            return True
-        else:
-            return False
-
-    def is_vertical(self) -> bool:
-        """Returns True if port orientation is in a vertical direction"""
-        return not self.is_horizontal()
 
     def transform(self,
                   loc: "coord_type" = (0, 0),
