@@ -19,7 +19,7 @@ class PhotonicPort(Transformable2D):
                  resolution: float,
                  angle: float = 0.0,
                  mirrored: bool = False,
-                 is_cardinal: bool = True,
+                 force_cardinal: bool = False,
                  unit_mode: bool = False,
                  ) -> None:
         """Creates a new PhotonicPort object
@@ -42,7 +42,7 @@ class PhotonicPort(Transformable2D):
             The offset angle of the port, within [0, pi/2). Defaults to 0.0
         mirrored : bool
             True if the port orientation is mirrored. Defaults to False.
-        is_cardinal : bool
+        force_cardinal : bool
             Tracks whether the angle is cardinal and should be snapped to 90deg where applicable
 
         unit_mode : bool
@@ -56,7 +56,7 @@ class PhotonicPort(Transformable2D):
                                  orientation=orient,
                                  angle=angle,
                                  mirrored=mirrored,
-                                 is_cardinal=is_cardinal,
+                                 force_cardinal=force_cardinal,
                                  unit_mode=unit_mode
                                  )
         self._name = name

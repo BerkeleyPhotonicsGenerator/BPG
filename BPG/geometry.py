@@ -6,7 +6,7 @@ import warnings
 
 from bag.layout.util import BBox
 
-from typing import TYPE_CHECKING, Tuple, Union
+from typing import TYPE_CHECKING, Tuple, Union, Optional
 
 if TYPE_CHECKING:
     from BPG.bpg_custom_types import coord_type
@@ -290,7 +290,6 @@ class BBoxMut(BBox):
         return self
 
 
-# TODO: rename?
 class Transformable2D:
     """
     This class represents a 2D position on a Cartesian grid and angle. Contains several convenience methods for
@@ -305,14 +304,13 @@ class Transformable2D:
     OrientationsWithFlip = ['MX', 'MXR90', 'MY', 'MYR90']  # Mirror first, then rotate if applicable
     OrientationsAll = OrientationsNoFlip + OrientationsWithFlip
 
-    # TODO: While implementing the changes in templateBase, look into whether is_cardinal is a forcing flag or not...
     def __init__(self,
                  center: "coord_type",
                  resolution: float,
                  orientation: str = 'R0',
                  angle: float = 0.0,
-                 mirrored: bool = False,  # TODO: Why have this and also orient that can accept MX or such?
-                 is_cardinal: bool = True,
+                 mirrored: bool = False,
+                 force_cardinal: bool = False,
                  unit_mode: bool = False,
                  ):
         """
@@ -331,7 +329,7 @@ class Transformable2D:
         mirrored : bool
             If true, specifies a reflection across the x-axis (y-->-y) before any rotation
             This operation (coupled with the orientation) more generally indicates that a block has been mirrored.
-        is_cardinal : bool
+        force_cardinal : bool
             Tracks whether the angle is cardinal and should be snapped to 90deg where applicable
         unit_mode : bool
             True if layout dimensions are specified in resolution units
@@ -346,21 +344,21 @@ class Transformable2D:
 
         # Convert the input angle+orientation to angle+invert representation
         angle, temp_invert_y = self.orient2angle(orient=orientation, mod_angle=angle)
-        mirrored = mirrored ^ temp_invert_y  # Todo: Make sure this is right after discussion about invert_y in the init
+        mirrored = mirrored ^ temp_invert_y
 
         # Store information internally in mod_angle and cadence orientation format
-        orient, mod_angle, seems_cardinal, _ = self.angle2orient(angle, mirrored)
+        orient, mod_angle, is_cardinal, _ = self.angle2orient(angle, mirrored)
         self._orient = orient
         self.mod_angle = mod_angle  # Set using setter to ensure mod_angle < pi/2
 
         # Handle the case where the object may or may not be cardinal
-        if is_cardinal:
-            self._is_cardinal = is_cardinal
-            if not seems_cardinal:
+        if force_cardinal:
+            self._force_cardinal = True
+            if not is_cardinal:
                 warnings.warn(f'Transformable2D initialized as is_cardinal=True, but angle seems non-cardinal. \n' 
                               f'mod_angle={mod_angle}')
         else:
-            self._is_cardinal = seems_cardinal
+            self._force_cardinal = False
 
     @property
     def center(self) -> np.array:
@@ -433,12 +431,12 @@ class Transformable2D:
 
     @property
     def is_horizontal(self) -> bool:
-        """ Returns True if angle is 0, 180deg, etc. """
+        """ Returns True if angle is 0, 180deg, etc. Sin(theta) = theta approximation """
         return abs(self.unit_vec[1]) <= Transformable2D.SMALL_ANGLE_TOLERANCE
 
     @property
     def is_vertical(self) -> bool:
-        """ Returns True if angle is 90deg, 270deg, etc. """
+        """ Returns True if angle is 90deg, 270deg, etc. Sin(theta) = theta approximation """
         return abs(self.unit_vec[0]) <= Transformable2D.SMALL_ANGLE_TOLERANCE
 
     @property
@@ -457,7 +455,7 @@ class Transformable2D:
     def rotate(self,
                rotation: float,
                mirror: bool,
-               is_cardinal: bool = False,
+               force_cardinal: Optional[bool] = None,
                ) -> np.array:
         """
         Perform a rotation relative to the current position and angle of the Transformable2D object
@@ -471,8 +469,10 @@ class Transformable2D:
             angle in radians to rotate this point
         mirror : bool
             if true, the y-coordinate is flipped to perform a mirror across the x-axis
-        is_cardinal : bool
-            if true, restrict to cardinal rotations
+        force_cardinal : Optional[bool]
+            If True and the result of the rotation is not cardinal, raise a runtime error.
+            If False, do not care about cardinality of result.
+            If left unset, use the Transformable2D's current force_cardinal value.
 
         Returns
         -------
@@ -503,18 +503,13 @@ class Transformable2D:
         self.mod_angle = mod_angle
         self._center_unit = new_center_unit
 
-        # TODO: in my view, this check should be at the start of this function, and a check like:
-        #  if is_cardinal:
-        #   if not seems_cardinal: raise RuntimeError(f'Specified transform should be cardinal, but it wasnt')
-        #   else: self._is_cardinal = True
-        #  else:
-        #   self._is_cardinal = seems_cardinal
-        if is_cardinal is True:
+        if force_cardinal is None:
+            force_cardinal = self._force_cardinal
+
+        if force_cardinal:
             # Transformation is explicitly cardinal, so do not change is_cardinal flag
             if np.abs(np.cos(rotation) * np.sin(rotation)) > Transformable2D.SMALL_ANGLE_TOLERANCE:
                 raise RuntimeError('rotation specified as cardinal, but angle is not a multiple of pi/2')
-        else:
-            self._is_cardinal = seems_cardinal
 
         return np.array([int(round(new_center_x)), int(round(new_center_y))])
 
@@ -580,7 +575,7 @@ class Transformable2D:
                                 translation: "coord_type" = (0.0, 0.0),
                                 rotation: float = 0.0,
                                 mirror: bool = False,
-                                is_cardinal: bool = False,
+                                force_cardinal: bool = False,
                                 unit_mode: bool = False,
                                 ) -> "Transformable2D":
         """
@@ -595,7 +590,7 @@ class Transformable2D:
             angle in radians to rotate the current point by
         mirror : bool
             if true, mirror the block
-        is_cardinal : bool
+        force_cardinal : bool
             if true, restrict to cardinal rotations
         unit_mode : bool
             if true, translation tuple is assumed to be in unit_mode
@@ -604,7 +599,7 @@ class Transformable2D:
         self.rotate(
             rotation=rotation,
             mirror=mirror,
-            is_cardinal=is_cardinal
+            force_cardinal=force_cardinal
         )
 
         # Translate
