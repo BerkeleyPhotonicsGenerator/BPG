@@ -16,7 +16,6 @@ from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
 
-
 from BPG.geometry import Transformable2D
 from BPG.compiler.point_operations import coords_cleanup, create_polygon_from_path_and_width
 
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
     from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
-
 
 # Load logger
 logger = logging.getLogger(__name__)
@@ -132,7 +130,7 @@ class PhotonicInstance(Instance):
 
     def __repr__(self):
         return f'PhotonicInstance(master={self.master}, name={self._inst_name}, loc={self.location}, ' \
-               f'angle={self.angle}, orientation={self.orientation}'
+            f'angle={self.angle}, orientation={self.orientation}'
 
     def __str__(self):
         return self.__repr__()
@@ -808,7 +806,7 @@ class PhotonicRect(Rect):
                                  ny: int = 1,
                                  spx: dim_type = 0.0,
                                  spy: dim_type = 0.0,
-                                 )-> Tuple[List, List]:
+                                 ) -> Tuple[List, List]:
         """
         Convert the PhotonicRect geometry to a list of polygon pointlists.
 
@@ -1184,7 +1182,7 @@ class PhotonicTLineBus(TLineBus):
         TLineBus.__init__(self, resolution, layer, points, widths, spaces, end_style, unit_mode)
 
 
-class PhotonicPolygon(Polygon):
+class PhotonicPolygon(Figure):
     """
     A layout polygon object.
 
@@ -1207,15 +1205,43 @@ class PhotonicPolygon(Polygon):
                  points: List[coord_type],
                  unit_mode: bool = False,
                  ):
+        Figure.__init__(self, resolution)
+        layer = bag.io.fix_string(layer)
         if isinstance(layer, str):
             layer = (layer, 'phot')
-        Polygon.__init__(self, resolution, layer, points, unit_mode)
+        self._layer = layer
+
+        # Points are stored internally as full precision floating points
+        if not unit_mode:
+            self._points = np.array(points)
+        else:
+            self._points = np.array(points) * self._res
+
+    @property
+    def layer(self):
+        return self._layer
+
+    @property
+    def points(self):
+        return self._points
+
+    @property
+    def points_unit(self):
+        return np.round(self._points / self._res).astype(int)
+
+    @property
+    def content(self) -> Dict[str, Any]:
+        quantized_points = self.points_unit * self._res
+        return dict(layer=self.layer,
+                    points=[(quantized_points[idx][0], quantized_points[idx][1])
+                            for idx in range(quantized_points.shape[0])],
+                    )
 
     @property
     def bound_box(self):
         left, bottom = np.amin(self._points, axis=0)
         right, top = np.amax(self._points, axis=0)
-        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=True)
+        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=False)
 
     @classmethod
     def from_content(cls, content, resolution):
@@ -1225,6 +1251,26 @@ class PhotonicPolygon(Polygon):
             points=content['points'],
             unit_mode=False,
         )
+
+    def move_by(self, dx=0, dy=0, unit_mode=False):
+        if unit_mode:
+            dx = dx * self._res
+            dy = dy * self._res
+        self._points += np.array([dx, dy])
+
+    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
+        if unit_mode:
+            loc = np.array([loc[0] * self._res, loc[1] * self._res])
+        mat = transform_table[orient]
+        new_points = np.dot(mat, self._points.T).T + loc
+
+        if not copy:
+            ans = self
+        else:
+            ans = deepcopy(self)
+
+        ans._points = new_points
+        return ans
 
     @classmethod
     def polygon_pointlist_export(cls,
