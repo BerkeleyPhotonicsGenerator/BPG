@@ -1299,13 +1299,12 @@ class PhotonicPolygon(Figure):
         angle : float
             the amount in radians that the polygon will be rotated
         """
-        # TODO: Make this rotation function better by vectorizing the operation in numpy
-        rotated_point_list = []
-        for point in self._points:
-            qx = math.cos(angle) * point[0] - math.sin(angle) * point[1]
-            qy = math.sin(angle) * point[0] + math.cos(angle) * point[1]
-            rotated_point_list.append((qx, qy))
-        self._points = np.array(rotated_point_list)
+        self._points = np.column_stack(
+            [
+                np.cos(angle) * self._points[:, 0] - np.sin(angle) * self._points[:, 1],
+                np.sin(angle) * self._points[:, 0] + np.cos(angle) * self._points[:, 1]
+            ]
+        )
 
 
 class PhotonicAdvancedPolygon(Polygon):
