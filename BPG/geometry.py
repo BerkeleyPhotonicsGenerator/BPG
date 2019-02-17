@@ -298,7 +298,7 @@ class Transformable2D:
     """
 
     # small deviation in angle assumed to be cardinal
-    SMALL_ANGLE_TOLERANCE = 1e-6
+    SMALL_ANGLE_TOLERANCE = 1.0e-9
 
     OrientationsNoFlip = ['R0', 'R90', 'R180', 'R270']
     OrientationsWithFlip = ['MX', 'MXR90', 'MY', 'MYR90']  # Mirror first, then rotate if applicable
@@ -430,7 +430,7 @@ class Transformable2D:
     @property
     def is_cardinal(self) -> bool:
         """ If true, the object is pointing in one of the cardinal directions """
-        return self._mod_angle == 0
+        return self.is_horizontal or self.is_vertical
 
     @property
     def is_horizontal(self) -> bool:
@@ -543,7 +543,11 @@ class Transformable2D:
             new position of the center in unit_mode
         """
         if not unit_mode:
-            translation = int(round(translation[0] / self.resolution)), int(round(translation[1] / self.resolution))
+            translation = np.round(
+                np.array([translation[0] / self.resolution, translation[1] / self.resolution])
+            ).astype(int)
+        else:
+            translation = np.round(np.round(translation)).astype(int)
         self._center_unit += translation
 
         return self
@@ -567,9 +571,11 @@ class Transformable2D:
             True if loc is provided in resolution units, False if loc is provided in layout units.
         """
         if not unit_mode:
-            self._center_unit = np.array([int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))])
+            self._center_unit = np.round(
+                np.array([loc[0] / self.resolution, loc[1] / self.resolution])
+            ).astype(int)
         else:
-            self._center_unit = np.array([loc[0], loc[1]])
+            self._center_unit = np.round(np.round(loc)).astype(int)
 
         self._orient = orient
 
