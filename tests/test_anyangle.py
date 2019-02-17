@@ -79,7 +79,7 @@ class AnyAngleNoHierarchyPortToPortLevel1Type1(BPG.PhotonicTemplateBase):
         )
 
         self.add_photonic_port(
-            name="SubLevel1Type1Port0",
+            name="SubLevel1Type1Port1",
             center=(9, 2),
             orient='R90',
             angle=np.pi/5,
@@ -121,7 +121,7 @@ class AnyAngleNoHierarchyPortToPort(BPG.PhotonicTemplateBase):
             coord2=(12, 15),
             unit_mode=False,
         )
-
+        print('AnyAngleNoHierarchy  Before first port')
         self.add_photonic_port(
             name="BasePort",
             center=(15, 15),
@@ -132,12 +132,13 @@ class AnyAngleNoHierarchyPortToPort(BPG.PhotonicTemplateBase):
             resolution=self.grid.resolution,
             unit_mode=False,
         )
+        print('AnyAngleNoHierarchy  After first port')
 
         self.add_photonic_port(
             name="DummyTopPort",
-            center=(15, 15),
+            center=(10, 2),
             orient='R0',
-            angle=np.pi / 6,
+            angle=5 * np.pi / 7,
             width=0.4,
             layer='SI',
             resolution=self.grid.resolution,
@@ -213,14 +214,14 @@ def test_instance_port_to_port_at_angle_no_hierarchy():
     plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
-    plm.generate_flat_content()
-    plm.generate_flat_gds()
-    plm.dataprep()
-    plm.generate_dataprep_gds()
-    plm.generate_lsf()
+    #plm.generate_flat_content()
+    #plm.generate_flat_gds()
+    #plm.dataprep()
+    #plm.generate_dataprep_gds()
+    #plm.generate_lsf()
 
 
 if __name__ == '__main__':
-    test_anyangle_conversion_functions()
-    test_rectangle_rotation()
+    # test_anyangle_conversion_functions()
+    # test_rectangle_rotation()
     test_instance_port_to_port_at_angle_no_hierarchy()
