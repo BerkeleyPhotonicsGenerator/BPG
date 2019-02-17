@@ -1,0 +1,23 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+project_name: bpg_test_suite
+
+# Output Settings
+lsf_filename: any_angle_port_to_port_at_angle_hierarchy
+gds_filename: any_angle_port_to_port_at_angle_hierarchy
+
+bag_config_path: 'BPG/examples/tech/bag_config.yaml'
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.test_anyangle'
+layout_class: 'AnyAngleWithHierarchyPortToPort'  # Layout generator class name
+
+layout_params:  # Place parameters to be passed to the generator class under here
+  point1: !!python/tuple [0, 0]
+  point2: !!python/tuple [2, 1]
+
+# Cadence related parameters
+impl_lib: 'any_angle'
+impl_cell: 'any_angle'
