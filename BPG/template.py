@@ -286,19 +286,23 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          )
 
     def finalize(self):
-        # TODO: Implement port polygon adding here?
-        self.draw_layout()
 
-        # Perform any tech specific finalization routines
-        self.grid.tech_info.finalize_template(self)
-        self._layout.rotate_all_by(angle=self.angle)
-
-        # Freeze the layout db so no other changes can be made
-        self._layout.finalize()
-        self.children = self._layout.get_masters_set()
-
-        # Call super finalize routine
         TemplateBase.finalize(self)
+
+        # # TODO: Implement port polygon adding here?
+        # self.draw_layout()
+        #
+        # # Perform any tech specific finalization routines
+        # self.grid.tech_info.finalize_template(self)
+        # self._layout.rotate_all_by(angle=self.angle)
+        #
+        # # Freeze the layout db so no other changes can be made
+        # self._layout.finalize()
+        # self.children = self._layout.get_masters_set()
+        #
+        # # Call super finalize routine
+        # TemplateBase.finalize(self)
+
         self.prim_bound_box = self._layout.bound_box
 
     def add_photonic_port(self,
@@ -405,7 +409,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if show is True:
             # Draw port shape
             center = port.center_unit
-            orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
+            orient_vec = np.array(port.width_vec_unit)
 
             self.add_polygon(
                 layer=port.layer,
@@ -471,6 +475,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                      loc: coord_type = (0, 0),
                      orient: str = "R0",
                      angle: float = 0.0,
+                     reflect: bool = False,
                      nx: int = 1,
                      ny: int = 1,
                      spx: dim_type = 0,
@@ -518,8 +523,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             spx = int(round(spx / res))
             spy = int(round(spy / res))
 
-        inst = PhotonicInstance(self.grid, self._lib_name, master, loc=loc, orient=orient,
-                                name=inst_name, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=True)
+        inst = PhotonicInstance(self.grid, self._lib_name, master, loc=loc, orient=orient, angle=angle,
+                                mirrored=reflect, name=inst_name, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=True)
 
         self._layout.add_instance(inst)
         return inst
@@ -595,96 +600,27 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         else:
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
-        tmp_port_point = new_port.center_unit
 
-        # Non-zero if new port is aligned with current port
-        # > 0 if ports are facing same direction (new instance must be rotated
-        # < 0 if ports are facing opposite direction (new instance should not be rotated)
-        dp = np.dot(my_port.width_vec(), new_port.width_vec())
+        # Compute the angle that the instsance must be rotated by in order to have its port align to the port being
+        # connected to
+        # For now, assume self.angle = 0,
+        #   We find the
+        diff_angle = (new_port.angle + self.angle) - my_port.angle + math.pi
 
-        # Non-zero if new port is orthogonal with current port
-        # > 0 if new port is 90 deg CCW from original, < 0 if new port is 270 deg CCW from original
-        cp = np.cross(my_port.width_vec(), new_port.width_vec())
-
-        # new_port_orientation = my_port.orientation
-
-        if abs(dp) > abs(cp):
-            # New port orientation is parallel to current port
-
-            if dp < 0:
-                # Ports are already facing opposite directions
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # Port is horizontal: reflect about x axis
-                        trans_str = 'MX'
-                    else:
-                        # Port is vertical: reflect about x axis
-                        trans_str = 'MY'
-
-                else:
-                    # Do not reflect port
-                    trans_str = 'R0'
-            else:
-                # Ports are facing same direction, new instance must be rotated
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # RX + R180 = MY
-                        trans_str = 'MY'
-                    else:
-                        # RY + R180 = MX
-                        trans_str = 'MX'
-                else:
-                    # Do not reflect port
-                    trans_str = 'R180'
-        else:
-            # New port orientation is perpendicular to current port
-            if cp > 0:
-                # New port is 90 deg CCW wrt current port
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # Port is horizontal: reflect about x axis
-                        trans_str = 'MXR90'
-                    else:
-                        # Port is vertical: reflect about x axis
-                        trans_str = 'MYR90'
-
-                else:
-                    # Do not reflect port
-                    trans_str = 'R90'
-            else:
-                # New port is 270 deg CCW wrt current port
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # RX + R180 = MY
-                        trans_str = 'MYR90'
-                    else:
-                        # RY + R180 = MX
-                        trans_str = 'MXR90'
-                else:
-                    # Do not reflect port
-                    trans_str = 'R270'
-
-        # Compute the new reflected/rotated port location
-        rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
-
-        # Calculate and round translation vector to the resolution unit
-        translation_vec = my_port.center_unit - rotated_tmp_port_point
-
-        new_inst = self.add_instance(
+        # Place a rotated PhotonicInstance that is rotated but not in the correct location
+        new_inst: "PhotonicInstance" = self.add_instance(
             master=inst_master,
             inst_name=instance_name,
-            loc=(translation_vec[0], translation_vec[1]),
-            orient=trans_str,
-            unit_mode=True
+            loc=(0, 0),
+            orient='R0',
+            angle=diff_angle,
+            reflect=reflect,
+            unit_mode=True,
         )
+
+        # Translate the new instance
+        translation_vec = my_port.center_unit - new_inst[instance_port_name].center_unit
+        new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
 
         return new_inst
 
