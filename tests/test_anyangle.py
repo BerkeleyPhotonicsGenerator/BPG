@@ -253,131 +253,156 @@ Hierarchy test
 '''
 
 
-class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
+class AnyAngleHierarchyLevel1(BPG.PhotonicTemplateBase):
     """
     For test:  test_instance_port_to_port_at_angle_no_hierarchy
 
-    Add a port at an angle, add an instance port to port and make sure it is where we expect.
-
-    Add ports and objects at both levels of hierarchy to make sure that things that should not rotate do not.
+    Sub hiearchy level.
     """
     @classmethod
     def get_params_info(cls):
         return dict()
 
     def draw_layout(self):
-        #####
-        # Row 0:  Add an array of ports with nothing connected.
-        #####
-        angle_step = 2*np.pi/36
-        num_tests = int(round(2*np.pi/angle_step)) + 1
-        port_port_pitch = 4
-        for ind in range(num_tests):
 
-            port_name = f'TopPort_Test0_{np.rad2deg(ind * angle_step):.2f}_deg'
+        self.add_polygon(
+            layer='SI',
+            points=[
+                (0, -0.2),
+                (0, 0.2),
+                (1, 0)
+            ]
+        )
 
-            port_angle = ind*angle_step
+        self.add_photonic_port(
+            name="PORT0_level1",
+            center=(0, 0),
+            orient='R0',
+            angle=0,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
 
-            port = self.add_photonic_port(
-                name=port_name,
-                center=(ind*port_port_pitch, 0),
-                orient='R0',
-                angle=port_angle,
-                width=0.4,
-                layer='SI',
-                resolution=self.grid.resolution,
-                unit_mode=False,
-            )
+        p1 = self.add_photonic_port(
+            name="PORT1_level1",
+            center=(-1, 0),
+            orient='R0',
+            angle=np.pi/6,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
 
-            if abs(port_angle % (np.pi/2)) < Transformable2D.SMALL_ANGLE_TOLERANCE :
-                assert port.is_cardinal
-            else:
-                assert not port.is_cardinal
+        l2master = self.new_template(temp_cls=AnyAngleHierarchyLevel2)
 
-        #####
-        # Row 1:  Add an array of ports.
-        #   Connect a small rectangle with port at R0 using port-to-port
-        #####
-        sub_inst_master = self.new_template(temp_cls=AnyAngleNoHierarchyPortToPortLevel1Type1)
+        self.add_instance_port_to_port(
+            inst_master=l2master,
+            instance_port_name='PORT0_level2',
+            self_port=p1,
+            instance_name='LEVEL2'
+        )
 
-        angle_step = 2 * np.pi / 36
-        num_tests = int(round(2 * np.pi / angle_step)) + 1
-        port_port_pitch = 4
-        for ind in range(num_tests):
 
-            port_name = f'TopPort_Test1_{np.rad2deg(ind * angle_step):.2f}_deg'
+class AnyAngleHierarchyLevel2(BPG.PhotonicTemplateBase):
+    """
+    For test:  test_instance_port_to_port_at_angle_no_hierarchy
 
-            port_angle = ind * angle_step
+    Sub hiearchy level.
+    """
+    @classmethod
+    def get_params_info(cls):
+        return dict()
 
-            port = self.add_photonic_port(
-                name=port_name,
-                center=(ind * port_port_pitch, 10),
-                orient='R0',
-                angle=port_angle,
-                width=0.4,
-                layer='SI',
-                resolution=self.grid.resolution,
-                unit_mode=False,
-            )
+    def draw_layout(self):
 
-            self.add_instance_port_to_port(
-                inst_master=sub_inst_master,
-                instance_port_name='PORT0',
-                self_port=port,
-                instance_name='SubInstLevel1Inst1',
-            )
+        self.add_polygon(
+            layer='SI',
+            points=[
+                (0, 0),
+                (0, 1),
+                (2, 1),
+                (2, 0)
+            ]
+        )
 
-        #####
-        # Row 2:  Add an array of ports.
-        #   Connect a small rectangle with port at R0 using port-to-port
-        #   Have the port in the subinst be at an arbitrary angle
-        #   add a port pointing to the random direction at the top level
-        #####
+        self.add_photonic_port(
+            name="PORT0_level2",
+            center=(0, 0.5),
+            orient='R0',
+            angle=0,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
 
-        angle_step = 2 * np.pi / 36
-        num_tests = int(round(2 * np.pi / angle_step)) + 1
-        port_port_pitch = 4
-        for ind in range(num_tests):
-            port_name = f'TopPort_Test2_{np.rad2deg(ind * angle_step):.2f}_deg'
-            port_angle = ind * angle_step
+        self.add_photonic_port(
+            name="PORT1_level2",
+            center=(1, 1),
+            orient='R90',
+            angle=0,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
 
-            sub_inst_angle = random.uniform(0, 2*np.pi)
-            sub_inst_master = self.new_template(
-                params=dict(
-                    port_angle=sub_inst_angle,
-                    top_angle=port_angle
-                ),
-                temp_cls=AnyAngleNoHierarchyPortToPortLevel1Type2
-            )
 
-            port = self.add_photonic_port(
-                name=port_name,
-                center=(ind * port_port_pitch, 20),
-                orient='R0',
-                angle=port_angle,
-                width=0.4,
-                layer='SI',
-                resolution=self.grid.resolution,
-                unit_mode=False,
-            )
+class AnyAngleWithHierarchyPortToPort(BPG.PhotonicTemplateBase):
+    """
+    Add multiple leves of hierarchy.
+    See what happens.
+    """
+    @classmethod
+    def get_params_info(cls):
+        return dict()
 
-            self.add_instance_port_to_port(
-                inst_master=sub_inst_master,
-                instance_port_name='PORT0',
-                self_port=port,
-                instance_name='SubInstLevel1Inst1',
-            )
+    def draw_layout(self):
+        angle1 = np.pi/4
 
-            self.add_photonic_port(
-                name=f'{port_name}_angle',
-                center=(ind * port_port_pitch, 21),
-                orient='R0',
-                angle=sub_inst_angle,
-                width=0.4,
-                layer='SI',
-                resolution=self.grid.resolution,
-                unit_mode=False,
-            )
+        angle2 = np.pi*5/6
+
+        p1 = self.add_photonic_port(
+            name='P1',
+            center=(10, 0),
+            orient='R0',
+            angle=angle1,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
+
+        p2 = self.add_photonic_port(
+            name='P2',
+            center=(0, 10),
+            orient='R0',
+            angle=angle2,
+            width=0.4,
+            layer='SI',
+            resolution=self.grid.resolution,
+            unit_mode=False,
+        )
+
+        l1master = self.new_template(temp_cls=AnyAngleHierarchyLevel1)
+        l2master = self.new_template(temp_cls=AnyAngleHierarchyLevel2)
+
+        self.add_instance_port_to_port(
+            inst_master=l1master,
+            instance_port_name='PORT0_level1',
+            self_port=p1,
+            instance_name='L1'
+        )
+
+        self.add_instance_port_to_port(
+            inst_master=l2master,
+            instance_port_name='PORT0_level2',
+            self_port=p2,
+            instance_name='L2'
+        )
 
 
 
@@ -464,4 +489,5 @@ def test_instance_port_to_port_at_angle_hierarchy():
 if __name__ == '__main__':
     # test_anyangle_conversion_functions()
     # test_rectangle_rotation()
-    test_instance_port_to_port_at_angle_no_hierarchy()
+    # test_instance_port_to_port_at_angle_no_hierarchy()
+    test_instance_port_to_port_at_angle_hierarchy()
