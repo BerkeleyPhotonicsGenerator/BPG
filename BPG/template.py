@@ -617,7 +617,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # For now, assume self.angle = 0,
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
         # TODO: why add self.angle and not subtract
-        diff_angle = -(inst_master.angle + new_port.angle) + self.angle + my_port.angle + math.pi
+        diff_angle = -(inst_master.angle + new_port.angle) + my_port.angle + math.pi
 
         # TODO:
         print(f'port_to_port:   inst_master.angle={np.rad2deg(inst_master.angle)},  new_port.angle={np.rad2deg(new_port.angle)},  '
@@ -745,7 +745,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 name=new_name,
                 center=old_port.center_unit.tolist(),
                 orient='R0',
-                angle=old_port.angle - self.angle,
+                angle=old_port.angle,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
@@ -930,7 +930,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # Create a new parameter dictionary based on the provided changes
         new_params = copy.deepcopy(self.params)
         for key, val in kwargs.items():
-            if key in new_parakms:
+            if key in new_params:
                 new_params[key] = val
 
         # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params

@@ -492,12 +492,18 @@ class PhotonicBagLayout(BagLayout):
             inst: "PhotonicInstance"
             origin_center = inst.origin.center
             print(f'rotation:  inst={inst}')
-            location = np.array(
-                [
-                    np.cos(angle) * origin_center[0] - np.sin(angle) * origin_center[1],
-                    np.sin(angle) * origin_center[0] + np.cos(angle) * origin_center[1]
-                ]
+            inst.rotate(
+                loc=(0, 0),
+                angle=angle,
+                mirror=False,
+                unit_mode=False,
             )
+            # location = np.array(
+            #     [
+            #         np.cos(angle) * origin_center[0] - np.sin(angle) * origin_center[1],
+            #         np.sin(angle) * origin_center[0] + np.cos(angle) * origin_center[1]
+            #     ]
+            # )
 
             # inst.transform(
             #     loc=location.tolist(),
