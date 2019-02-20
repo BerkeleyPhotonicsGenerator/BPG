@@ -224,8 +224,9 @@ class PhotonicInstance(Instance):
         self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
 
         # Translate each port in the instance as well
-        for port in self._photonic_port_list.values():
-            port.transform(
+        for port_name in self._photonic_port_list:
+            print(self._photonic_port_list[port_name])
+            self._photonic_port_list[port_name] = self._photonic_port_list[port_name].transform(
                 loc=(dx, dy),
                 orient='R0',
                 unit_mode=True
