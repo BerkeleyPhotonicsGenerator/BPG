@@ -91,7 +91,7 @@ def test_add_rect():
     size = 1
     num = 10
     for count in range(num):
-        plm.generate_template(temp_cls=AddRect, layout_params={
+        plm.generate_template(temp_cls=AddRect, params={
             'length': size,
             'width': size * (count + 1)
         })
