@@ -250,6 +250,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def finalize(self):
         """ Call the old finalize method, but then also grab the bounding box from the layout content """
         TemplateBase.finalize(self)
+        if self._layout._inst_list != [] and self.angle != 0:
+            logging.warning(f"{self.__class__.__name__} requires hierarchical non-cardinal rotation. This feature is "
+                            f"currently experimental. Please raise an issue if incorrect results occur")
         self.prim_bound_box = self._layout.bound_box
 
     def add_photonic_port(self,
