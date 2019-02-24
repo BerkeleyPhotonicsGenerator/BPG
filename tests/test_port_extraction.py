@@ -1,4 +1,5 @@
 import BPG
+import math
 from BPG.port import PhotonicPort
 
 
@@ -146,6 +147,21 @@ class PortExtraction(BPG.PhotonicTemplateBase):
             inst=inst4,
             port_names=['Port1', 'Port4'],
             port_renaming=dict(Port1='inst4_Port1', Port2='inst4_port2')
+        )
+
+        inst5 = self.add_instance(
+            master=subobj_master,
+            inst_name='inst5_export_some_names',
+            loc=(80, 0),
+            orient='R0',
+            angle=math.pi/4,
+            unit_mode=False,
+        )
+
+        self.extract_photonic_ports(
+            inst=inst5,
+            port_names=['Port1', 'Port4'],
+            port_renaming=dict(Port1='inst5_Port1', Port2='inst5_port2')
         )
 
 

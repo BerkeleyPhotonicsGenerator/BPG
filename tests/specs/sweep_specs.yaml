@@ -1,0 +1,22 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+project_name: bpg_test_suite
+
+# Output Settings
+lsf_filename: rect_sweep
+gds_filename: rect_sweep
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.test_sweep'
+layout_class: 'AddRect'  # Layout generator class name
+
+layout_params:  # Place parameters to be passed to the generator class under here
+  length: 0.5
+  width: 10
+
+# Cadence related parameters
+impl_lib: 'add_rect_lib'
+impl_cell: 'add_rect_cell'
+

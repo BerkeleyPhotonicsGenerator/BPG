@@ -8,11 +8,11 @@ from collections import UserDict
 
 # BAG imports
 from bag.layout import RoutingGrid
+from bag.util.cache import _get_unique_name
 from BPG.photonic_core import PhotonicBagProject
 
 # Plugin imports
 from .db import PhotonicTemplateDB
-from .lumerical.code_generator import LumericalSweepGenerator
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
@@ -61,14 +61,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.init_plugins()  # Initializes all of the built-in plugins
 
         # Template init
-        self.template: "PhotonicTemplateType" = None
-        self.cell_name: str = ''
+        self.template_list: List["PhotonicTemplateType"] = []
+        self.cell_name_list: List[str] = []
 
         # Content List init
         self.content_list: List["ContentList"] = None
-        self.content_list_flat: "ContentList" = None
-        self.content_list_post_dataprep: "ContentList" = None
-        self.content_list_post_lsf_dataprep: "ContentList" = None
+        self.content_list_flat: List["ContentList"] = None
+        self.content_list_post_dataprep: List["ContentList"] = None
+        self.content_list_post_lsf_dataprep: List["ContentList"] = None
         self.content_list_lumerical_tb: List["ContentList"] = []
 
         self.content_list_types = ['content_list', 'content_list_flat', 'content_list_post_dataprep',
@@ -107,55 +107,64 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                     lib_name=self.impl_lib)
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
-                                          lsf_filepath=self.lsf_path)
+                                          scripts_dir=self.scripts_dir)
 
-    def generate_content(self,
-                         layout_params: dict = None,
-                         cell_name: str = None,
-                         ) -> List['ContentList']:
+    def generate_template(self,
+                          temp_cls: "PhotonicTemplateType" = None,
+                          params: dict = None,
+                          cell_name: str = None
+                          ) -> None:
         """
-        Generates a content list.
-        If layout params and cell name are passed, use these parameters.
-        If not provided, get these variables from the spec file
+        Adds a single generator template to the queue for future content creation. If no arguments are provided,
+        parameters are extracted from the provided spec file
 
         Parameters
         ----------
-        layout_params : dict
-            Optional dictionary of parameters to be sent to the layout generator class.
+        temp_cls : PhotonicTemplateType
+            A generator class to run with the provided parameters
+        params : dict
+            A dictionary of parameters to pass to the generator class
         cell_name : str
-            Optional name of the cell to be created from the layout generator.
-
-        Returns
-        -------
-        content_list : ContentList
-            A db of all generated shapes
+            Name of the cell to be associated with the template
         """
-        logging.info(f'\n\n{"Generating content list":-^80}')
-        if layout_params is None:
-            layout_params = self.specs['layout_params']
+        logging.info(f'\n\n{"Generating template":-^80}')
+        if params is None:
+            params = self.specs['layout_params']
+        if temp_cls is None:
+            cls_package = self.specs['layout_package']
+            cls_name = self.specs['layout_class']
+            lay_module = importlib.import_module(cls_package)
+            temp_cls = getattr(lay_module, cls_name)
         if cell_name is None:
             cell_name = self.specs['impl_cell']
 
-        if isinstance(layout_params, list):
-            raise ValueError('Content generation from multiple masters is not supported in BPG.')
+        start_time = time.time()
+        self.template_list.append(self.template_plugin.new_template(params=params,
+                                                                    temp_cls=temp_cls,
+                                                                    debug=False))
+        if cell_name in self.cell_name_list:
+            cell_name = _get_unique_name(cell_name, self.cell_name_list)
+        self.cell_name_list.append(cell_name)
+        end_time = time.time()
 
-        # Import the class listed in the spec file
-        cls_package = self.specs['layout_package']
-        cls_name = self.specs['layout_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
+        timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls.__name__} Template generation')
+
+    def generate_content(self) -> List['ContentList']:
+        """
+        Generates a set of content lists from all of the templates in the queue.
+
+        Returns
+        -------
+        content_list : List[ContentList]
+            A list of databases that contain all generated shapes
+        """
+        logging.info(f'\n\n{"Generating content list":-^80}')
+        if not self.template_list:
+            self.generate_template()
 
         start_time = time.time()
-        # Generate the template
-        self.template = self.template_plugin.new_template(params=layout_params,
-                                                          temp_cls=temp_cls,
-                                                          debug=False)
-        self.cell_name = cell_name
-        end_time_newtemp = time.time()
-
-        # Generate the content list
-        self.content_list = self.template_plugin.generate_content_list(master_list=[self.template],
-                                                                       name_list=[cell_name])
+        self.content_list = self.template_plugin.generate_content_list(master_list=self.template_list,
+                                                                       name_list=self.cell_name_list)
         end_time_contentgen = time.time()
 
         # Save the content
@@ -163,8 +172,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
-        timing_logger.info(f'  {end_time_newtemp - start_time:<13.6g} | - New template generation')
-        timing_logger.info(f'  {end_time_contentgen - end_time_newtemp:<13.6g} | - Content list generation')
+        timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | - Content list generation')
         timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
@@ -182,13 +190,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
-    def generate_flat_content(self,
-                              ) -> 'ContentList':
+    def generate_flat_content(self) -> List["ContentList"]:
         """
-        Generates a flattened content list from the template passed to generate_content.
-
-        Parameters
-        ----------
+        Generates a flattened content list from generated templates.
 
         Returns
         -------
@@ -197,15 +201,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Generating flat content list":-^80}')
 
-        if not self.template:
-            raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_flat_content')
+        if not self.template_list:
+            raise ValueError('Must call PhotonicLayoutManager.generate_template before calling generate_flat_content')
 
         start_time = time.time()
-        self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=[self.template],
-                                                                                 name_list=[self.cell_name],
-                                                                                 lib_name='_flat',
+        self.content_list_flat = self.template_plugin.generate_flat_content_list(master_list=self.template_list,
+                                                                                 name_list=self.cell_name_list,
                                                                                  rename_dict=None,
-                                                                                 )[0]
+                                                                                 )
         end_time_contentgen = time.time()
 
         # Save the content
@@ -228,7 +231,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_flat_gds')
 
         start = time.time()
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_flat], name_append='_flat')  # TODO:name
+        self.gds_plugin.export_content_list(content_lists=self.content_list_flat, name_append='_flat')  # TODO:name
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, flat')
 
@@ -242,72 +245,17 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not self.content_list_flat:
             raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling generate_lsf')
 
-        if isinstance(self.content_list_flat, list):
-            raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
+        # if isinstance(self.content_list_flat, list):
+        #     raise ValueError('LSF / dataprep on content list created from multiple masters is not supported in BPG.')
 
         self.content_list_post_lsf_dataprep = self.template_plugin.dataprep(
             flat_content_list=self.content_list_flat,
+            name_list=self.cell_name_list,
             is_lsf=True
         )
         # TODO: Fix naming here as well
-        self.lsf_plugin.export_content_list(content_lists=[self.content_list_post_lsf_dataprep])
-
-    def generate_tb(self, debug=False):
-        """ Generates the lumerical testbench lsf """
-        logging.info(f'\n\n{"Generating the tb .lsf file":-^80}')
-
-        # Grab the parameters to be passed to the TB
-        tb_params = self.specs['tb_params']
-        if tb_params is None:
-            tb_params = {}
-
-        if not isinstance(self.specs['layout_params'], list):
-            self.specs['layout_params'] = [self.specs['layout_params']]
-
-        # Construct the parameter list
-        layout_params_list = []
-        cell_name_list = []
-        for count, params in enumerate(self.specs['layout_params']):
-            temp_params = dict()
-            temp_params['layout_package'] = self.specs['layout_package']
-            temp_params['layout_class'] = self.specs['layout_class']
-            temp_params['layout_params'] = params
-            temp_params['tb_params'] = tb_params
-            layout_params_list.append(temp_params)
-            cell_name_list.append(self.specs['lsf_filename'] + '_' + str(count))
-
-        # Try importing the TB package and class
-        cls_package = self.specs['tb_package']
-        cls_name = self.specs['tb_class']
-        lay_module = importlib.import_module(cls_package)
-        temp_cls = getattr(lay_module, cls_name)
-
-        # Create TB lsf file
-        temp_list = []
-        for lay_params in layout_params_list:
-            template = self.template_plugin.new_template(params=lay_params, temp_cls=temp_cls, debug=debug)
-            temp_list.append(template)
-
-        self.content_list_lumerical_tb = self.template_plugin.generate_flat_content_list(
-            master_list=temp_list,
-            name_list=cell_name_list,
-            lib_name='_tb',
-            rename_dict=None,
-        )
-
-        tb_content_post_dataprep = []
-        for content_list in self.content_list_lumerical_tb:
-            tb_content_post_dataprep.append(self.template_plugin.dataprep(flat_content_list=content_list, is_lsf=True))
-
-        # Export the actual data to LSF
-        self.lsf_plugin.export_content_list(tb_content_post_dataprep)       # TODO : fix naming here as well
-
-        # Create the sweep LSF file
-        filepath = self.lsf_plugin.lsf_filepath + '_sweep'
-        lsfwriter = LumericalSweepGenerator(filepath)
-        for script in cell_name_list:
-            lsfwriter.add_sweep_point(script_name=script)
-        lsfwriter.export_to_lsf()
+        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
+                                            name_list=self.cell_name_list)
 
     def dataprep(self):
         """
@@ -321,6 +269,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         start = time.time()
         self.content_list_post_dataprep = self.template_plugin.dataprep(
             flat_content_list=self.content_list_flat,
+            name_list=self.cell_name_list,
             is_lsf=False
         )
         end = time.time()
@@ -337,7 +286,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         start = time.time()
         # TODO: name
-        self.gds_plugin.export_content_list(content_lists=[self.content_list_post_dataprep], name_append='_dataprep')
+        self.gds_plugin.export_content_list(content_lists=self.content_list_post_dataprep, name_append='_dataprep')
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, dataprep')
 
@@ -363,6 +312,46 @@ class PhotonicLayoutManager(PhotonicBagProject):
         # 4) Export to LSF
         lmg.export_to_lsf()
 
+    def generate_schematic(self) -> None:
+        """
+        Generate the schematic.
+
+        Returns
+        -------
+
+        """
+        logging.info(f'\n\n{"Schematic generation":-^80}')
+
+        if not self.template_list:
+            raise RuntimeError(f'Must call PhotonicLayoutManager.generate_content before calling generate_schematic')
+
+        # TODO: Need to implement support for a list of templates
+        if len(self.template_list) > 1:
+            raise ValueError(f'schematic generation currently does not support multiple templates')
+        else:
+            template = self.template_list[0]
+            impl_cell = self.cell_name_list[0]
+
+        start_time = time.time()
+
+        # Get name of schematic template's library and cell
+        sch_lib = self.specs['sch_lib']
+        sch_cell = self.specs['sch_cell']
+
+        dsn = self.create_design_module(lib_name=sch_lib, cell_name=sch_cell)
+        end_create_design_module = time.time()
+
+        dsn.design(**template.sch_params)
+        end_design = time.time()
+
+        dsn.implement_design(lib_name=self.impl_lib, top_cell_name=impl_cell)
+        end_implement = time.time()
+
+        timing_logger.info(f'{end_implement - start_time:<15.6g} | Schematic Generation')
+        timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')
+        timing_logger.info(f'  {end_design - end_create_design_module:<13.6g} | - Designing schematic')
+        timing_logger.info(f'  {end_implement - end_design:<13.6g} | - Instantiating schematic')
+
     def save_content_list(self,
                           content_list: str,
                           filepath: str = None,
@@ -381,6 +370,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         -------
 
         """
+        logging.info(f'\n\n{"Save content list":-^80}')
+        start = time.time()
+
         if content_list not in self.content_list_types:
             raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
 
@@ -395,6 +387,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
                               default=_json_convert_to_dict,
                               )
             f.write(test)
+
+        end = time.time()
+        logging.info(f'Saving content list: {content_list}  : {end-start:0.6g}s')
 
     def load_content_list(self,
                           content_list: str,
@@ -414,6 +409,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
         -------
 
         """
+        logging.info(f'\n\n{"Load content list":-^80}')
+        start = time.time()
+
         if content_list not in self.content_list_types:
             raise ValueError(f'content_list parameter must be one of {self.content_list_types}.')
 
@@ -425,6 +423,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
             content = json.load(f, object_hook=_json_convert_from_dict)
 
         self.__dict__[content_list] = content
+
+        end = time.time()
+        logging.info(f'Loading content list: {content_list}  : {end - start:0.6g}s')
+
         return content
 
 

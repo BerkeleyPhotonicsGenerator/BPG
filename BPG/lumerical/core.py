@@ -4,7 +4,7 @@ import yaml
 
 from BPG.abstract_plugin import AbstractPlugin
 from .code_generator import LumericalDesignGenerator
-from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
+from BPG.lumerical.objects import PhotonicRect, PhotonicPolygon, PhotonicRound
 
 from typing import TYPE_CHECKING, List
 
@@ -13,12 +13,13 @@ if TYPE_CHECKING:
 
 
 class LumericalPlugin(AbstractPlugin):
-    def __init__(self, lsf_export_config, lsf_filepath):
+    def __init__(self, lsf_export_config, scripts_dir):
         self.lsf_export_config = lsf_export_config
-        self.lsf_filepath = lsf_filepath
+        self.scripts_dir = scripts_dir
 
     def export_content_list(self,
-                            content_lists: List["ContentList"],  # TODO: multiple masters?
+                            content_lists: List["ContentList"],
+                            name_list: List[str] = None
                             ):
         """
         Exports the physical design into the lumerical LSF format
@@ -27,6 +28,8 @@ class LumericalPlugin(AbstractPlugin):
         ----------
         content_lists : List[ContentList]
             A list of flattened content lists that have already been run through lumerical dataprep
+        name_list : List[str]
+            A list of names to give to each generated lsf
         """
         start = time.time()
         # 1) Import tech information for the layermap and lumerical properties
@@ -35,8 +38,8 @@ class LumericalPlugin(AbstractPlugin):
             prop_map = lay_info['lumerical_prop_map']
 
         # 2) For each element in the content list, convert it into lsf code and append to running file
-        for count, content_list in enumerate(content_lists):
-            lsfwriter = LumericalDesignGenerator(self.lsf_filepath + '_' + str(count))
+        for name, content_list in zip(name_list, content_lists):
+            lsfwriter = LumericalDesignGenerator(str(self.scripts_dir / name))
 
             if len(content_list.rect_list) != 0:
                 lsfwriter.add_formatted_line(' ')

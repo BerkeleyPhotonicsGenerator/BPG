@@ -1290,6 +1290,11 @@ class PhotonicPolygon(Polygon):
                     'set("material", "{}");\n'.format(layer_prop['material']),
                     'set("alpha", {});\n'.format(layer_prop['alpha']),
 
+                    # Set center reference to (0, 0) to fix lumericals relative coordinates
+                    'set("x", 0);\n',
+                    'set("y", 0);\n',
+                    'set("use relative coordinates", 0);\n'
+
                     # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
                     'V = matrix({},2);\n'.format(poly_len),
                     'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),

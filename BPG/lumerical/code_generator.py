@@ -2,7 +2,7 @@
 Module containing classes used to systematically generate clean Lumerical script code
 """
 import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 
 
 class LumericalCodeGenerator:
@@ -11,7 +11,7 @@ class LumericalCodeGenerator:
         self.config: Dict[str, Any] = config
         self._code: List[str] = []
 
-    def add_code(self, code: str) -> None:
+    def add_code(self, code: Union[str, list]) -> None:
         """
         Adds provided statement of code to the script file, and formats it accordingly
         Adds a semicolon and a newline character to each line to match standard LSF syntax
@@ -21,7 +21,10 @@ class LumericalCodeGenerator:
         code : str
             Single string containing lumerical script
         """
-        self._code.append(code + ';\n')
+        if isinstance(code, str):
+            code = [code]
+        for line in code:
+            self._code.append(line + ';\n')
 
     def add_formatted_code_block(self, code: List[str]):
         """
@@ -57,10 +60,11 @@ class LumericalCodeGenerator:
         value : any
             value that the parameter will be assigned
         """
-        if isinstance(value, str):
-            self.add_code('set("{}", "{}")'.format(key, value))
-        else:
-            self.add_code('set("{}", {})'.format(key, value))
+        if value is not None:
+            if isinstance(value, str):
+                self.add_code('set("{}", "{}")'.format(key, value))
+            else:
+                self.add_code('set("{}", {})'.format(key, value))
 
     def get_file_header(self):
         """
@@ -96,6 +100,7 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         self._script_list.append(script_name + '.lsf')
 
     def create_sweep_loop(self):
+        self.add_code('newproject')
         self.add_code('clear')
         self.add_code('redrawoff')
 
@@ -111,20 +116,19 @@ class LumericalSweepGenerator(LumericalCodeGenerator):
         # Run a loop over all of the layout scripts
         self.add_formatted_line('\n# Main execution loop')
         self.add_formatted_line('for(i=1:sweep_len){')
-        self.add_formatted_line('# Setup logic')
-        self.add_code('addanalysisgroup')
-        self.add_code('set("name", script_list{i})')
-        # self.set('name', 'script_list{i}')
-        self.add_code('groupscope(script_list{i})')
+        self.add_formatted_line('\t# Setup logic')
+        self.add_code('\taddanalysisgroup')
+        self.add_code('\tset("name", script_list{i})')
+        self.add_code('\tgroupscope(script_list{i})')
 
-        self.add_formatted_line('\n# Run the script')
-        self.add_code('feval(script_list{i})')
+        self.add_formatted_line('\n\t# Run the script')
+        self.add_code('\tfeval(script_list{i})')
 
-        self.add_formatted_line('\n# Teardown logic')
-        self.add_code('switchtolayout')
-        self.add_code('groupscope(script_list{i})')
-        self.add_code('delete')
-        self.add_code('groupscope("::model")')
+        self.add_formatted_line('\n\t# Teardown logic')
+        self.add_code('\tswitchtolayout')
+        self.add_code('\tgroupscope("::model")')
+        self.add_code('\tselect("::model::"+script_list{i})')
+        self.add_code('\tdelete')
         self.add_formatted_line('}')
 
     def export_to_lsf(self):

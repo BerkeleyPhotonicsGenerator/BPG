@@ -53,6 +53,7 @@ class SingleModeWaveguide(BPG.PhotonicTemplateBase):
 def test_wg():
     spec_file = 'BPG/examples/specs/WaveguideTB.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
+    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()

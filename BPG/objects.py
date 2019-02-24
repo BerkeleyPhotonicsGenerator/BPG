@@ -16,8 +16,7 @@ from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
 
-
-from BPG.geometry import CoordBase
+from BPG.geometry import Transformable2D
 from BPG.compiler.point_operations import coords_cleanup, create_polygon_from_path_and_width
 
 from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
     from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
-
 
 # Load logger
 logger = logging.getLogger(__name__)
@@ -100,12 +98,41 @@ class PhotonicInstance(Instance):
                  spx: int = 0,
                  spy: int = 0,
                  unit_mode: bool = False,
+                 angle: float = 0,
+                 mirrored: bool = False,
                  ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
 
         self._photonic_port_list: Dict[str, "PhotonicPort"] = {}
-        self._photonic_port_creator()
+
+        self._origin = Transformable2D(
+            center=loc,
+            resolution=parent_grid.resolution,
+            orientation=orient,
+            angle=0,
+            mirrored=False,
+            force_cardinal=False,  # TODO
+            unit_mode=unit_mode,
+        )
+        self._import_photonic_ports()
+        # If the angle of this instance is not 0, rotate the instance
+        # TODO: is_cardinal / close enough to cardinal?
+        if angle != 0.0 or mirrored:
+            logging.debug(f'PhotonicInstance with master {master} is at angle {angle}')
+            self.rotate(
+                loc=self.location_unit,
+                angle=self.master.angle + angle,
+                mirror=mirrored,
+                unit_mode=unit_mode
+            )
+
+    def __repr__(self):
+        return f'PhotonicInstance(master={self.master}, name={self._inst_name}, loc={self.location}, ' \
+            f'angle={np.rad2deg(self.angle)}, orientation={self.orientation}'
+
+    def __str__(self):
+        return self.__repr__()
 
     def __getitem__(self, item: str):
         """ Allow dictionary syntax to grab photonic ports """
@@ -128,35 +155,66 @@ class PhotonicInstance(Instance):
                                     master_key=self.master.key
                                     )
 
-    def _photonic_port_creator(self) -> None:
-        """
-        Helper for creating the photonic ports of this instance
-        Returns
-        -------
+    @property
+    def master(self) -> "PhotonicTemplateBase":
+        """ The master template of this instance. """
+        return self._master
 
+    @property
+    def orientation(self) -> str:
+        """ Return the orientation string of this instance"""
+        return self._origin.orientation
+
+    @orientation.setter
+    def orientation(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow orientation to be set directly')
+
+    @property
+    def location(self) -> coord_type:
+        return self._origin.center
+
+    @location.setter
+    def location(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow location to be changed directly, use transform()')
+
+    @property
+    def location_unit(self) -> coord_type:
+        return self._origin.center_unit
+
+    @location_unit.setter
+    def location_unit(self, val) -> None:
+        logging.warning('PhotonicInstance does not allow location to be changed directly, use transform()')
+
+    @property
+    def angle(self) -> float:
+        return self._origin.angle
+
+    @property
+    def mod_angle(self) -> float:
+        return self._origin.mod_angle
+
+    @property
+    def mirrored(self) -> bool:
+        return self._origin.mirrored
+
+    @property
+    def origin(self) -> "Transformable2D":
+        return self._origin
+
+    def _import_photonic_ports(self) -> None:
+        """
+        Takes all ports from the provided master and adds them to this instance. Transformations are
+        performed to match the current orientation and location.
         """
         for port_name in self._master.photonic_ports_names_iter():
-            self._photonic_port_list[port_name] = self._master.get_photonic_port(port_name).transform(
-                loc=self._loc_unit,
-                orient=self._orient,
+            port_copy: "PhotonicPort" = deepcopy(self._master.get_photonic_port(port_name))
+            self._photonic_port_list[port_name] = port_copy.mirror_rotate_translate(
+                translation=self.location_unit,
+                rotation=self.angle,
+                mirror=self.mirrored,
+                force_cardinal=False,  # TODO
                 unit_mode=True
             )
-
-    def set_port_used(self,
-                      port_name: str,
-                      ) -> None:
-        if port_name not in self._photonic_port_list:
-            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
-
-        self._photonic_port_list[port_name].used = True
-
-    def get_port_used(self,
-                      port_name: str,
-                      ) -> bool:
-        if port_name not in self._photonic_port_list:
-            raise ValueError("Photonic port {} not in instance {}", port_name, self._inst_name)
-
-        return self._photonic_port_list[port_name].used
 
     def get_all_photonic_ports(self) -> Dict[str, "PhotonicPort"]:
         return self._photonic_port_list
@@ -186,11 +244,6 @@ class PhotonicInstance(Instance):
         # TODO: Confirm that this works for arrayable instances
         return self._photonic_port_list[name]
 
-    @property
-    def master(self) -> "PhotonicTemplateBase":
-        """The master template of this instance."""
-        return self._master
-
     def get_bound_box_of(self,
                          row: int = 0,
                          col: int = 0,
@@ -205,51 +258,123 @@ class PhotonicInstance(Instance):
     def move_by(self,
                 dx: dim_type = 0,
                 dy: dim_type = 0,
-                unit_mode: bool = False,
+                unit_mode: bool = False
                 ) -> None:
-        """Move this instance by the given amount.
+        """
+        Move this instance by the given amount. This movement is relative to the instances current location.
 
         Parameters
         ----------
-        dx : Union[float, int]
+        dx : dim_type
             the X shift.
-        dy : Union[float, int]
+        dy : dim_type
             the Y shift.
         unit_mode : bool
             True if shifts are given in resolution units
         """
         if not unit_mode:
-            dx = int(round(dx / self.resolution))
-            dy = int(round(dy / self.resolution))
-        self._loc_unit = self._loc_unit[0] + dx, self._loc_unit[1] + dy
+            dx, dy = int(round(dx / self.resolution)), int(round(dy / self.resolution))
 
-        # Translate each port in the instance as well
-        for port in self._photonic_port_list.values():
-            port.transform(
-                loc=(dx, dy),
-                orient='R0',
-                unit_mode=True
-            )
+        # Move the origin
+        self._origin.move_by(translation=(dx, dy), unit_mode=True)
+        # import ports with the new locations
+        self._import_photonic_ports()
 
     def transform(self,
                   loc: coord_type = (0, 0),
                   orient: str = 'R0',
                   unit_mode: bool = False,
-                  copy: bool = False,
-                  ) -> Optional[Figure]:
-        """Transform this figure."""
+                  copy: bool = False
+                  ) -> "PhotonicInstance":
+        """
+        Moves the Instance to the provided location and orientation values.
+        This transformation method cannot perform anyAngle rotation!
+        Can perform the transformation on a copy of the Instance and return it.
+
+        Note all location and orientation transformations are performed relative to the
+        master's origin and angle, not the current instance's origin and angle.
+
+        Parameters
+        ----------
+        loc : tuple
+            (x, y) coordinates where the Instance origin should be placed
+        orient : str
+            represents the new orientation of the Instance
+        unit_mode : bool
+            If true, loc should be an integer representing multiples of the unit_size
+        copy : bool
+            If true, this method performs a transformation on a copy of the instance instead
+
+        Returns
+        -------
+        instance : PhotonicInstance
+            The transformed instance. If copy is true, this is a newly created instance. If false, returns itself
+        """
+        logging.debug(f'CALLING TRANSFORM ON {self.master.__class__.__name__}')
         if not unit_mode:
-            res = self.resolution
-            loc = int(round(loc[0] / res)), int(round(loc[1] / res))
+            loc = int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))
 
         if not copy:
-            ans = self
-        else:
-            ans = deepcopy(self)
+            # Modify the origin's location and orientation
+            self._origin.center_unit = loc
+            self._origin.orientation = orient
 
-        ans._loc_unit = loc
-        ans._orient = orient
-        return ans
+            # Now that origin is correctly placed, regenerate the ports accordingly
+            self._import_photonic_ports()
+            return self
+
+        else:
+            return PhotonicInstance(parent_grid=self._parent_grid,
+                                    lib_name=self._lib_name,
+                                    master=self.master,
+                                    loc=self.location_unit,
+                                    orient=self.orientation,
+                                    name=self._inst_name,
+                                    nx=self.nx, ny=self.ny,
+                                    spx=self.spx_unit, spy=self.spy_unit,
+                                    unit_mode=True)
+
+    def rotate(self,
+               loc: "coord_type" = (0, 0),
+               angle: float = 0.0,
+               mirror: bool = False,
+               unit_mode=False
+               ) -> None:
+        """
+        This method regenerates the instance's master to rotate the shapes and ports given an angle. The provided angle
+        and loc values are all relative to R0 and (0, 0) of the master placing this instance
+
+        Parameters
+        ----------
+        loc : coord_type
+            (x, y) location about which all rotation is performed
+        angle : float
+            angle in radians of the rotation to be performed
+        mirror : bool
+            if true, flip the instance
+        unit_mode : bool
+            if True, the provided coordinates are assumed to be in unit-mode
+        """
+        if not unit_mode:
+            loc = int(round(loc[0] / self.resolution)), int(round(loc[1] / self.resolution))
+
+        logging.debug(f'Calling rotate loc={loc}, angle={angle}')
+        logging.debug(f'Origin is {self._origin}')
+        # Rotate and translate the origin of the instance
+        self._origin.mirror_rotate_translate(
+            translation=loc,
+            rotation=angle,
+            mirror=mirror,
+            force_cardinal=False,  # TODO
+            unit_mode=True
+        )
+        logging.debug(f'Origin is {self._origin}')
+
+        # Regenerate the master based on the new origin
+        self.new_master_with(angle=self.mod_angle)
+
+        # Re-extract the port locations
+        self._import_photonic_ports()
 
 
 class PhotonicRound(Arrayable):
@@ -444,6 +569,17 @@ class PhotonicRound(Arrayable):
         print("WARNING: USING THIS BREAKS POWER FILL ALGORITHM.")
 
     @property
+    def bound_box(self) -> BBox:
+        return BBox(
+            left=self.center_unit[0] - self.rout_unit,
+            bottom=self.center_unit[1] - self.rout_unit,
+            right=self.center_unit[0] + self.rout_unit,
+            top=self.center_unit[1] + self.rout_unit,
+            resolution=self._res,
+            unit_mode=True
+        )
+
+    @property
     def content(self):
         """A dictionary representation of this rectangle."""
         content = dict(layer=list(self.layer),
@@ -524,88 +660,6 @@ class PhotonicRound(Arrayable):
         ans.theta1 = new_theta1
         return ans
 
-    @classmethod
-    def lsf_export(cls,
-                   rout: dim_type,
-                   rin: dim_type,
-                   theta0: dim_type,
-                   theta1: dim_type,
-                   layer_prop: Dict,
-                   center: coord_type,
-                   nx: int = 1,
-                   ny: int = 1,
-                   spx: dim_type = 0.0,
-                   spy: dim_type = 0.0,
-                   ) -> List[str]:
-        """
-
-        Parameters
-        ----------
-        rout
-        rin
-        theta0
-        theta1
-        layer_prop
-        center
-        nx
-        ny
-        spx
-        spy
-
-        Returns
-        -------
-
-        """
-        x0, y0 = center[0] * 1e-6, center[1] * 1e-6
-        spx, spy = spx * 1e-6, spy * 1e-6
-        lsf_code = []
-
-        if rin == 0:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addcircle;\n')
-
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                    # Set radius
-                    lsf_code.append('set(radius, {});\n'.format(rout * 1e-6))
-
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
-
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
-        else:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addring;\n')
-
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                    # Set dimensions/angles
-                    lsf_code.append('set("outer radius", {});\n'.format(rout * 1e-6))
-                    lsf_code.append('set("inner radius", {});\n'.format(rin * 1e-6))
-                    lsf_code.append('set("theta start", {});\n'.format(theta0))
-                    lsf_code.append('set("theta stop", {});\n'.format(theta1))
-
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
-
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
-
-        return lsf_code
-
     @staticmethod
     def num_of_sparse_point_round(radius: float,
                                   res_grid_size: float,
@@ -649,6 +703,36 @@ class PhotonicRound(Arrayable):
                     output_list_p.append(polygon_points.copy())
 
         return output_list_p, output_list_n
+
+    def export_to_polygon(self):
+        """
+        Convert the PhotonicRound geometry to a PhotonicPolygon and returns it
+        Returns
+        -------
+        poly : List[PhotonicPolygon]
+            polygon representation of the given rectangle
+        """
+        [list_p, _] = PhotonicRound.polygon_pointlist_export(self.rout,
+                                                             self.rin,
+                                                             self.theta0,
+                                                             self.theta1,
+                                                             self.center,
+                                                             nx=self.nx,
+                                                             ny=self.ny,
+                                                             spx=self.spx,
+                                                             spy=self.spy,
+                                                             resolution=self.resolution,
+                                                             )
+
+        poly_list = []
+        for points in list_p:
+            poly = PhotonicPolygon(resolution=self.resolution,
+                                   layer=self.layer,
+                                   points=points,
+                                   unit_mode=False,
+                                   )
+            poly_list.append(poly)
+        return poly_list
 
 
 class PhotonicRect(Rect):
@@ -699,6 +783,10 @@ class PhotonicRect(Rect):
             unit_mode=False,
         )
 
+    @property
+    def bound_box(self) -> BBox:
+        return BBox(*self.bbox.get_bounds(unit_mode=True), resolution=self._res, unit_mode=True)
+
     def transform(self,
                   loc: coord_type = (0, 0),
                   orient: str = 'R0',
@@ -716,78 +804,13 @@ class PhotonicRect(Rect):
         return ans
 
     @classmethod
-    def lsf_export(cls, bbox, layer_prop, nx=1, ny=1, spx=0.0, spy=0.0) -> List[str]:
-        """
-        Describes the current rectangle shape in terms of lsf parameters for lumerical use.
-        Note that Lumerical uses meters as the base unit, and all input coords are assumed to be in
-        microns. This method inherently resizes
-
-        Parameters
-        ----------
-        bbox : [[float, float], [float, float]]
-            lower left and upper right corner xy coordinates
-        layer_prop : dict
-            dictionary containing material properties for the desired layer
-        nx : int
-            number of arrayed rectangles in the x-direction
-        ny : int
-            number of arrayed rectangles in the y-direction
-        spx : float
-            space between arrayed rectangles in the x-direction
-        spy : float
-            space between arrayed rectangles in the y-direction
-
-        Returns
-        -------
-        lsf_code : List[str]
-            list of str containing the lsf code required to create specified rectangles
-        """
-
-        # Calculate the width and length of the rectangle in meters
-        x_span = CoordBase(bbox[1][0] - bbox[0][0]).meters
-        y_span = CoordBase(bbox[1][1] - bbox[0][1]).meters
-
-        # Calculate the center of the first rectangle in meters
-        base_x_center = CoordBase((bbox[1][0] + bbox[0][0]) / 2).meters
-        base_y_center = CoordBase((bbox[1][1] + bbox[0][1]) / 2).meters
-
-        # Get vertical dimensions
-        z_min = CoordBase(layer_prop['z_min']).meters
-        z_max = CoordBase(layer_prop['z_max']).meters
-
-        # Write the lumerical code for each rectangle in the array
-        lsf_code = []
-        for x_count in range(nx):
-            for y_count in range(ny):
-                lsf_code.append('\n')
-                lsf_code.append('addrect;\n')
-                lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                # Compute the x and y coordinates for each rectangle
-                lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + CoordBase(spx * x_count).meters))
-                lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + CoordBase(spy * y_count).meters))
-
-                # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(z_min))
-                lsf_code.append('set("z max", {});\n'.format(z_max))
-
-                if 'mesh_order' in layer_prop:
-                    lsf_code.append('set("override mesh order from material database", 1);\n')
-                    lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
-
-        return lsf_code
-
-    @classmethod
     def polygon_pointlist_export(cls,
                                  bbox: [[int, int], [int, int]],
                                  nx: int = 1,
                                  ny: int = 1,
                                  spx: dim_type = 0.0,
                                  spy: dim_type = 0.0,
-                                 )-> Tuple[List, List]:
+                                 ) -> Tuple[List, List]:
         """
         Convert the PhotonicRect geometry to a list of polygon pointlists.
 
@@ -832,6 +855,32 @@ class PhotonicRect(Rect):
                 output_list_p.append(polygon_list)
 
         return output_list_p, output_list_n
+
+    def export_to_polygon(self):
+        """
+        Convert the PhotonicRect geometry to a PhotonicPolygon and returns it
+
+        Returns
+        -------
+        poly : List[PhotonicPolygon]
+            polygon representation of the given rectangle
+        """
+        bbox = [[self.bbox.left, self.bbox.bottom], [self.bbox.right, self.bbox.top]]
+        [list_p, _] = PhotonicRect.polygon_pointlist_export(bbox=bbox,
+                                                            nx=self.nx,
+                                                            ny=self.ny,
+                                                            spx=self.spx,
+                                                            spy=self.spy,
+                                                            )
+        poly_list = []
+        for points in list_p:
+            poly = PhotonicPolygon(resolution=self.resolution,
+                                   layer=self.layer,
+                                   points=points,
+                                   unit_mode=False,
+                                   )
+            poly_list.append(poly)
+        return poly_list
 
 
 class PhotonicPath(Figure):
@@ -992,6 +1041,12 @@ class PhotonicPath(Figure):
                        )
         return content
 
+    @property
+    def bound_box(self) -> BBox:
+        left, bottom = np.amin(self._polygon_points_unit, axis=0)
+        right, top = np.amax(self._polygon_points_unit, axis=0)
+        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=True)
+
     def move_by(self,
                 dx: dim_type = 0,
                 dy: dim_type = 0,
@@ -1073,6 +1128,14 @@ class PhotonicPath(Figure):
         """
         return [vertices], []
 
+    def export_to_polygon(self) -> 'PhotonicPolygon':
+        return PhotonicPolygon(
+            layer=self.layer,
+            resolution=self.resolution,
+            points=self._polygon_points_unit,
+            unit_mode=True,
+        )
+
 
 class PhotonicPathCollection(PathCollection):
     """
@@ -1123,7 +1186,7 @@ class PhotonicTLineBus(TLineBus):
         TLineBus.__init__(self, resolution, layer, points, widths, spaces, end_style, unit_mode)
 
 
-class PhotonicPolygon(Polygon):
+class PhotonicPolygon(Figure):
     """
     A layout polygon object.
 
@@ -1146,9 +1209,43 @@ class PhotonicPolygon(Polygon):
                  points: List[coord_type],
                  unit_mode: bool = False,
                  ):
+        Figure.__init__(self, resolution)
+        layer = bag.io.fix_string(layer)
         if isinstance(layer, str):
             layer = (layer, 'phot')
-        Polygon.__init__(self, resolution, layer, points, unit_mode)
+        self._layer = layer
+
+        # Points are stored internally as full precision floating points
+        if not unit_mode:
+            self._points = np.array(points)
+        else:
+            self._points = np.array(points) * self._res
+
+    @property
+    def layer(self):
+        return self._layer
+
+    @property
+    def points(self):
+        return self._points
+
+    @property
+    def points_unit(self):
+        return np.round(self._points / self._res).astype(int)
+
+    @property
+    def content(self) -> Dict[str, Any]:
+        quantized_points = self.points_unit * self._res
+        return dict(layer=self.layer,
+                    points=[(quantized_points[idx][0], quantized_points[idx][1])
+                            for idx in range(quantized_points.shape[0])],
+                    )
+
+    @property
+    def bound_box(self):
+        left, bottom = np.amin(self._points, axis=0)
+        right, top = np.amax(self._points, axis=0)
+        return BBox(left, bottom, right, top, resolution=self._res, unit_mode=False)
 
     @classmethod
     def from_content(cls, content, resolution):
@@ -1159,48 +1256,25 @@ class PhotonicPolygon(Polygon):
             unit_mode=False,
         )
 
-    @classmethod
-    def lsf_export(cls, vertices, layer_prop) -> List[str]:
-        """
-        Describes the current polygon shape in terms of lsf parameters for lumerical use
+    def move_by(self, dx=0, dy=0, unit_mode=False):
+        if unit_mode:
+            dx = dx * self._res
+            dy = dy * self._res
+        self._points += np.array([dx, dy])
 
-        Parameters
-        ----------
-        vertices : List[Tuple[float, float]]
-            ordered list of x,y coordinates representing the points of the polygon
-        layer_prop : dict
-            dictionary containing material properties for the desired layer
+    def transform(self, loc=(0, 0), orient='R0', unit_mode=False, copy=False):
+        if unit_mode:
+            loc = np.array([loc[0] * self._res, loc[1] * self._res])
+        mat = transform_table[orient]
+        new_points = np.dot(mat, self._points.T).T + loc
 
-        Returns
-        -------
-        lsf_code : List[str]
-            list of str containing the lsf code required to create specified rectangles
-        """
-        # Grab the number of vertices in the polygon to preallocate Lumerical matrix size
-        poly_len = len(vertices)
+        if not copy:
+            ans = self
+        else:
+            ans = deepcopy(self)
 
-        # Write the lumerical code for the polygon
-        lsf_code = ['\n',
-                    'addpoly;\n',
-                    'set("material", "{}");\n'.format(layer_prop['material']),
-                    'set("alpha", {});\n'.format(layer_prop['alpha']),
-
-                    # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
-                    'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
-                    'set("vertices", V);\n',
-
-                    # Set the thickness values from the layermap file
-                    'set("z min", {});\n'.format(CoordBase(layer_prop['z_min']).meters),
-                    'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
-                    ]
-
-        if 'mesh_order' in layer_prop:
-            lsf_code.append('set("override mesh order from material database", 1);\n')
-            lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
-
-        return lsf_code
+        ans._points = new_points
+        return ans
 
     @classmethod
     def polygon_pointlist_export(cls,
@@ -1219,6 +1293,22 @@ class PhotonicPolygon(Polygon):
             The positive and negative polygon pointlists describing this polygon
         """
         return [vertices], []
+
+    def rotate(self, angle: float = 0.0) -> None:
+        """
+        Rotates the polygon about the given axis by the given angle
+
+        Parameters
+        ----------
+        angle : float
+            the amount in radians that the polygon will be rotated
+        """
+        self._points = np.column_stack(
+            [
+                np.cos(angle) * self._points[:, 0] - np.sin(angle) * self._points[:, 1],
+                np.sin(angle) * self._points[:, 0] + np.cos(angle) * self._points[:, 1]
+            ]
+        )
 
 
 class PhotonicAdvancedPolygon(Polygon):

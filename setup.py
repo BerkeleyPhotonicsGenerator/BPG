@@ -2,11 +2,11 @@ from distutils.core import setup
 
 
 setup(name='BPG',
-      version='0.5.0',
+      version='0.6.0',
       description='Berkeley Photonics Generator',
       install_requires=[
           'setuptools>=18.5',
-          'PyYAML>=3.11',
+          'PyYAML>=4.2b1',
           'numpy>=1.10',
           'pytest',
           'memory_profiler>=0.54.0',

@@ -50,7 +50,8 @@ class Dataprep:
 
         Parameters
         ----------
-        photonic_tech_info
+        photonic_tech_info : PhotonicTechInfo
+            The photonic technology information object for this layout.
         grid : RoutingGrid
             The bag routingGrid object for this layout.
         content_list_flat : ContentList
@@ -58,6 +59,8 @@ class Dataprep:
         is_lsf : bool = False
             True if the Dataprep object is being used for LSF dataprep flow.
             False if the Dataprep object is being used for standard dataprep.
+        impl_cell : str
+            The top level cell name.
 
         """
         self.photonic_tech_info: PhotonicTechInfo = photonic_tech_info
@@ -166,10 +169,9 @@ class Dataprep:
         self.polygon_cache: Dict[Tuple, Union[gdspy.Polygon, gdspy.PolygonSet]] = {}
 
         # Set the cell name for flattened gds output
-        if type(impl_cell) is str:
-            self.impl_cell = impl_cell
-        else:
-            self.impl_cell = "dummy_name"
+        if not isinstance(impl_cell, str):
+            raise ValueError(f'impl_cell must be a string')
+        self.impl_cell = impl_cell
 
     @staticmethod
     def _check_input_lpp_entry_and_convert_to_regex(lpp_entry,
@@ -1249,7 +1251,7 @@ class Dataprep:
                                                    sim_list: List,
                                                    source_list: List,
                                                    monitor_list: List,
-                                                   impl_cell: str = 'no_name_cell',         # TODO: get the right name?
+                                                   impl_cell: str = '',
                                                    ) -> "ContentList":
         """
         Converts a LPP-keyed dictionary of polygon pointlists to a flat ContentList format
@@ -1283,7 +1285,6 @@ class Dataprep:
                     )
                 )
 
-        # TODO: get the right name?
         return ContentList(cell_name=impl_cell,
                            polygon_list=polygon_content_list,
                            sim_list=sim_list,

@@ -47,15 +47,16 @@ class PhotonicTemplateDB(TemplateDB):
                             )
 
         self.photonic_tech_info = photonic_tech_info
-        self.impl_cell = None  # TODO: impl_cell??
+        self.impl_cell = None
 
         # Storage for the cache used to speed up flattening.
         self.flattening_cache: Dict[Tuple, "ContentList"] = {}
 
     def dataprep(self,
-                 flat_content_list: "ContentList",
+                 flat_content_list: List["ContentList"],
+                 name_list: List[str],
                  is_lsf: bool = False,
-                 ) -> ContentList:
+                 ) -> List[ContentList]:
         """
         Initializes the dataprep plugin with the standard tech info and runs the dataprep procedure
 
@@ -63,22 +64,26 @@ class PhotonicTemplateDB(TemplateDB):
         ----------
         flat_content_list : ContentList
             The flattened Contentlist of the master
+        name_list : List[str]
+            The name to be provided to each dataprepped content list
         is_lsf : bool
             True if running LSF dataprep. False if running standard dataprep.
         Returns
         -------
-        post_dataprep_flat_content_list : ContentList
+        post_dataprep_flat_content_list : List[ContentList]
             The ContentList object (no longer layer separated) after running dataprep
         """
         logging.info(f'In PhotonicTemplateDB.dataprep with is_lsf set to {is_lsf}')
-        dataprep_object = Dataprep(photonic_tech_info=self.photonic_tech_info,
-                                   grid=self.grid,
-                                   content_list_flat=flat_content_list,
-                                   is_lsf=is_lsf,
-                                   impl_cell=self.impl_cell,  # TODO: impl_cell??
-                                   )
         start = time.time()
-        post_dataprep_flat_content_list = dataprep_object.dataprep()
+        post_dataprep_flat_content_list = []
+        for content, name in zip(flat_content_list, name_list):
+            dataprep_object = Dataprep(photonic_tech_info=self.photonic_tech_info,
+                                       grid=self.grid,
+                                       content_list_flat=content,
+                                       is_lsf=is_lsf,
+                                       impl_cell=name,
+                                       )
+            post_dataprep_flat_content_list.append(dataprep_object.dataprep())
         end = time.time()
         logging.info(f'All dataprep operations completed in {end - start:.4g} s')
         return post_dataprep_flat_content_list
@@ -86,7 +91,6 @@ class PhotonicTemplateDB(TemplateDB):
     def generate_content_list(self,
                               master_list: Sequence["DesignMaster"],
                               name_list: Optional[Sequence[Optional[str]]] = None,
-                              lib_name: str = '',
                               rename_dict: Optional[Dict[str, str]] = None,
                               ) -> List[ContentList]:
         """
@@ -98,8 +102,6 @@ class PhotonicTemplateDB(TemplateDB):
             list of masters to instantiate.
         name_list : Optional[Sequence[Optional[str]]]
             list of master cell names.  If not given, default names will be used.
-        lib_name : str
-            Library to create the masters in.  If empty or None, use default library.
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
 
@@ -149,12 +151,7 @@ class PhotonicTemplateDB(TemplateDB):
         for master, top_name in zip(master_list, name_list):
             self._instantiate_master_helper(info_dict, master)
 
-        if not lib_name:
-            lib_name = self.lib_name
-        if not lib_name:
-            raise ValueError('master library name is not specified.')
-
-        content_list = [master.get_content(lib_name, self.format_cell_name)
+        content_list = [master.get_content(lib_name=self.lib_name, rename_fun=self.format_cell_name)
                         for master in info_dict.values()]
 
         return content_list
@@ -162,7 +159,6 @@ class PhotonicTemplateDB(TemplateDB):
     def generate_flat_content_list(self,
                                    master_list: Sequence['PhotonicTemplateBase'],
                                    name_list: Optional[Sequence[Optional[str]]] = None,
-                                   lib_name: str = '',
                                    rename_dict: Optional[Dict[str, str]] = None,
                                    ) -> List["ContentList"]:
         """
@@ -174,15 +170,13 @@ class PhotonicTemplateDB(TemplateDB):
             list of masters to instantiate.
         name_list : Optional[Sequence[Optional[str]]]
             list of master cell names.  If not given, default names will be used.
-        lib_name : str
-            Library to create the masters in.  If empty or None, use default library.
         rename_dict : Optional[Dict[str, str]]
             optional master cell renaming dictionary.
         """
         logging.info(f'In PhotonicTemplateDB.instantiate_flat_masters')
 
-        if len(master_list) > 1:
-            raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
+        # if len(master_list) > 1:
+        #     raise ValueError(f'Support for generation of multiple flat masters is not yet implemented.')
 
         if name_list is None:
             name_list = [None] * len(master_list)  # type: Sequence[Optional[str]]
@@ -232,13 +226,6 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
         logging.info(f'Master content flattening took {end - start:.4g}s')
 
-        # TODO: ?? what is going on here
-        if not lib_name:
-            lib_name = self.lib_name + '_flattened'
-        if not lib_name:
-            raise ValueError('master library name is not specified.')
-
-        # TODO: ?? what is going on here
         if len(name_list) == 1:
             # If called from generate_flat_gds, name_list is just [self.specs['impl_cell']]
             self.impl_cell = name_list[0]

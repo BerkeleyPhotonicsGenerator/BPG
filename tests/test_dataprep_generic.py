@@ -221,7 +221,6 @@ def test_dataprep():
     # spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
     spec_file = 'BPG/tests/specs/dataprep_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()

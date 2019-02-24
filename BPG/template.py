@@ -1,6 +1,10 @@
 # general imports
 import abc
 import numpy as np
+import logging
+import math
+import copy
+import warnings
 
 # bag imports
 import bag.io
@@ -32,23 +36,35 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  used_names: Set[str],
                  **kwargs,
                  ):
-
         use_cybagoa = kwargs.get('use_cybagoa', False)
 
         TemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
+        logging.debug(f'Initializing master {self.__class__.__name__}')
         self._photonic_ports = {}
         self._advanced_polygons = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
+        # Feature flag that when False, prevents users from creating rotated masters that contain other
+        # rotated masters
+        self.allow_rotation_hierarchy = False
+
+        # This stores the angular offset from the cardinal axes that this master is drawn at
+        self._angle = self.params.get('_angle', 0.0)
+        self._layout.mod_angle = self.angle
+
+    @property
+    def angle(self) -> float:
+        return self._angle
+
     @abc.abstractmethod
-    def draw_layout(self):
+    def draw_layout(self) -> None:
         pass
 
     def photonic_ports_names_iter(self) -> Iterable[str]:
         return self._photonic_ports.keys()
 
-    def add_obj(self, obj):
+    def add_obj(self, obj) -> None:
         """
         Takes a provided layout object and adds it to the db. Automatically detects what type of object is
         being added, and sends it to the appropriate category in the layoutDB.
@@ -232,17 +248,18 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         return new_path
 
     def finalize(self):
-        # TODO: Implement port polygon adding here?
-        # Need to remove match port's polygons?
-        # Anything else?
-
-        # Call super finalize routine
+        """ Call the old finalize method, but then also grab the bounding box from the layout content """
         TemplateBase.finalize(self)
+        if self._layout._inst_list != [] and self.angle != 0:
+            logging.warning(f"{self.__class__.__name__} requires hierarchical non-cardinal rotation. This feature is "
+                            f"currently experimental. Please raise an issue if incorrect results occur")
+        self.prim_bound_box = self._layout.bound_box
 
     def add_photonic_port(self,
                           name: str = None,
                           center: coord_type = None,
                           orient: str = None,
+                          angle: float = 0.0,
                           width: dim_type = None,
                           layer: layer_or_lpp_type = None,
                           overwrite_purpose: bool = False,
@@ -264,6 +281,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             (x, y) location of the port
         orient : str
             orientation pointing INTO the port
+        angle : float
+            angle of a unit vector pointing into the port. This is used in combination with orient to place the port
         width : dim_type
             the port width
         layer : Union[str, Tuple[str, str]]
@@ -290,7 +309,6 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         """
         # TODO: Add support for renaming?
         # TODO: Remove force append?
-
         # Create a temporary port object unless one is passed as an argument
         if port is None:
             if resolution is None:
@@ -312,7 +330,14 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if all([name, center, orient, width, layer]) is False:
                 raise ValueError('User must define name, center, orient, width, and layer')
 
-            port = PhotonicPort(name, center, orient, width, layer, resolution, unit_mode)
+            port = PhotonicPort(name=name,
+                                center=center,
+                                orient=orient,
+                                angle=angle,
+                                width=width,
+                                layer=layer,
+                                resolution=resolution,
+                                unit_mode=unit_mode)
 
         # Add port to port list. If name already is taken, remap port if overwrite is true
         if port.name not in self._photonic_ports.keys() or overwrite:
@@ -337,14 +362,15 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if show is True:
             # Draw port shape
             center = port.center_unit
-            orient_vec = np.array(port.width_vec(unit_mode=True, normalized=False))
+            orient_vec = np.array(port.width_vec_unit)
+            perp_vec = np.array([-1 * orient_vec[1], orient_vec[0]])
 
             self.add_polygon(
                 layer=port.layer,
                 points=[center,
-                        center + orient_vec // 2 + np.flip(orient_vec, 0) // 2,
+                        center + orient_vec / 2 + perp_vec / 2,
                         center + 2 * orient_vec,
-                        center + orient_vec // 2 - np.flip(orient_vec, 0) // 2,
+                        center + orient_vec / 2 - perp_vec / 2,
                         center],
                 resolution=port.resolution,
                 unit_mode=True,
@@ -402,6 +428,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                      inst_name: Optional[str] = None,
                      loc: coord_type = (0, 0),
                      orient: str = "R0",
+                     angle: float = 0.0,
+                     reflect: bool = False,
                      nx: int = 1,
                      ny: int = 1,
                      spx: dim_type = 0,
@@ -421,6 +449,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             instance location.
         orient : str
             instance orientation.  Defaults to "R0"
+        angle : float
+            angle in radians to rotate this instance
+        reflect : bool
+            True to mirror reflect the instance
         nx : int
             number of columns.  Must be positive integer.
         ny : int
@@ -443,8 +475,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             spx = int(round(spx / res))
             spy = int(round(spy / res))
 
-        inst = PhotonicInstance(self.grid, self._lib_name, master, loc=loc, orient=orient,
-                                name=inst_name, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=True)
+        inst = PhotonicInstance(self.grid, self._lib_name, master, loc=loc, orient=orient, angle=angle,
+                                mirrored=reflect, name=inst_name, nx=nx, ny=ny, spx=spx, spy=spy, unit_mode=True)
 
         self._layout.add_instance(inst)
         return inst
@@ -469,6 +501,28 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                    instance_name: Optional[str] = None,
                                    reflect: bool = False,
                                    ) -> PhotonicInstance:
+        warnings.warn(f'PhotonicTemplateBase.add_instances_port_to_port was renamed to '
+                      f'add_instance_port_to_port (no "s"). '
+                      f'The old method name will be removed in V1.0',
+                      DeprecationWarning)
+
+        return self.add_instance_port_to_port(
+            inst_master=inst_master,
+            instance_port_name=instance_port_name,
+            self_port=self_port,
+            self_port_name=self_port_name,
+            instance_name=instance_name,
+            reflect=reflect
+        )
+
+    def add_instance_port_to_port(self,
+                                  inst_master: "PhotonicTemplateBase",
+                                  instance_port_name: str,
+                                  self_port: Optional[PhotonicPort] = None,
+                                  self_port_name: Optional[str] = None,
+                                  instance_name: Optional[str] = None,
+                                  reflect: bool = False,
+                                  ) -> PhotonicInstance:
         """
         Instantiates a new instance of the inst_master template.
         The new instance is placed such that its port named 'instance_port_name' is aligned-with and touching the
@@ -520,96 +574,28 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         else:
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
-        tmp_port_point = new_port.center_unit
 
-        # Non-zero if new port is aligned with current port
-        # > 0 if ports are facing same direction (new instance must be rotated
-        # < 0 if ports are facing opposite direction (new instance should not be rotated)
-        dp = np.dot(my_port.width_vec(), new_port.width_vec())
+        # Compute the angle that the instance must be rotated by in order to have its port align to the port being
+        # connected to
+        # For now, assume self.angle = 0,
+        #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
+        # TODO: why add self.angle and not subtract
+        diff_angle = -(inst_master.angle + new_port.angle) + my_port.angle + math.pi
 
-        # Non-zero if new port is orthogonal with current port
-        # > 0 if new port is 90 deg CCW from original, < 0 if new port is 270 deg CCW from original
-        cp = np.cross(my_port.width_vec(), new_port.width_vec())
-
-        # new_port_orientation = my_port.orientation
-
-        if abs(dp) > abs(cp):
-            # New port orientation is parallel to current port
-
-            if dp < 0:
-                # Ports are already facing opposite directions
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # Port is horizontal: reflect about x axis
-                        trans_str = 'MX'
-                    else:
-                        # Port is vertical: reflect about x axis
-                        trans_str = 'MY'
-
-                else:
-                    # Do not reflect port
-                    trans_str = 'R0'
-            else:
-                # Ports are facing same direction, new instance must be rotated
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # RX + R180 = MY
-                        trans_str = 'MY'
-                    else:
-                        # RY + R180 = MX
-                        trans_str = 'MX'
-                else:
-                    # Do not reflect port
-                    trans_str = 'R180'
-        else:
-            # New port orientation is perpendicular to current port
-            if cp > 0:
-                # New port is 90 deg CCW wrt current port
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # Port is horizontal: reflect about x axis
-                        trans_str = 'MXR90'
-                    else:
-                        # Port is vertical: reflect about x axis
-                        trans_str = 'MYR90'
-
-                else:
-                    # Do not reflect port
-                    trans_str = 'R90'
-            else:
-                # New port is 270 deg CCW wrt current port
-
-                if reflect:
-                    # Reflect port. Determine if port is horizontal or vertical
-                    if new_port.is_horizontal():
-                        # RX + R180 = MY
-                        trans_str = 'MYR90'
-                    else:
-                        # RY + R180 = MX
-                        trans_str = 'MXR90'
-                else:
-                    # Do not reflect port
-                    trans_str = 'R270'
-
-        # Compute the new reflected/rotated port location
-        rotated_tmp_port_point = transform_point(tmp_port_point[0], tmp_port_point[1], (0, 0), trans_str)
-
-        # Calculate and round translation vector to the resolution unit
-        translation_vec = my_port.center_unit - rotated_tmp_port_point
-
-        new_inst = self.add_instance(
+        # Place a rotated PhotonicInstance that is rotated but not in the correct location
+        new_inst: "PhotonicInstance" = self.add_instance(
             master=inst_master,
             inst_name=instance_name,
-            loc=(translation_vec[0], translation_vec[1]),
-            orient=trans_str,
-            unit_mode=True
+            loc=(0, 0),
+            orient='R0',
+            angle=diff_angle,
+            reflect=reflect,
+            unit_mode=True,
         )
+
+        # Translate the new instance
+        translation_vec = my_port.center_unit - new_inst[instance_port_name].center_unit
+        new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
 
         return new_inst
 
@@ -672,11 +658,10 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                inst: Union[PhotonicInstance, "Instance"],
                                port_names: Optional[Union[str, List[str]]] = None,
                                port_renaming: Optional[Dict[str, str]] = None,
-                               unmatched_only: bool = True,  # TODO: matched vs non-matched ports.
-                                                             # TODO: if two ports are connected, do we export them
                                show: bool = True,
                                ) -> None:
-        """Brings ports from lower level of hierarchy to the current hierarchy level
+        """
+        Brings ports from lower level of hierarchy to the current hierarchy level
 
         Parameters
         ----------
@@ -688,12 +673,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             a dictionary containing key-value pairs mapping inst's port names (key)
             to the new desired port names (value).
             If not supplied, extracted ports will be given their original names
-        unmatched_only : bool
         show : bool
-
-        Returns
-        -------
-
         """
         if port_names is None:
             port_names = inst.master.photonic_ports_names_iter()
@@ -705,16 +685,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             port_renaming = {}
 
         for port_name in port_names:
-            old_port = inst.master.get_photonic_port(port_name)
+            old_port = inst[port_name]
             translation = inst.location_unit
-            rotation = inst.orientation
-
-            # Find new port location
-            new_location, new_orient = transform_loc_orient(old_port.center_unit,
-                                                            old_port.orientation,
-                                                            translation,
-                                                            rotation,
-                                                            )
+            orientation = inst.orientation
 
             # Get new desired name
             if port_name in port_renaming.keys():
@@ -726,11 +699,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if new_name in self._photonic_ports:
                 # Append unique number
                 new_name = self._get_unused_port_name(new_name)
-
             self.add_photonic_port(
                 name=new_name,
-                center=new_location,
-                orient=new_orient,
+                center=old_port.center_unit.tolist(),
+                orient='R0',
+                angle=old_port.angle,
                 width=old_port.width_unit,
                 layer=old_port.layer,
                 unit_mode=True,
@@ -890,3 +863,39 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             min_area_on_bot_top_layer=min_area_on_bot_top_layer,
             unit_mode=unit_mode
         )
+
+    def new_template_with(self, angle=0.0, **kwargs):
+        """
+        Create a new template with the given parameters
+
+        This method will update the parameter values with the given kwargs, then create a new template with those
+        parameters and return it. This procedure also takes on the angle provided by the caller. Unlike
+        self.new_template the masters initial angle is completely ignored. This method should only be called by
+        PhotonicInstance
+
+        Parameters
+        ----------
+        angle : float
+            angle in radians fo the rotation to be performed
+        kwargs : dict
+            a dictionary of new parameter values
+
+        Returns
+        -------
+        master : PhotonicTemplateBase
+            Newly created master from the given parameters
+        """
+        # Create a new parameter dictionary based on the provided changes
+        new_params = copy.deepcopy(self.params)
+        for key, val in kwargs.items():
+            if key in new_params:
+                new_params[key] = val
+
+        # Move to populate_params? This deletes the old angle and sets it to the provided value via hidden params
+        new_params.pop('_angle', None)
+        return TemplateBase.new_template(self,
+                                         params=new_params,
+                                         temp_cls=self.__class__,
+                                         hidden_params={'_angle': angle},
+                                         **kwargs
+                                         )
