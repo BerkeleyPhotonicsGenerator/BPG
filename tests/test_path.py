@@ -76,7 +76,6 @@ class Path(BPG.PhotonicTemplateBase):
 def test_path():
     spec_file = 'BPG/tests/specs/path_test_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()

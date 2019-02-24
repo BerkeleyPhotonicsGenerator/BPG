@@ -572,7 +572,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
 
-        # Compute the angle that the instsance must be rotated by in order to have its port align to the port being
+        # Compute the angle that the instance must be rotated by in order to have its port align to the port being
         # connected to
         # For now, assume self.angle = 0,
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)

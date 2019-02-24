@@ -160,7 +160,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Generating content list":-^80}')
         if not self.template_list:
-            raise ValueError('Must call PhotonicLayoutManager.generate_template before calling generate_content')
+            self.generate_template()
 
         start_time = time.time()
         self.content_list = self.template_plugin.generate_content_list(master_list=self.template_list,

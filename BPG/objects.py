@@ -118,7 +118,7 @@ class PhotonicInstance(Instance):
         self._import_photonic_ports()
         # If the angle of this instance is not 0, rotate the instance
         # TODO: is_cardinal / close enough to cardinal?
-        if angle != 0.0:
+        if angle != 0.0 or mirrored:
             logging.debug(f'PhotonicInstance with master {master} is at angle {angle}')
             self.rotate(
                 loc=self.location_unit,
@@ -343,6 +343,7 @@ class PhotonicInstance(Instance):
         """
         This method regenerates the instance's master to rotate the shapes and ports given an angle. The provided angle
         and loc values are all relative to R0 and (0, 0) of the master placing this instance
+
         Parameters
         ----------
         loc : coord_type

@@ -501,7 +501,6 @@ def test_anyangle_conversion_functions():
 def test_rectangle_rotation():
     spec_file = 'BPG/tests/specs/any_angle_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()
@@ -514,27 +513,25 @@ def test_rectangle_rotation():
 def test_instance_port_to_port_at_angle_no_hierarchy():
     spec_file = 'BPG/tests/specs/any_angle_port_to_port_at_angle_no_hierarchy_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
-    #plm.generate_flat_content()
-    #plm.generate_flat_gds()
-    #plm.dataprep()
-    #plm.generate_dataprep_gds()
-    #plm.generate_lsf()
+    # plm.generate_flat_content()
+    # plm.generate_flat_gds()
+    # plm.dataprep()
+    # plm.generate_dataprep_gds()
+    # plm.generate_lsf()
 
 
 def test_instance_port_to_port_at_angle_hierarchy():
     spec_file = 'BPG/tests/specs/any_angle_port_to_port_at_angle_hierarchy_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()
     plm.generate_flat_gds()
-    #plm.dataprep()
-    #plm.generate_dataprep_gds()
-    #plm.generate_lsf()
+    # plm.dataprep()
+    # plm.generate_dataprep_gds()
+    # plm.generate_lsf()
 
 
 if __name__ == '__main__':

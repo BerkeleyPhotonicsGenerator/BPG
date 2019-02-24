@@ -49,7 +49,6 @@ def test_add_rect():
     """
     spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()

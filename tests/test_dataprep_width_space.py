@@ -240,7 +240,6 @@ class MinWidthSpace(BPG.PhotonicTemplateBase):
 def test_dataprep():
     spec_file = 'BPG/tests/specs/dataprep_specs_width_space.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()

@@ -492,7 +492,6 @@ class PortTest(BPG.PhotonicTemplateBase):
 def test_wg_port():
     spec_file = 'BPG/tests/specs/waveguide_and_port_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
-    plm.generate_template()
     plm.generate_content()
     plm.generate_gds()
     plm.generate_flat_content()
