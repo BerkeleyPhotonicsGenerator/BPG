@@ -88,7 +88,7 @@ class PhotonicPort(Transformable2D):
             width=self.width_unit,
             layer=self.layer,
             resolution=self.resolution,
-            angle=self.angle,
+            angle=self.mod_angle,
             mirrored=self.mirrored,
             unit_mode=True
         )
