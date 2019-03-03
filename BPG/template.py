@@ -580,8 +580,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # For now, assume self.angle = 0,
         #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
         # TODO: why add self.angle and not subtract
-        if(my_port.mirrored):
-            raise RuntimeError('In add_instance_port_to_port, aligning to a port that is mirrored?!')
+        # if(my_port.mirrored):
+        #     raise RuntimeError('In add_instance_port_to_port, aligning to a port that is mirrored?!')
         # Without reflection, inst_master.angle + new_port.angle + diff_angle gives the (mod_)angle of the new-instanced-port
         # so, if no reflection, inst_master.angle + new_port.angle + diff_angle = my_port.angle + math.pi
         # if the instance is reflected... -(inst_master.angle + new_port.angle) + diff_angle = my_port.angle + math.pi
@@ -603,23 +603,23 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # Translate the new instance
         translation_vec = my_port.center_unit - new_inst.get_photonic_port(instance_port_name).center_unit
 
-        print('=====================In add_instance_port_to_port:======================')
-        print('new_inst before move, loc: ' + str( new_inst.location_unit))
-        print('port name: '  + str( instance_port_name))
-        print('port position (before):')
-        print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        print('translation_vec:')
-        print(translation_vec)
+        # print('=====================In add_instance_port_to_port:======================')
+        # print('new_inst before move, loc: ' + str( new_inst.location_unit))
+        # print('port name: '  + str( instance_port_name))
+        # print('port position (before):')
+        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
+        # print('translation_vec:')
+        # print(translation_vec)
 
         new_inst.move_by(dx=0, dy=0, unit_mode=True)
-        print('port position (fake move):')
-        print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        print('new_inst after fake move, loc: ' + str( new_inst.location_unit))
+        # print('port position (fake move):')
+        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
+        # print('new_inst after fake move, loc: ' + str( new_inst.location_unit))
 
         new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
-        print('port position (after move):')
-        print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        print('new_inst after move, loc: ' + str( new_inst.location_unit))
+        # print('port position (after move):')
+        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
+        # print('new_inst after move, loc: ' + str( new_inst.location_unit))
 
         return new_inst
 
