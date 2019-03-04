@@ -554,20 +554,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         new_inst : PhotonicInstance
             the newly added instance
         """
-
+        # Get the reference port that we will be aligning the new instance to
         # TODO: If ports dont have same width/layer, do we return error?
-
         if self_port is None and self_port_name is None:
             raise ValueError('Either self_port or self_port_name must be specified')
-
         if self_port_name and not self.has_photonic_port(self_port_name):
             raise ValueError('Photonic port ' + self_port_name + ' does not exist in '
                              + self.__class__.__name__)
-
         if not inst_master.has_photonic_port(instance_port_name):
             raise ValueError('Photonic port ' + instance_port_name + ' does not exist in '
                              + inst_master.__class__.__name__)
-
         # self_port has priority over self_port_name if both are specified
         if self_port:
             my_port = self_port
@@ -575,20 +571,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             my_port = self.get_photonic_port(self_port_name)
         new_port = inst_master.get_photonic_port(instance_port_name)
 
-        # Compute the angle that the instance must be rotated by in order to have its port align to the port being
-        # connected to
-        # For now, assume self.angle = 0,
-        #   We want that the port should point to my_port.angle + math.pi  (to point in the opposite direction)
-        # TODO: why add self.angle and not subtract
-        # if(my_port.mirrored):
-        #     raise RuntimeError('In add_instance_port_to_port, aligning to a port that is mirrored?!')
-        # Without reflection, inst_master.angle + new_port.angle + diff_angle gives the (mod_)angle of the new-instanced-port
-        # so, if no reflection, inst_master.angle + new_port.angle + diff_angle = my_port.angle + math.pi
+        # Compute the angle that the instance must be rotated by in order to have its port align to my_port
+        # Assuming self.angle = 0 We want the port to point to my_port.angle + math.pi
+        # Without reflection, inst_master.angle + new_port.angle + diff_angle gives the mod_angle of the
+        # newly instances port. If no reflection:
+        #   inst_master.angle + new_port.angle + diff_angle = my_port.angle + math.pi
         # if the instance is reflected... -(inst_master.angle + new_port.angle) + diff_angle = my_port.angle + math.pi
-        if(reflect):
-            diff_angle = +(inst_master.angle + new_port.angle) + ( my_port.angle + math.pi )
+        if reflect:
+            diff_angle = inst_master.angle + new_port.angle + my_port.angle + math.pi
         else:
-            diff_angle = -(inst_master.angle + new_port.angle) + my_port.angle + math.pi
+            diff_angle = -1 * (inst_master.angle + new_port.angle) + my_port.angle + math.pi
 
         # Place a rotated PhotonicInstance that is rotated but not in the correct location
         new_inst: "PhotonicInstance" = self.add_instance(
@@ -600,41 +592,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             reflect=reflect,
             unit_mode=True,
         )
+
         # Translate the new instance
         translation_vec = my_port.center_unit - new_inst.get_photonic_port(instance_port_name).center_unit
-
-        # print('=====================In add_instance_port_to_port:======================')
-        # print('new_inst before move, loc: ' + str( new_inst.location_unit))
-        # print('port name: '  + str( instance_port_name))
-        # print('port position (before):')
-        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        # print('translation_vec:')
-        # print(translation_vec)
-
-        new_inst.move_by(dx=0, dy=0, unit_mode=True)
-        # print('port position (fake move):')
-        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        # print('new_inst after fake move, loc: ' + str( new_inst.location_unit))
-
         new_inst.move_by(dx=translation_vec[0], dy=translation_vec[1], unit_mode=True)
-        # print('port position (after move):')
-        # print(new_inst.get_photonic_port(instance_port_name).center_unit)
-        # print('new_inst after move, loc: ' + str( new_inst.location_unit))
-
         return new_inst
 
     def delete_port(self,
                     port_names: Union[str, List[str]],
                     ) -> None:
-        """ Removes the given ports from this instances list of ports. Raises error if given port does not exist.
+        """
+        Removes the given ports from this instances list of ports. Raises error if given port does not exist.
 
         Parameters
         ----------
         port_names : Union[str, List[str]]
-
-        Returns
-        -------
-
         """
         if isinstance(port_names, str):
             port_names = [port_names]

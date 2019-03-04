@@ -1,13 +1,12 @@
 from decimal import Decimal
-
 import numpy as np
 import math
 import warnings
+import logging
 
 from bag.layout.util import BBox
 
 from typing import TYPE_CHECKING, Tuple, Union, Optional
-
 if TYPE_CHECKING:
     from BPG.bpg_custom_types import coord_type
     from BPG.port import PhotonicPort
@@ -634,7 +633,7 @@ class Transformable2D:
             is_cardinal : True if the angle is within error tolerance of being cardinal
             num_90deg : The number of 90 degree rotations (rounded down) that fit into the angle.
         """
-        if(mirrored): 
+        if mirrored:
             num_90deg = -int(np.floor(-angle / (np.pi / 2)))  
             mod_angle = -(angle - num_90deg * (np.pi / 2))
         else:
@@ -649,13 +648,8 @@ class Transformable2D:
             mod_angle = 0
             num_90deg = int(np.round(angle / (np.pi / 2)))
             is_cardinal = True
-        elif( (mod_angle >= np.pi / 2) or (mod_angle < 0) ):
-            print(angle / (np.pi / 2))
-            print(mod_angle / (np.pi / 2))
-            print(num_90deg)
-            print(Transformable2D.SMALL_ANGLE_TOLERANCE)
-
-            raise RuntimeError('mod_angle should be >=0 and < pi/2')
+        elif (mod_angle >= np.pi / 2) or (mod_angle < 0):
+            raise RuntimeError(f'mod_angle: {mod_angle} should be >=0 and < pi/2')
         else:
             is_cardinal = False
         index = (num_90deg % 4) + mirrored * 4
