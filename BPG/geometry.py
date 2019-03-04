@@ -1,13 +1,12 @@
 from decimal import Decimal
-
 import numpy as np
 import math
 import warnings
+import logging
 
 from bag.layout.util import BBox
 
 from typing import TYPE_CHECKING, Tuple, Union, Optional
-
 if TYPE_CHECKING:
     from BPG.bpg_custom_types import coord_type
     from BPG.port import PhotonicPort
@@ -634,16 +633,23 @@ class Transformable2D:
             is_cardinal : True if the angle is within error tolerance of being cardinal
             num_90deg : The number of 90 degree rotations (rounded down) that fit into the angle.
         """
-        num_90deg = int(np.floor(angle / (np.pi / 2)))
-        mod_angle = angle - num_90deg * (np.pi / 2)
+        if mirrored:
+            num_90deg = -int(np.floor(-angle / (np.pi / 2)))  
+            mod_angle = -(angle - num_90deg * (np.pi / 2))
+        else:
+            num_90deg = int(np.floor(angle / (np.pi / 2)))
+            mod_angle = angle - num_90deg * (np.pi / 2)
 
-        if 0 <= mod_angle < Transformable2D.SMALL_ANGLE_TOLERANCE:
+        if np.abs(mod_angle) < Transformable2D.SMALL_ANGLE_TOLERANCE:
             mod_angle = 0
             is_cardinal = True
-        elif np.pi / 2 > mod_angle > np.pi / 2 - Transformable2D.SMALL_ANGLE_TOLERANCE:
+            num_90deg = int(np.round(angle / (np.pi / 2)))
+        elif np.abs( mod_angle - np.pi / 2) < Transformable2D.SMALL_ANGLE_TOLERANCE:
             mod_angle = 0
-            num_90deg = num_90deg + 1
+            num_90deg = int(np.round(angle / (np.pi / 2)))
             is_cardinal = True
+        elif (mod_angle >= np.pi / 2) or (mod_angle < 0):
+            raise RuntimeError(f'mod_angle: {mod_angle} should be >=0 and < pi/2')
         else:
             is_cardinal = False
         index = (num_90deg % 4) + mirrored * 4
@@ -684,7 +690,7 @@ class Transformable2D:
             # The list above is MX followed by   ['R0','R90','R180','R270'], so
             rotate_by = Transformable2D.OrientationsWithFlip.index(orient) * np.pi / 2
             mirrored = True
-            angle = rotate_by + mod_angle
+            angle = rotate_by - mod_angle
 
         angle = angle % (2 * np.pi)
         return angle, mirrored

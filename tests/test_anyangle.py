@@ -535,7 +535,7 @@ def test_instance_port_to_port_at_angle_hierarchy():
 
 
 if __name__ == '__main__':
-    # test_anyangle_conversion_functions()
-    # test_rectangle_rotation()
-    # test_instance_port_to_port_at_angle_no_hierarchy()
+    test_anyangle_conversion_functions()
+    test_rectangle_rotation()
+    test_instance_port_to_port_at_angle_no_hierarchy()
     test_instance_port_to_port_at_angle_hierarchy()
