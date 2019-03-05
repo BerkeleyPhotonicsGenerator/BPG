@@ -4,12 +4,12 @@ import yaml
 import gdspy
 from math import pi
 
+from bag.layout.util import BBox
+from BPG.content_list import ContentList
 from BPG.abstract_plugin import AbstractPlugin
 
-from typing import TYPE_CHECKING, List
-
+from typing import TYPE_CHECKING, List, Tuple
 if TYPE_CHECKING:
-    from BPG.content_list import ContentList
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
 
@@ -31,6 +31,8 @@ class GDSPlugin(AbstractPlugin):
         ----------
         content_lists : List[ContentList]
             A list of ContentList objects that represent the layout.
+        name_append : str
+            A suffix to add to the end of the generated gds filename
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
 
@@ -205,3 +207,103 @@ class GDSPlugin(AbstractPlugin):
                 cur_rect = gdspy.Rectangle((x0 + dx, y0 + dy), (x0 + cw + dx, y0 + ch + dy),
                                            layer=vlay, datatype=vpurp)
                 gds_cell.add(cur_rect)
+
+    def import_content_list(self,
+                            gds_filepath: str
+                            ) -> ContentList:
+        """
+        Import a GDS and convert it to content list format.
+
+        gdspy turns all input shapes into polygons, so we only need to care about importing into
+        the polygon list. Currently we only import labels at the top level of the hierarchy
+
+        Parameters
+        ----------
+        gds_filepath : str
+            Path to the gds to be imported
+        """
+        # Import information from the layermap
+        with open(self.gds_layermap, 'r') as f:
+            lay_info = yaml.load(f)
+            lay_map = lay_info['layer_map']
+
+        # Import the GDS from the file
+        gds_lib = gdspy.GdsLibrary()
+        gds_lib.read_gds(infile=gds_filepath)
+
+        # Get the top cell in the GDS and flatten its contents
+        # TODO: Currently we do not support importing GDS with multiple top cells
+        top_cell = gds_lib.top_level()
+        if len(top_cell) != 1:
+            raise ValueError("Cannot import a GDS with multiple top level cells")
+        top_cell = top_cell[0]
+        top_cell.flatten()
+
+        # Lists of components we will import from the GDS
+        polygon_list = []
+        pin_list = []
+
+        for polyset in top_cell.elements:
+            for count in range(len(polyset.polygons)):
+                points = polyset.polygons[count]
+                layer = polyset.layers[count]
+                datatype = polyset.datatypes[count]
+
+                # Reverse lookup layername from gds LPP
+                lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, datatype])
+
+                # Create the polygon from the provided data if the layer exists in the layermap
+                if lpp:
+                    content = dict(layer=lpp,
+                                   points=points)
+                    polygon_list.append(content)
+        for label in top_cell.get_labels(depth=0):
+            text = label.text
+            layer = label.layer
+            texttype = label.texttype
+            position = label.position
+            bbox = BBox(left=position[0] - self.grid.resolution,
+                        bottom=position[1] - self.grid.resolution,
+                        right=position[0] + self.grid.resolution,
+                        top=position[1] + self.grid.resolution,
+                        resolution=self.grid.resolution)
+
+            # Reverse lookup layername from gds LPP
+            lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, texttype])
+
+            # Create the label from the provided data if the layer exists in the layermap
+            # TODO: Find the best way to generate a label in the content list
+            if lpp:
+                pass
+                # self.add_label(label=text,
+                #                layer=lpp,
+                #                bbox=bbox)
+
+        # After all of the components have been converted, dump into content list
+        return ContentList(cell_name=top_cell.name,
+                           polygon_list=polygon_list)
+
+    @staticmethod
+    def lpp_reverse_lookup(layermap: dict, gds_layerid: List[int]):
+        """
+        Given a layermap dictionary, find the layername that matches the provided gds layer id
+
+        Parameters
+        ----------
+        layermap : dict
+            mapping from layer name to gds layer id
+        gds_layerid : Tuple[int, int]
+            gds layer id to find the layer name for
+
+        Returns
+        -------
+        layername : str
+            first layername that matches the provided gds layer id
+        """
+        for layer_name, layer_id in layermap.items():
+            if layer_id == gds_layerid:
+                return layer_name
+        else:
+            print(f"{gds_layerid} was not found in the layermap!")
+
+
