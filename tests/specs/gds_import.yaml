@@ -1,0 +1,21 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+project_name: bpg_test_suite
+
+# Output Settings
+lsf_filename: gds_import
+gds_filename: gds_import
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.test_gds_import'
+layout_class: 'TestGDSImport'  # Layout generator class name
+
+layout_params:
+  gds_path: 'gen_libs/bpg_test_suite/data/any_angle_alignment.gds'
+
+
+# Cadence related parameters
+impl_lib: 'gds_import'
+impl_cell: 'gds_import'
