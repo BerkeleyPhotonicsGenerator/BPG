@@ -158,9 +158,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         content_list : List[ContentList]
             A list of databases that contain all generated shapes
         """
-        logging.info(f'\n\n{"Generating content list":-^80}')
         if not self.template_list:
             self.generate_template()
+
+        logging.info(f'\n\n{"Generating content list":-^80}')
 
         start_time = time.time()
         self.content_list = self.template_plugin.generate_content_list(master_list=self.template_list,
