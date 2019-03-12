@@ -206,15 +206,25 @@ class PhotonicInstance(Instance):
         Takes all ports from the provided master and adds them to this instance. Transformations are
         performed to match the current orientation and location.
         """
-        for port_name in self._master.photonic_ports_names_iter():
-            port_copy: "PhotonicPort" = deepcopy(self._master.get_photonic_port(port_name))
-            self._photonic_port_list[port_name] = port_copy.mirror_rotate_translate(
-                translation=self.location_unit,
-                rotation=self.angle,
-                mirror=self.mirrored,
-                force_cardinal=False,  # TODO
-                unit_mode=True
-            )
+        # Note some generator classes may be subclasses of TemplateBase/AnalogBase, but not
+        # PhotonicTemplateBase. These classes do not have photonic ports, but we still want to support
+        # the ability to instance them. Here we check if the class has photonic ports, and if it does
+        # we will import them into the instance
+        try:
+            port_iter = self._master.photonic_ports_names_iter()
+        except AttributeError:
+            logging.debug(f'new instance {self._master.__class__.__name__} is not a subclass of photonic template '
+                          f'base')
+        else:
+            for port_name in port_iter:
+                port_copy: "PhotonicPort" = deepcopy(self._master.get_photonic_port(port_name))
+                self._photonic_port_list[port_name] = port_copy.mirror_rotate_translate(
+                    translation=self.location_unit,
+                    rotation=self.angle,
+                    mirror=self.mirrored,
+                    force_cardinal=False,  # TODO: Need to determine what to do if force_cardinal is really true
+                    unit_mode=True
+                )
 
     def get_all_photonic_ports(self) -> Dict[str, "PhotonicPort"]:
         return self._photonic_port_list
