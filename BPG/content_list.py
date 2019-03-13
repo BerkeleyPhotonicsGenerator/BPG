@@ -118,6 +118,24 @@ class ContentList(UserDict):
         """
         return (self.cell_name,) + tuple(self[key] for key in self.all_iterables_keys)
 
+    @classmethod
+    def from_bag_tuple_format(cls, bag_content_list):
+        """
+        Returns a ContentList object usable by the rest of BPG. Expects only a single bag_tuple_format rather
+        than a list of bag_tuples
+        """
+        (cell_name, inst_list, rect_list, via_list, pin_list,
+         path_list, blockage_list, boundary_list, polygon_list) = bag_content_list
+        return cls(cell_name=cell_name,
+                   inst_list=inst_list,
+                   rect_list=rect_list,
+                   via_list=via_list,
+                   pin_list=pin_list,
+                   path_list=path_list,
+                   blockage_list=blockage_list,
+                   boundary_list=boundary_list,
+                   polygon_list=polygon_list)
+
     # TODO: Change this to be content based, and change dataprep as well
     # TODO: Speed this up using yields or something similar if this is found to be slow
     def sort_content_list_by_layers(self) -> Dict[lpp_type, "ContentList"]:

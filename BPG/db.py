@@ -154,6 +154,11 @@ class PhotonicTemplateDB(TemplateDB):
         content_list = [master.get_content(lib_name=self.lib_name, rename_fun=self.format_cell_name)
                         for master in info_dict.values()]
 
+        for count, content in enumerate(content_list):
+            # If the content list came from another format, try to convert it to a ContentList
+            if not isinstance(content, ContentList):
+                content_list[count] = ContentList.from_bag_tuple_format(content)
+
         return content_list
 
     def generate_flat_content_list(self,
@@ -296,6 +301,10 @@ class PhotonicTemplateDB(TemplateDB):
                 # No need to copy, as ContentList.transform_content creates a copy
                 logging.debug(f'Found in flattened cache: {child_master_key[0]}')
                 child_content = self.flattening_cache[child_master_key]
+
+            # If the child is not made in BPG, it has a different content format, try to convert it here
+            if not isinstance(child_content, ContentList):
+                child_content = ContentList.from_bag_tuple_format(child_content)
 
             transformed_child_content = child_content.transform_content(
                 res=self.grid.resolution,

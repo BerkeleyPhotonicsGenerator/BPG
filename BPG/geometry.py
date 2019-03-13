@@ -385,6 +385,26 @@ class Transformable2D:
         self._center_unit = np.array([int(round(center[0])), int(round(center[1]))])
 
     @property
+    def x_unit(self) -> int:
+        """Return the x coordinate of the center in resolution units"""
+        return int(self._center_unit[0])
+
+    @property
+    def x(self) -> float:
+        """Return the x coordinate of the center"""
+        return float(self._center_unit[0] * self._resolution)
+
+    @property
+    def y_unit(self) -> int:
+        """Return the y coordinate of the center in resolution units"""
+        return int(self._center_unit[1])
+
+    @property
+    def y(self) -> float:
+        """Return the y coordinate of the center"""
+        return float(self._center_unit[1] * self._resolution)
+
+    @property
     def mod_angle(self) -> float:
         """ Angle between [0, pi/2) of the object """
         return self._mod_angle
