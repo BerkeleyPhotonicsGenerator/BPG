@@ -265,6 +265,9 @@ class PhotonicTemplateDB(TemplateDB):
         start = time.time()
 
         master_content: ContentList = master.get_content(self.lib_name, self.format_cell_name).copy()
+        # If the child is not made in BPG, it has a different content format, try to convert it here
+        if not isinstance(master_content, ContentList):
+            master_content = ContentList.from_bag_tuple_format(master_content)
 
         with open(self._gds_lay_file, 'r') as f:
             lay_info = yaml.load(f)
@@ -301,10 +304,6 @@ class PhotonicTemplateDB(TemplateDB):
                 # No need to copy, as ContentList.transform_content creates a copy
                 logging.debug(f'Found in flattened cache: {child_master_key[0]}')
                 child_content = self.flattening_cache[child_master_key]
-
-            # If the child is not made in BPG, it has a different content format, try to convert it here
-            if not isinstance(child_content, ContentList):
-                child_content = ContentList.from_bag_tuple_format(child_content)
 
             transformed_child_content = child_content.transform_content(
                 res=self.grid.resolution,
