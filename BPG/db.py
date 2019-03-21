@@ -88,6 +88,21 @@ class PhotonicTemplateDB(TemplateDB):
         logging.info(f'All dataprep operations completed in {end - start:.4g} s')
         return post_dataprep_flat_content_list
 
+    @staticmethod
+    def reverse_no_identity_and_check(in_dict: Dict[str, str]) -> Dict[str, str]:
+        """
+        Reverse a dictionary while checking for duplicates.
+        Remove pairs where key = value.
+        """
+        out_dict: Dict[str, str] = {}
+        for key, val in in_dict.items():
+            if key != val:
+                if val in out_dict:
+                    raise ValueError('Both %s and %s are mapped '
+                                     'to %s' % (key, out_dict[val], val))
+                out_dict[val] = key
+        return out_dict
+
     def generate_content_list(self,
                               master_list: Sequence["DesignMaster"],
                               name_list: Optional[Sequence[Optional[str]]] = None,
@@ -117,17 +132,11 @@ class PhotonicTemplateDB(TemplateDB):
                 raise ValueError("Master list and name list length mismatch.")
 
         # configure renaming dictionary.  Verify that renaming dictionary is one-to-one.
-        rename = self._rename_dict
-        rename.clear()
-        reverse_rename = {}
-        if rename_dict:
-            for key, val in rename_dict.items():
-                if key != val:
-                    if val in reverse_rename:
-                        raise ValueError('Both %s and %s are renamed '
-                                         'to %s' % (key, reverse_rename[val], val))
-                    rename[key] = val
-                    reverse_rename[val] = key
+        reverse_rename: Dict[str, str] = {}
+        if rename_dict is not None:
+            self._rename_dict = dict(rename_dict)
+            reverse_rename = self.reverse_no_identity_and_check(rename_dict)
+        rename: Dict[str, str] = self._rename_dict
 
         for master, name in zip(master_list, name_list):
             if name is not None and name != master.cell_name:
@@ -190,17 +199,11 @@ class PhotonicTemplateDB(TemplateDB):
                 raise ValueError("Master list and name list length mismatch.")
 
         # configure renaming dictionary.  Verify that renaming dictionary is one-to-one.
-        rename = self._rename_dict
-        rename.clear()
-        reverse_rename = {}
-        if rename_dict:
-            for key, val in rename_dict.items():
-                if key != val:
-                    if val in reverse_rename:
-                        raise ValueError('Both %s and %s are renamed '
-                                         'to %s' % (key, reverse_rename[val], val))
-                    rename[key] = val
-                    reverse_rename[val] = key
+        reverse_rename: Dict[str, str] = {}
+        if rename_dict is not None:
+            self._rename_dict = dict(rename_dict)
+            reverse_rename = self.reverse_no_identity_and_check(rename_dict)
+        rename: Dict[str, str] = self._rename_dict
 
         for master, name in zip(master_list, name_list):
             if name is not None and name != master.cell_name:
