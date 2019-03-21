@@ -7,8 +7,9 @@ import logging
 from bag.layout.util import BBox
 
 from typing import TYPE_CHECKING, Tuple, Union, Optional
+from BPG.bpg_custom_types import coord_type, dim_type
+
 if TYPE_CHECKING:
-    from BPG.bpg_custom_types import coord_type
     from BPG.port import PhotonicPort
 
 
@@ -311,13 +312,13 @@ class Transformable2D:
                  mirrored: bool = False,
                  force_cardinal: bool = False,
                  unit_mode: bool = False,
-                 ):
+                 ) -> None:
         """
         Creates a new Transformable object following the position-orientation convention
 
         Parameters
         ----------
-        center : Tuple[Union[float, int], Union[float, int]]
+        center : coord_type
             the (x, y) point of the port
         resolution : float
             the grid resolution
@@ -533,7 +534,7 @@ class Transformable2D:
         return np.array([int(round(new_center_x)), int(round(new_center_y))])
 
     def move_by(self,
-                translation: Tuple[int, int],
+                translation: Tuple[dim_type, dim_type],
                 unit_mode: bool = False,
                 ) -> "Transformable2D":
         """

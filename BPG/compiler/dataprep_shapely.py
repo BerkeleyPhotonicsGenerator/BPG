@@ -8,7 +8,7 @@
 
 # import importlib
 # from figures import SIZE, BLUE, GRAY, set_limits
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Optional
 from math import ceil
 from shapely.geometry import Polygon, MultiPolygon
 from BPG.compiler.manh_shapely import polyop_manh
@@ -61,9 +61,9 @@ def dataprep_coord_to_poly(
     polygon_out = polyop_manh(polygon_out, do_manh=True, manh_grid_size=manh_grid_size)
     return polygon_out
 
-def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon
-                     size_amount,   # type: float
-                     do_manh,       # type: bool
+def polyop_roughsize(polygon: Union[Polygon, MultiPolygon],
+                     size_amount: float,
+                     do_manh: bool
                      ):
 
     rough_grid_size = global_rough_grid_size
@@ -84,8 +84,8 @@ def polyop_roughsize(polygon,       # type: Polygon, MultiPolygon
     return polygon_roughsized
 
 
-def polyop_oversize(polygon,  # type: Polygon, MultiPolygon
-                    offset,  # type: float
+def polyop_oversize(polygon: Union[Polygon, MultiPolygon],
+                    offset: float
                     ):
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing undersize')
@@ -93,8 +93,8 @@ def polyop_oversize(polygon,  # type: Polygon, MultiPolygon
     return polygon_oversized
 
 
-def polyop_undersize(polygon,  # type: Polygon, MultiPolygon
-                     offset,  # type: float
+def polyop_undersize(polygon: Union[Polygon, MultiPolygon],
+                     offset: float
                      ):
     if offset < 0:
         print('Warning: offset = %f < 0 indicates you are doing oversize')
@@ -102,9 +102,9 @@ def polyop_undersize(polygon,  # type: Polygon, MultiPolygon
     return polygon_undersized
 
 
-def polyop_extend(polygon_toextend,  # type: Polygon, Multipolygon
-                  polygon_ref,  # type: Polygon, MultiPolygon
-                  extended_amount,  # type: float
+def polyop_extend(polygon_toextend: Union[Polygon, Multipolygon],
+                  polygon_ref: Union[Polygon, MultiPolygon],
+                  extended_amount: float
                   ):
     grid_size = global_grid_size
     extended_amount = grid_size * ceil(extended_amount / grid_size)
@@ -119,11 +119,11 @@ def polyop_extend(polygon_toextend,  # type: Polygon, Multipolygon
     return polygon_out
 
 
-def poly_operation(polygon1,  # type: Polygon, Multipolygon
-                   polygon2,  # type: Polygon, MultiPolygon, None
-                   operation,  # type: str
-                   size_amount,  # type: float
-                   debug_text=False,  # type: bool
+def poly_operation(polygon1: Union[Polygon, Multipolygon],
+                   polygon2: Optional[Union[Polygon, MultiPolygon]],
+                   operation: str,
+                   size_amount: float,
+                   debug_text: bool = False
                    ):
     # TODO: clean up the input polygons first
 

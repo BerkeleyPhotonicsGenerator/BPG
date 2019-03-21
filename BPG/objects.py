@@ -19,12 +19,12 @@ from bag.layout.util import transform_point, BBox, transform_table
 from BPG.geometry import Transformable2D
 from BPG.compiler.point_operations import coords_cleanup, create_polygon_from_path_and_width
 
-from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any
-from BPG.bpg_custom_types import dim_type, coord_type, layer_or_lpp_type
+from typing import TYPE_CHECKING, Union, List, Tuple, Optional, Dict, Any, cast
+from BPG.bpg_custom_types import dim_type, coord_type, lpp_type, layer_or_lpp_type
 
+from BPG.port import PhotonicPort
 if TYPE_CHECKING:
     from BPG.template import PhotonicTemplateBase
-    from BPG.port import PhotonicPort
     from bag.layout.objects import Figure
 
 # Load logger
@@ -62,41 +62,41 @@ class PhotonicInstance(Instance):
 
     Parameters
     ----------
-    parent_grid : RoutingGrid
+    parent_grid :
         the parent RoutingGrid object.
-    lib_name : str
+    lib_name :
         the layout library name.
-    master : TemplateBase
+    master :
         the master template of this instance.
-    loc : Tuple[Union[float, int], Union[float, int]]
+    loc :
         the origin of this instance.
-    orient : str
+    orient :
         the orientation of this instance.
-    name : Optional[str]
+    name :
         name of this instance.
-    nx : int
+    nx :
         number of columns.
-    ny : int
+    ny :
         number of rows.
-    spx : Union[float, int]
+    spx :
         column pitch.
-    spy : Union[float, int]
+    spy :
         row pitch.
-    unit_mode : bool
+    unit_mode :
         True if layout dimensions are specified in resolution units.
     """
 
     def __init__(self,
                  parent_grid: RoutingGrid,
                  lib_name: str,
-                 master,
+                 master: "PhotonicTemplateBase",
                  loc: coord_type,
                  orient: str,
-                 name: str = None,
+                 name: Optional[str] = None,
                  nx: int = 1,
                  ny: int = 1,
-                 spx: int = 0,
-                 spy: int = 0,
+                 spx: dim_type = 0,
+                 spy: dim_type = 0,
                  unit_mode: bool = False,
                  angle: float = 0,
                  mirrored: bool = False,
@@ -218,13 +218,15 @@ class PhotonicInstance(Instance):
         else:
             for port_name in port_iter:
                 port_copy: "PhotonicPort" = deepcopy(self._master.get_photonic_port(port_name))
-                self._photonic_port_list[port_name] = port_copy.mirror_rotate_translate(
+                xformed = port_copy.mirror_rotate_translate(
                     translation=self.location_unit,
                     rotation=self.angle,
                     mirror=self.mirrored,
                     force_cardinal=False,  # TODO: Need to determine what to do if force_cardinal is really true
                     unit_mode=True
                 )
+                assert isinstance(xformed, PhotonicPort), "should not change type"
+                self._photonic_port_list[port_name] = xformed
 
     def get_all_photonic_ports(self) -> Dict[str, "PhotonicPort"]:
         return self._photonic_port_list
@@ -425,14 +427,14 @@ class PhotonicRound(Arrayable):
                  spx: dim_type = 0,
                  spy: dim_type = 0,
                  unit_mode: bool = False,
-                 ):
+                 ) -> None:
         # python 2/3 compatibility: convert raw bytes to string.
         layer = bag.io.fix_string(layer)
         if isinstance(layer, str):
             layer = (layer, 'phot')
-        self._layer = layer[0], layer[1]
+        self._layer = layer[0], layer[1]  # type: lpp_type
 
-        self._res = resolution
+        self._res = resolution  # type: float
 
         if not unit_mode:
             self._rout_unit = int(round(rout / resolution))
@@ -443,14 +445,14 @@ class PhotonicRound(Arrayable):
             self._rin_unit = int(round(rin))
             self._center_unit = (int(round(center[0])), int(round(center[1])))
 
-        self._theta0 = theta0
-        self._theta1 = theta1
+        self._theta0 = theta0  # type: dim_type
+        self._theta1 = theta1  # type: dim_type
 
         Arrayable.__init__(self, self._res, nx=nx, ny=ny,
                            spx=spx, spy=spy, unit_mode=unit_mode)
 
     @classmethod
-    def from_content(cls, content, resolution):
+    def from_content(cls, content, resolution) -> "PhotonicRound":
         return PhotonicRound(
             layer=content['layer'],
             rout=content['rout'],
@@ -467,108 +469,108 @@ class PhotonicRound(Arrayable):
         )
 
     @property
-    def rout(self):
+    def rout(self) -> float:
         """The outer radius in layout units"""
         return self._rout_unit * self._res
-
-    @property
-    def rout_unit(self):
-        """The outer radius in resolution units"""
-        return self._rout_unit
 
     @rout.setter
     def rout(self,
              val: dim_type,
-             ):
+             ) -> None:
         """Sets the outer radius in layout units"""
         self._rout_unit = int(round(val / self._res))
+
+    @property
+    def rout_unit(self) -> int:
+        """The outer radius in resolution units"""
+        return self._rout_unit
 
     @rout_unit.setter
     def rout_unit(self,
                   val: int,
-                  ):
+                  ) -> None:
         """Sets the outer radius in resolution units"""
         self._rout_unit = int(round(val))
 
     @property
-    def center(self):
+    def center(self) -> Tuple[float, float]:
         """The center in layout units"""
         return self._center_unit[0] * self._res, self._center_unit[1] * self._res
-
-    @property
-    def center_unit(self):
-        """The center in resolution units"""
-        return self._center_unit
 
     @center.setter
     def center(self,
                val: coord_type,
-               ):
+               ) -> None:
         """Sets the center in layout units"""
         self._center_unit = (int(round(val[0] / self._res)), int(round(val[1] / self._res)))
+
+    @property
+    def center_unit(self) -> Tuple[int, int]:
+        """The center in resolution units"""
+        return self._center_unit
 
     @center_unit.setter
     def center_unit(self,
                     val: Tuple[int, int],
-                    ):
+                    ) -> None:
         """Sets the center in resolution units"""
         self._center_unit = (int(round(val[0])), int(round(val[1])))
 
     @property
-    def rin(self):
+    def rin(self) -> float:
         """The inner radius in layout units"""
         return self._rin_unit * self._res
-
-    @property
-    def rin_unit(self):
-        """The inner radius in resolution units"""
-        return self._rin_unit
 
     @rin.setter
     def rin(self,
             val: dim_type,
-            ):
+            ) -> None:
         """Sets the inner radius in layout units"""
         self._rin_unit = int(round(val / self._res))
+
+    @property
+    def rin_unit(self) -> int:
+        """The inner radius in resolution units"""
+        return self._rin_unit
 
     @rin_unit.setter
     def rin_unit(self,
                  val: int,
-                 ):
+                 ) -> None:
         """Sets the inner radius in resolution units"""
         self._rin_unit = int(round(val))
 
     @property
-    def theta0(self):
+    def theta0(self) -> dim_type:
         """The starting angle, in degrees"""
         return self._theta0
 
     @theta0.setter
     def theta0(self,
                val: dim_type,
-               ):
+               ) -> None:
         """Sets the start angle in degrees"""
         self._theta0 = val
 
     @property
-    def theta1(self):
+    def theta1(self) -> dim_type:
         """The ending angle, in degrees"""
         return self._theta1
 
     @theta1.setter
     def theta1(self,
                val: dim_type,
-               ):
+               ) -> None:
         """Sets the start angle in degrees"""
         self._theta1 = val
 
     @property
-    def layer(self):
+    def layer(self) -> lpp_type:
         """The rectangle (layer, purpose) pair."""
         return self._layer
 
     @layer.setter
-    def layer(self, val):
+    def layer(self, val: lpp_type) -> None:
         """Sets the rectangle layer."""
         self.check_destroyed()
         # python 2/3 compatibility: convert raw bytes to string.
@@ -611,7 +613,7 @@ class PhotonicRound(Arrayable):
                 dx: dim_type = 0,
                 dy: dim_type = 0,
                 unit_mode: bool = False,
-                ):
+                ) -> None:
         """Moves the round object"""
         if unit_mode:
             self.center_unit = (self.center_unit[0] + int(round(dx)), self.center_unit[1] + int(round(dy)))
@@ -688,7 +690,7 @@ class PhotonicRound(Arrayable):
                                  spx: dim_type = 0.0,
                                  spy: dim_type = 0.0,
                                  resolution: float = 0.001,
-                                 ):
+                                 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
         # Get the base polygons
         round_polygons = gdspy.Round(center=center,
                                      layer=0,
@@ -700,8 +702,8 @@ class PhotonicRound(Arrayable):
                                      max_points=sys.maxsize,
                                      datatype=0).polygons
 
-        output_list_p = []
-        output_list_n = []
+        output_list_p: List[np.ndarray] = []
+        output_list_n: List[np.ndarray] = []
         for x_count in range(nx):
             for y_count in range(ny):
                 for polygon in round_polygons:
@@ -815,7 +817,7 @@ class PhotonicRect(Rect):
 
     @classmethod
     def polygon_pointlist_export(cls,
-                                 bbox: [[int, int], [int, int]],
+                                 bbox: Tuple[Tuple[int, int], Tuple[int, int]],
                                  nx: int = 1,
                                  ny: int = 1,
                                  spx: dim_type = 0.0,
@@ -826,7 +828,7 @@ class PhotonicRect(Rect):
 
         Parameters
         ----------
-        bbox : [[float, float], [float, float]]
+        bbox :
             lower left and upper right corner xy coordinates
         nx : int
             number of arrayed rectangles in the x-direction
@@ -853,8 +855,8 @@ class PhotonicRect(Rect):
         y_base = bbox[0][1]  # type: int
 
         # Write the lumerical code for each rectangle in the array
-        output_list_p = []
-        output_list_n = []
+        output_list_p: List[np.ndarray] = []
+        output_list_n: List[np.ndarray] = []
         for x_count in range(nx):
             for y_count in range(ny):
                 polygon_list = [(x_base + x_count * spx, y_base + y_count * spy),
@@ -1218,7 +1220,7 @@ class PhotonicPolygon(Figure):
                  layer: layer_or_lpp_type,
                  points: List[coord_type],
                  unit_mode: bool = False,
-                 ):
+                 ) -> None:
         Figure.__init__(self, resolution)
         layer = bag.io.fix_string(layer)
         if isinstance(layer, str):
@@ -1266,7 +1268,11 @@ class PhotonicPolygon(Figure):
             unit_mode=False,
         )
 
-    def move_by(self, dx=0, dy=0, unit_mode=False):
+    def move_by(self,
+                dx: dim_type = 0,
+                dy: dim_type = 0,
+                unit_mode: bool = False,
+                ) -> None:
         if unit_mode:
             dx = dx * self._res
             dy = dy * self._res
@@ -1327,14 +1333,16 @@ class PhotonicAdvancedPolygon(Polygon):
 
     Parameters
     ----------
-    resolution : float
+    resolution :
         the layout grid resolution.
-    layer : Union[str, Tuple[str, str]]
+    layer :
         the layer name, or a tuple of layer name and purpose name.
         If purpose name not given, defaults to 'drawing'.
-    points : List[Tuple[Union[float, int], Union[float, int]]]
+    points :
         the points defining the polygon.
-    unit_mode : bool
+    negative_points :
+        list of points defining holes in the polygon.
+    unit_mode :
         True if the points are given in resolution units.
     """
 
@@ -1342,18 +1350,24 @@ class PhotonicAdvancedPolygon(Polygon):
                  resolution: float,
                  layer: layer_or_lpp_type,
                  points: List[coord_type],
-                 negative_points: Union[List[coord_type], List[List[coord_type]]],
+                 negative_points: Optional[Union[List[coord_type], List[List[coord_type]]]],
                  unit_mode: bool = False,
-                 ):
+                 ) -> None:
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
-        if not negative_points:
-            self._negative_points = []
-        elif isinstance(negative_points[0], List):
-            self._negative_points = negative_points
+        self._negative_points: List[List[coord_type]] = []
+        if negative_points is None:
+            pass
+        elif isinstance(negative_points, list):
+            if len(negative_points) == 0:
+                pass
+            elif isinstance(negative_points[0], list):
+                self._negative_points = cast(List[List[coord_type]], negative_points)
+            else:
+                self._negative_points = [cast(List[coord_type], negative_points)]
         else:
-            self._negative_points = [negative_points]
+            raise TypeError("negative_points is not of the right type: got {}".format(negative_points))
 
 
 class PhotonicBlockage(Blockage):
@@ -1376,8 +1390,7 @@ class PhotonicBlockage(Blockage):
         True if the points are given in resolution units.
     """
 
-    def __init__(self, resolution, block_type, block_layer, points, unit_mode=False):
-        # type: (float, str, str, List[Tuple[Union[float, int], Union[float, int]]], bool) -> None
+    def __init__(self, resolution: float, block_type: str, block_layer: str, points: List[Tuple[Union[float, int], Union[float, int]]], unit_mode: bool = False) -> None:
         Blockage.__init__(self, resolution, block_type, block_layer, points, unit_mode)
 
     @classmethod

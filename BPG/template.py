@@ -35,14 +35,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  params: Dict[str, Any],
                  used_names: Set[str],
                  **kwargs,
-                 ):
-        use_cybagoa = kwargs.get('use_cybagoa', False)
+                 ) -> None:
+        use_cybagoa: bool = kwargs.get('use_cybagoa', False)
+        assert isinstance(use_cybagoa, bool)
 
         TemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
         logging.debug(f'Initializing master {self.__class__.__name__}')
-        self._photonic_ports = {}
-        self._advanced_polygons = {}
+        self._photonic_ports: Dict[str, PhotonicPort] = {}
         self._layout = PhotonicBagLayout(self._grid, use_cybagoa=use_cybagoa)
+        if temp_db.photonic_tech_info is None:
+            raise ValueError("temp_db.photonic_tech_info was None")
         self.photonic_tech_info: 'PhotonicTechInfo' = temp_db.photonic_tech_info
 
         # Feature flag that when False, prevents users from creating rotated masters that contain other
@@ -158,7 +160,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def add_polygon(self,
                     layer: layer_or_lpp_type = None,
                     points: List[coord_type] = None,
-                    resolution: float = None,
+                    resolution: Optional[float] = None,
                     unit_mode: bool = False,
                     ) -> PhotonicPolygon:
         """
@@ -186,6 +188,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         if resolution is None:
             resolution = self.grid.resolution
+            assert isinstance(resolution, float)
 
         polygon = PhotonicPolygon(
             resolution=resolution,
@@ -255,50 +258,51 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         self.prim_bound_box = self._layout.bound_box
 
     def add_photonic_port(self,
-                          name: str = None,
-                          center: coord_type = None,
-                          orient: str = None,
-                          angle: float = 0.0,
-                          width: dim_type = None,
-                          layer: layer_or_lpp_type = None,
+                          name: Optional[str] = None,
+                          center: Optional[coord_type] = None,
+                          orient: Optional[str] = None,
+                          angle: Optional[float] = 0.0,
+                          width: Optional[dim_type] = None,
+                          layer: Optional[layer_or_lpp_type] = None,
                           overwrite_purpose: bool = False,
-                          resolution: float = None,
+                          resolution: Optional[float] = None,
                           unit_mode: bool = False,
-                          port: PhotonicPort = None,
+                          port: Optional[PhotonicPort] = None,
                           overwrite: bool = False,
                           show: bool = True
                           ) -> PhotonicPort:
         """
-        Adds a photonic port to the current hierarchy. A PhotonicPort object can be passed, or will be constructed
-        if the proper arguments are passed to this function.
+        Add a photonic port to the current hierarchy. A PhotonicPort
+        object can be passed, or will be constructed if the proper
+        arguments are passed to this function.
 
         Parameters
         ----------
-        name : str
+        name :
             name to give the new port
-        center : coord_type
+        center :
             (x, y) location of the port
-        orient : str
+        orient :
             orientation pointing INTO the port
-        angle : float
+        angle :
             angle of a unit vector pointing into the port. This is used in combination with orient to place the port
-        width : dim_type
+        width :
             the port width
-        layer : Union[str, Tuple[str, str]]
+        layer :
             the layer on which the port should be added. If only a string, the purpose is defaulted to 'port'
-        overwrite_purpose : bool
+        overwrite_purpose :
             True to overwrite the 'port' purpose if an LPP is passed. If False (default), the purpose of a passed LPP
             is stripped away and the 'port' purpose is used.
-        resolution : Union[float, int]
+        resolution :
             the grid resolution
-        unit_mode : bool
+        unit_mode :
             True if layout dimensions are specified in resolution units
-        port : Optional[PhotonicPort]
+        port :
             the PhotonicPort object to add. This argument can be provided in lieu of all the others.
-        overwrite : bool
+        overwrite :
             True to add the port with the specified name even if another port with that name already exists in this
             level of the design hierarchy.
-        show : bool
+        show :
             True to draw the port indicator shape
 
         Returns
@@ -310,8 +314,22 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         # TODO: Remove force append?
         # Create a temporary port object unless one is passed as an argument
         if port is None:
+            if layer is None:
+                raise TypeError("layer is required when creating a port")
+            if name is None:
+                raise TypeError("name is required when creating a port")
+            if center is None:
+                raise TypeError("center is required when creating a port")
+            if orient is None:
+                raise TypeError("orient is required when creating a port")
+            if width is None:
+                raise TypeError("width is required when creating a port")
+            if angle is None:
+                raise TypeError("angle is required when creating a port")
+
             if resolution is None:
                 resolution = self.grid.resolution
+                assert isinstance(resolution, float)
 
             if overwrite_purpose:
                 if isinstance(layer, str):
@@ -360,17 +378,17 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         if show is True:
             # Draw port shape
-            center = port.center_unit
+            center_vec = port.center_unit
             orient_vec = np.array(port.width_vec_unit)
             perp_vec = np.array([-1 * orient_vec[1], orient_vec[0]])
 
             self.add_polygon(
                 layer=port.layer,
-                points=[center,
-                        center + orient_vec / 2 + perp_vec / 2,
-                        center + 2 * orient_vec,
-                        center + orient_vec / 2 - perp_vec / 2,
-                        center],
+                points=[center_vec,
+                        center_vec + orient_vec / 2 + perp_vec / 2,
+                        center_vec + 2 * orient_vec,
+                        center_vec + orient_vec / 2 - perp_vec / 2,
+                        center_vec],
                 resolution=port.resolution,
                 unit_mode=True,
             )
@@ -397,7 +415,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def get_photonic_port(self,
                           port_name: Optional[str] = '',
                           ) -> PhotonicPort:
-        """ Returns the photonic port object with the given name
+        """ Return the photonic port object with the given name.
 
         Parameters
         ----------
@@ -410,16 +428,18 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         port : PhotonicPort
             The photonic port object
         """
-        if not self.has_photonic_port(port_name):
-            raise ValueError('Port "{}" does not exist in {}'.format(port_name, self.__class__.__name__))
-
         if not port_name:
-            if len(self._photonic_ports) != 1:
+            if len(self._photonic_ports) == 1:
+                port_name = list(self._photonic_ports.keys())[0]
+            else:
                 raise ValueError(
                     'Template "{}" has {} ports != 1. Must get port by name.'.format(self.__class__.__name__,
                                                                                      len(self._photonic_ports)
                                                                                      )
                 )
+        else:
+            if not self.has_photonic_port(port_name):
+                raise ValueError('Port "{}" does not exist in {}'.format(port_name, self.__class__.__name__))
         return self._photonic_ports[port_name]
 
     def add_instance(self: "PhotonicTemplateBase",
@@ -439,28 +459,28 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         Parameters
         ----------
-        master : TemplateBase
+        master :
             the master template object.
-        inst_name : Optional[str]
+        inst_name :
             instance name.  If None or an instance with this name already exists,
             a generated unique name is used.
-        loc : Tuple[Union[float, int], Union[float, int]]
+        loc :
             instance location.
-        orient : str
+        orient :
             instance orientation.  Defaults to "R0"
-        angle : float
+        angle :
             angle in radians to rotate this instance
-        reflect : bool
+        reflect :
             True to mirror reflect the instance
-        nx : int
+        nx :
             number of columns.  Must be positive integer.
-        ny : int
+        ny :
             number of rows.  Must be positive integer.
-        spx : Union[float, int]
+        spx :
             column pitch.  Used for arraying given instance.
-        spy : Union[float, int]
+        spy :
             row pitch.  Used for arraying given instance.
-        unit_mode : bool
+        unit_mode :
             True if dimensions are given in resolution units.
 
         Returns
@@ -671,7 +691,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         show : bool
         """
         if port_names is None:
-            port_names = inst.master.photonic_ports_names_iter()
+            port_names = list(inst.master.photonic_ports_names_iter())
 
         if isinstance(port_names, str):
             port_names = [port_names]

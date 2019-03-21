@@ -4,7 +4,7 @@ import logging
 from copy import deepcopy
 from .code_generator import LumericalSweepGenerator
 
-from typing import Dict, List
+from typing import Dict, List, Optional
 from BPG.bpg_custom_types import *
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,7 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
     operations, like closed loop optimization.
     """
 
-    def __init__(self, spec_file: str, bag_config_path: str = None, port: int = None):
+    def __init__(self, spec_file: str, bag_config_path: Optional[str] = None, port: Optional[int] = None) -> None:
         BPG.PhotonicLayoutManager.__init__(self, spec_file, bag_config_path, port)
         self.design_list: List = []
         self.base_tb_class = None

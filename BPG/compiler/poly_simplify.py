@@ -40,8 +40,7 @@ def coord_to_shapely(
     return polygon_out
 
 
-def shapely_to_gdspy_polygon(polygon_shapely,  # type: Polygon
-                             ):
+def shapely_to_gdspy_polygon(polygon_shapely: Polygon) -> gdspy.Polygon:
     if not isinstance(polygon_shapely, Polygon):
         raise ValueError("input must be a Shapely Polygon")
     else:
@@ -61,8 +60,7 @@ def shapely_to_gdspy_polygon(polygon_shapely,  # type: Polygon
         return polygon_gdspy
 
 
-def shapely_to_gdspy(geom_shapely,  # type: Polygon, MultiPolygon
-                     ):
+def shapely_to_gdspy(geom_shapely: Union[Polygon, MultiPolygon]) -> gdspy.Polygon:
     if isinstance(geom_shapely, Polygon):
         return shapely_to_gdspy_polygon(geom_shapely)
     elif isinstance(geom_shapely, MultiPolygon):
@@ -77,7 +75,7 @@ def shapely_to_gdspy(geom_shapely,  # type: Polygon, MultiPolygon
 
         return polygon_gdspy
     else:
-        raise ValueError("input must be a Shapely Polygon or a Shapely MultiPolygon")
+        raise TypeError("input must be a Shapely Polygon or a Shapely MultiPolygon")
 
 
 def simplify_coord_to_gdspy(

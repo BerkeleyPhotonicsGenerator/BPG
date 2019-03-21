@@ -149,9 +149,9 @@ class FDESolver(LumericalSimObj):
     ''' USE THESE METHODS TO SETUP THE SIMULATION '''
 
     def align_to_port(self,
-                      port,  # type: PhotonicPort
-                      offset=(0, 0),  # type: Tuple,
-                      align_orient=True  # type: bool
+                      port: PhotonicPort,
+                      offset: Tuple[Any, Any] = (0, 0),
+                      align_orient: bool = True
                       ):
         """
         Moves the center of the simulation object to align to the provided photonic port.

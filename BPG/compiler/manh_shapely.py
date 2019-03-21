@@ -147,20 +147,20 @@ def manh_skill(poly_coords,     # type: List[Tuple[float, float]]
 
     # Snapping original coordinates to manhattan grid (by rounding)
 
-    def apprx_equal(float1,  # type: float
-                    float2,  # type: float
-                    eps_grid=1e-9  # type: float
+    def apprx_equal(float1: float,
+                    float2: float,
+                    eps_grid: float = 1e-9
                     ):
         return abs(float1 - float2) < eps_grid
 
-    def apprx_equal_coord(coord1,  # type: Tuple(float, float)
-                          coord2,  # type: Tuple(float, float)
-                          eps_grid=1e-9  # type: float
+    def apprx_equal_coord(coord1: Tuple[float, float],
+                          coord2: Tuple[float, float],
+                          eps_grid: float = 1e-9
                           ):
         return apprx_equal(coord1[0], coord2[0], eps_grid) and (apprx_equal(coord1[1], coord2[0], eps_grid))
 
     # map the coordinates to the manh grid
-    poly_coords_manhgrid = []
+    poly_coords_manhgrid = []  # type: List[Tuple[float, float]]
     for coord in poly_coords:
         xcoord_manhgrid = manh_grid_size * round(coord[0] / manh_grid_size)
         ycoord_manhgrid = manh_grid_size * round(coord[1] / manh_grid_size)
@@ -176,8 +176,8 @@ def manh_skill(poly_coords,     # type: List[Tuple[float, float]]
     elif (manh_type == 'inc') or (manh_type == 'dec'):
         # Determining the coordinate of a point which is likely to be inside the convex envelope of the polygon
         # (a kind of "center-of-mass")
-        xcoord_sum = 0
-        ycoord_sum = 0
+        xcoord_sum = 0.0  # type: float
+        ycoord_sum = 0.0  # type: float
         for coord_manhgrid in poly_coords_manhgrid:
             xcoord_sum = xcoord_sum + coord_manhgrid[0]
             ycoord_sum = ycoord_sum + coord_manhgrid[1]
