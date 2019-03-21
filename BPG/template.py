@@ -232,17 +232,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                  width: dim_type,
                  points: List[coord_type],
                  resolution: float,
-                 end_style: str = 'truncate',
-                 join_style: str = 'extend',
                  unit_mode: bool = False,
                  ) -> PhotonicPath:
-        """ Creates a PhotonicPath object based on the provided arguments and adds it to the db """
+        """
+        Create a PhotonicPath object based on the provided arguments
+        and add it to the db.
+        """
         new_path = PhotonicPath(layer=layer,
                                 width=width,
                                 points=points,
                                 resolution=resolution,
-                                end_style=end_style,
-                                join_style=join_style,
                                 unit_mode=unit_mode)
         self._layout.add_path(new_path)
         return new_path
