@@ -60,42 +60,42 @@ class PhotonicInstance(Instance):
 
     Parameters
     ----------
-    parent_grid : RoutingGrid
+    parent_grid :
         the parent RoutingGrid object.
-    lib_name : str
+    lib_name :
         the layout library name.
-    master : TemplateBase
+    master :
         the master template of this instance.
-    loc : Tuple[Union[float, int], Union[float, int]]
+    loc :
         the origin of this instance.
-    orient : str
+    orient :
         the orientation of this instance.
-    name : Optional[str]
+    name :
         name of this instance.
-    nx : int
+    nx :
         number of columns.
-    ny : int
+    ny :
         number of rows.
-    spx : Union[float, int]
+    spx :
         column pitch.
-    spy : Union[float, int]
+    spy :
         row pitch.
-    unit_mode : bool
+    unit_mode :
         True if layout dimensions are specified in resolution units.
     """
 
     def __init__(self,
                  parent_grid: RoutingGrid,
                  lib_name: str,
-                 master,
+                 master: "PhotonicTemplateBase",
                  loc: coord_type,
                  orient: str,
-                 name: str=None,
-                 nx: int=1,
-                 ny: int=1,
-                 spx: int=0,
-                 spy: int=0,
-                 unit_mode: bool=False,
+                 name: Optional[str] = None,
+                 nx: int = 1,
+                 ny: int = 1,
+                 spx: dim_type = 0,
+                 spy: dim_type = 0,
+                 unit_mode: bool = False,
                  ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
                           name, nx, ny, spx, spy, unit_mode)
@@ -530,8 +530,7 @@ class PhotonicRound(Arrayable):
                    ny=1,  # type: int
                    spx=0.0,  # type: dim_type
                    spy=0.0,  # type: dim_type
-                   ):
-        # type: (...) -> List(str)
+                   ) -> List[str]:
         """
 
         Parameters
@@ -839,15 +838,14 @@ class PhotonicPath(Figure):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 width,  # type: Union[int, float]
-                 points,  # type: List[Tuple[Union[int, float], Union[int, float]]]
-                 end_style='truncate',  # type: str
-                 join_style='extend',  # type: str
-                 unit_mode=False,  # type: bool
-                 ):
-        # type (...) -> None
+                 resolution: float,
+                 layer: Union[str, Tuple[str, str]],
+                 width: Union[int, float],
+                 points: List[Tuple[Union[int, float], Union[int, float]]],
+                 end_style: str = 'truncate',
+                 join_style: str = 'extend',
+                 unit_mode: bool = False,
+                 ) -> None:
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Figure.__init__(self, resolution)
@@ -876,11 +874,11 @@ class PhotonicPath(Figure):
         self._lower_unit = np.array(lower_unit, dtype=int)
 
     def process_points(self,
-                       pts,
-                       width,  # type: int
-                       eps=0.00001,  # type: float
-                       unit_mode=False,  # type: bool
-                       ):
+                       pts: List[Tuple[Union[int, float], Union[int, float]]],
+                       width: int,
+                       eps: float = 0.00001,
+                       unit_mode: bool = False
+                       ) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]:
         """
 
 
@@ -898,7 +896,6 @@ class PhotonicPath(Figure):
         """
 
         # TODO: add points at end and beginning to make sure path ends are vertical/horizontal
-        # type: (...) -> Tuple[List[Tuple[int, int]], List[Tuple[int, int]], List[Tuple[int, int]]]
         pts_center = []
 
         if unit_mode:
@@ -1246,11 +1243,11 @@ class PhotonicPolygon(Polygon):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
-                 unit_mode=False,  # type: bool
-                 ):
+                 resolution: float,
+                 layer: Union[str, Tuple[str, str]],
+                 points: List[Tuple[Union[float, int], Union[float, int]]],
+                 unit_mode: bool = False
+                 ) -> None:
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)
@@ -1350,12 +1347,12 @@ class PhotonicAdvancedPolygon(Polygon):
     """
 
     def __init__(self,
-                 resolution,  # type: float
-                 layer,  # type: Union[str, Tuple[str, str]]
-                 points,  # type: List[Tuple[Union[float, int], Union[float, int]]]
-                 negative_points,  # type: Union[List[coord_type], List[List[coord_type]]]
-                 unit_mode=False,  # type: bool
-                 ):
+                 resolution: float,
+                 layer: Union[str, Tuple[str, str]],
+                 points: List[Tuple[Union[float, int], Union[float, int]]],
+                 negative_points: Union[List[coord_type], List[List[coord_type]]],
+                 unit_mode: bool = False
+                 ) -> None:
         if isinstance(layer, str):
             layer = (layer, 'phot')
         Polygon.__init__(self, resolution, layer, points, unit_mode)

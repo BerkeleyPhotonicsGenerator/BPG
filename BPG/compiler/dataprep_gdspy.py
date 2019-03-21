@@ -45,7 +45,7 @@ class Dataprep:
                  content_list_flat: "ContentList",
                  is_lsf: bool = False,
                  impl_cell=None,
-                 ):
+                 ) -> None:
         """
 
         Parameters

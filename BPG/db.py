@@ -35,7 +35,7 @@ class PhotonicTemplateDB(TemplateDB):
                  gds_lay_file: str = '',
                  photonic_tech_info: 'PhotonicTechInfo' = None,
                  **kwargs,
-                 ):
+                 ) -> None:
         TemplateDB.__init__(self,
                             lib_defs=lib_defs,
                             routing_grid=routing_grid,

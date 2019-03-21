@@ -19,7 +19,7 @@ from bag.layout.core import BagLayout
 from BPG.content_list import ContentList
 from BPG.geometry import BBoxMut
 
-from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict, Optional
 from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
 
 # Typing imports
@@ -51,7 +51,7 @@ class PhotonicBagProject(BagProject):
         the BAG server process port number.  If not given, will read from port file.
     """
 
-    def __init__(self, bag_config_path=None, port=None):
+    def __init__(self, bag_config_path: Optional[str] = None, port: Optional[int] = None) -> None:
         BagProject.__init__(self, bag_config_path, port)
 
         # Init empty path variables to be set by user spec file

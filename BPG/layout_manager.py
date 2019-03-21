@@ -17,7 +17,7 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
@@ -34,9 +34,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
     def __init__(self,
                  spec_file: str,
-                 bag_config_path: str = None,
-                 port: int = None,
-                 ):
+                 bag_config_path: Optional[str] = None,
+                 port: Optional[int] = None,
+                 ) -> None:
         """
         Parameters
         ----------
