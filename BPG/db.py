@@ -13,7 +13,12 @@ from .content_list import ContentList
 
 # Plugin Imports
 from .compiler.dataprep_gdspy import Dataprep
-from .compiler.dataprep_calibre import DataprepCalibre
+
+# try to import advanced dataprep plugin
+try:
+    from DataprepPlugin.Calibre.dataprep_calibre import DataprepCalibre
+except ImportError:
+    DataprepCalibre = None
 
 # Typing Imports
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, List, Tuple
@@ -95,6 +100,10 @@ class PhotonicTemplateDB(TemplateDB):
                          file_in: str = None,
                          file_out: str = None,
                          ):
+        if DataprepCalibre is None:
+            raise RuntimeError(f'Calibre dataprep module has not been added. Contact developers to see if access to ' 
+                               f'advanced dataprep routines can be provided.')
+
         logging.info(f'In PhotonicTemplateDB.dataprep_calibre with is_lsf set to {is_lsf}')
         dataprep_object = DataprepCalibre(photonic_tech_info=self.photonic_tech_info,
                                           grid=self.grid,
@@ -104,7 +113,7 @@ class PhotonicTemplateDB(TemplateDB):
                                           file_in=file_in,
                                           file_out=file_out,
                                           )
-        dataprep_object.dataprep()
+        return dataprep_object.dataprep()
 
     def generate_content_list(self,
                               master_list: Sequence["DesignMaster"],

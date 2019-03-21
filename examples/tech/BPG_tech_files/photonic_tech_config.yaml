@@ -15,6 +15,10 @@ dataprep_parameters_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/
 # build in method
 dataprep_skill_path: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_skill.il"
 
+# Calibre based dataprep runset. Optional.
+dataprep_calibre_runset_template: "${BAG_WORK_DIR}/DataprepPlugin/Calibre/dataprep_runset_template.runset"
+
+
 # Lumerical dataprep file and mapping
 lsf_dataprep_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/lumerical_map.yaml"
 

@@ -19,6 +19,11 @@ from .lumerical.core import LumericalPlugin
 
 from typing import TYPE_CHECKING, List, Optional
 
+try:
+    from DataprepPlugin.Calibre.calibre import CalibreDataprep
+except ImportError:
+    CalibreDataprep = None
+
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
     from BPG.content_list import ContentList
@@ -276,7 +281,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
-    def dataprep_calibre(self):
+    def dataprep_calibre(self, run_dataprep=True):
         """
         Performs dataprep on the design
         """
@@ -286,12 +291,40 @@ class PhotonicLayoutManager(PhotonicBagProject):
         #     raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
 
         start = time.time()
-        self.template_plugin.dataprep_calibre(
+
+        file_in = self.gds_path + '_flat.gds'
+        file_out = self.gds_path + '_dataprep_calibre.gds'
+
+        self.calibre_rules_content = self.template_plugin.dataprep_calibre(
             is_lsf=False,
             calibre_outfile_path=str(self.data_dir / 'calibre_dataprep.cal'),
-            file_in=self.gds_path + '_flat.gds',
-            file_out=self.gds_path + '_dataprep_calibre.gds',
+            file_in=file_in,
+            file_out=file_out,
         )
+
+        calibre_runset_template = self.photonic_tech_info.calibre_dataprep_runset_template
+
+        calibre_run_object = CalibreDataprep(output_dir=str(self.data_dir),
+                                             dataprep_runset_template=calibre_runset_template,
+                                             dataprep_rules=self.calibre_rules_content,
+                                             file_in=file_in,
+                                             file_out=file_out,
+                                             )
+
+        if run_dataprep:
+            # Batch call Calibre to run dataprep
+            logging.info(f'Calling Async Dataprep in Calibre')
+            dataprep_passed, dataprep_errors, dataprep_log = calibre_run_object.run_dataprep()
+
+            logging.info(f'Asyc Dataprep call completed.')
+            logging.info(f'Calibre run log: {dataprep_log}')
+            if (not dataprep_passed) or dataprep_errors:
+                logging.info(f'WARNING: Calibre did not complete or had errors when running. Please consult the log.')
+        else:
+            # Only create the runset, dont call calibre
+            calibre_run_object.setup_drc_flow()
+            logging.info(f'Generated Calibre SVRF rules for dataprep. Did not run Calibre to produce a GDS.')
+
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep_calibre')
 
