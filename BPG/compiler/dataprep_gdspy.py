@@ -1490,10 +1490,11 @@ class Dataprep:
         # TODO: Replace the below code by having polyop_gdspy_to_point_list directly draw the gds... ?
         # TODO: IE, implement direct GDS export from dataprep to avoid going back to contentlist land
         for layer, gdspy_polygons in self.flat_gdspy_polygonsets_by_layer.items():
+            logging.info('Performing gdspy to point list conversion on {layer}')
             start = time.time()
             # Convert gdspy polygonset to list of pointlists
             output_shapes = self.polyop_gdspy_to_point_list(gdspy_polygons,
-                                                            fracture=True,
+                                                            fracture=False,
                                                             do_manh=self.GLOBAL_DO_FINAL_MANH,
                                                             manh_grid_size=self.grid.resolution,
                                                             )

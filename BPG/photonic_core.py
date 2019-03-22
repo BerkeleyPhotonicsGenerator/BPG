@@ -654,6 +654,11 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             root_path + 'BPG/BPG/dataprep_skill.il'
         )
 
+        self.calibre_dataprep_runset_template = self.photonic_tech_params.get(
+            'dataprep_calibre_runset_template',
+            None
+        )
+
         self.layer_map = None
         self.via_info = None
         self.lsf_export_parameters = None
