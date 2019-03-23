@@ -29,7 +29,7 @@ def check_environment():
             print(f'Environment variable {var} not set.\nDescription:{description}')
 
 
-__version__ = '0.7.2'
+__version__ = '0.7.4'
 print(f'Loaded BPG v{__version__}')
 check_environment()
 setup_environment()

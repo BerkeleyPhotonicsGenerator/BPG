@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime
-
+import atexit
+import sys
 
 def setup_logger(log_path: str,
                  log_filename: str = 'bpg.log',
@@ -100,3 +101,32 @@ def setup_logger(log_path: str,
     timing_logger.info('################################################################################')
 
     timing_logger.propagate = True
+
+
+    """
+    Adding an end-of-execution summary message that indicates how many errors / warnings were generated during the run.
+    """
+    try:
+        def exit_register(fun, *args, **kwargs):
+            """ Decorator that registers at post_execute. After its execution it
+            unregisters itself for subsequent runs. """
+            def callback():
+                fun()
+                ip.events.unregister('post_execute', callback)
+            ip.events.register('post_execute', callback)
+        ip = get_ipython()
+    except NameError:
+        from atexit import register as exit_register
+
+
+    @exit_register
+    def callback():
+        warnings = 0
+        with open(log_path + '/' + log_filename, 'r') as f:
+            for line in f:
+                if 'WARNING' in line:
+                    warnings += 1
+        print(f'\n\n\n\n\n'
+              f'{"BPG call completed":-^80}\n'
+              f'Ran with {warnings} warnings.\n'
+              f'See {log_path}/{log_filename} for details.\n\n')
