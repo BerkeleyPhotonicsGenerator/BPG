@@ -5,6 +5,7 @@ import time
 import json
 from pathlib import Path
 from collections import UserDict
+import os
 
 # BAG imports
 from bag.layout import RoutingGrid
@@ -281,7 +282,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
-    def dataprep_calibre(self, run_dataprep=True):
+    def dataprep_calibre(self,
+                         run_dataprep=True,
+                         file_in=None,
+                         file_out=None,
+                         ):
         """
         Performs dataprep on the design
         """
@@ -292,8 +297,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         start = time.time()
 
-        file_in = self.gds_path + '_flat.gds'
-        file_out = self.gds_path + '_dataprep_calibre.gds'
+        if file_in:
+            file_in = os.path.abspath(file_in)
+        else:
+            file_in = self.gds_path + '_flat.gds'
+        if file_out:
+            file_out = os.path.abspath(file_out)
+        else:
+            file_out = self.gds_path + '_dataprep_calibre.gds'
 
         self.calibre_rules_content = self.template_plugin.dataprep_calibre(
             is_lsf=False,
@@ -319,7 +330,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
             logging.info(f'Asyc Dataprep call completed.')
             logging.info(f'Calibre run log: {dataprep_log}')
             if (not dataprep_passed) or dataprep_errors:
-                logging.info(f'WARNING: Calibre did not complete or had errors when running. Please consult the log.')
+                logging.error(f'ERROR: Calibre did not complete or had errors when running. Please consult the log.')
         else:
             # Only create the runset, dont call calibre
             calibre_run_object.setup_drc_flow()

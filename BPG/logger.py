@@ -121,12 +121,17 @@ def setup_logger(log_path: str,
 
     @exit_register
     def callback():
+        errors = 0
         warnings = 0
         with open(log_path + '/' + log_filename, 'r') as f:
             for line in f:
                 if 'WARNING' in line:
                     warnings += 1
+                if 'ERROR' in line:
+                    errors += 1
         print(f'\n\n\n\n\n'
               f'{"BPG call completed":-^80}\n'
               f'Ran with {warnings} warnings.\n'
-              f'See {log_path}/{log_filename} for details.\n\n')
+              f'{f"Ran with {errors} errors." if errors else ""}'
+              f'\nSee {log_path}/{log_filename} for details.\n\n'
+              )
