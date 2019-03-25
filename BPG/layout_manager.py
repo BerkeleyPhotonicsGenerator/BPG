@@ -306,20 +306,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
         else:
             file_out = self.gds_path + '_dataprep_calibre.gds'
 
-        self.calibre_rules_content = self.template_plugin.dataprep_calibre(
-            is_lsf=False,
-            calibre_outfile_path=str(self.data_dir / 'calibre_dataprep.cal'),
-            file_in=file_in,
-            file_out=file_out,
-        )
-
-        calibre_runset_template = self.photonic_tech_info.calibre_dataprep_runset_template
-
         calibre_run_object = CalibreDataprep(output_dir=str(self.data_dir),
-                                             dataprep_runset_template=calibre_runset_template,
-                                             dataprep_rules=self.calibre_rules_content,
                                              file_in=file_in,
                                              file_out=file_out,
+                                             photonic_tech_info=self.photonic_tech_info,
+                                             grid=self.template_plugin.grid
                                              )
 
         if run_dataprep:
