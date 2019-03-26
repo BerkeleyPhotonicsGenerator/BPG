@@ -47,7 +47,7 @@ class GDSPlugin(AbstractPlugin):
 
         # TODO: fix
         out_fname = self.gds_filepath + f'{name_append}.gds'
-        gds_lib = gdspy.GdsLibrary(name=self.lib_name)
+        gds_lib = gdspy.GdsLibrary(name=self.lib_name, unit=lay_unit, precision=res * lay_unit)
         cell_dict = gds_lib.cell_dict
         logging.info(f'Instantiating gds layout')
 
@@ -168,7 +168,7 @@ class GDSPlugin(AbstractPlugin):
                                             layer=lay_id, datatype=purp_id)
                     gds_cell.add(cur_round)
 
-        gds_lib.write_gds(out_fname, unit=lay_unit, precision=res * lay_unit)
+        gds_lib.write_gds(out_fname)
 
         end = time.time()
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
