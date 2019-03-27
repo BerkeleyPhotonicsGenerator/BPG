@@ -51,7 +51,7 @@ class GDSImport(PhotonicTemplateBase):
 
         # Import the GDS from the file
         gds_lib = gdspy.GdsLibrary()
-        gds_lib.read_gds(infile=gds_filepath,)# units='convert')
+        gds_lib.read_gds(infile=gds_filepath, units='convert')
 
         # Get the top cell in the GDS and flatten its contents
         top_cell = gds_lib.top_level()
