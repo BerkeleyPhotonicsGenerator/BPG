@@ -19,7 +19,7 @@ from bag.layout.core import BagLayout
 from BPG.content_list import ContentList
 from BPG.geometry import BBoxMut
 
-from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict, Optional
+from typing import TYPE_CHECKING, List, Callable, Union, Tuple, Dict, Optional, Any
 from BPG.bpg_custom_types import layer_or_lpp_type, dim_type
 
 # Typing imports
@@ -86,9 +86,15 @@ class PhotonicBagProject(BagProject):
                                                             tech_info=self.tech_info)
         self.photonic_tech_info.load_tech_files()
 
-    def load_spec_file_paths(self, spec_file):
+    def load_spec_file_paths(self,
+                             spec_file: str,
+                             **kwargs: Dict[str, Any],
+                             ):
         """ Receives a specification file from the user and configures the project paths accordingly """
         self.specs = read_yaml(spec_file)
+
+        # Update the read specs with any passed variables
+        self.specs.update(**kwargs)
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])

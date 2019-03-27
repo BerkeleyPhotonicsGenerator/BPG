@@ -18,7 +18,7 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, List, Optional, Dict, Any
 
 try:
     from DataprepPlugin.Calibre.calibre import CalibreDataprep
@@ -42,6 +42,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
                  spec_file: str,
                  bag_config_path: Optional[str] = None,
                  port: Optional[int] = None,
+                 **kwargs: Dict[str, Any],
                  ) -> None:
         """
         Parameters
@@ -52,10 +53,13 @@ class PhotonicLayoutManager(PhotonicBagProject):
             path to a bag_config.yaml file to use instead of the path in the env var
         port : int
             port to communicate with cadence
+        kwargs : Dict[Any]
+            keyword arguments to update any key from the spec file.
+            Values passed here will overwrite those in the spec_file upon initialization of PhotonicLayoutManager
         """
         PhotonicBagProject.__init__(self, bag_config_path=bag_config_path, port=port)
 
-        self.load_spec_file_paths(spec_file=spec_file)
+        self.load_spec_file_paths(spec_file=spec_file, **kwargs)
 
         self.tdb: "PhotonicTemplateDB" = None
         self.impl_lib = None  # Virtuoso Library where generated cells are stored
