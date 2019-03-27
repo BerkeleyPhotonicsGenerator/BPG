@@ -698,6 +698,23 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             logging.warning('Warning: dataprep_routine_filepath not specified in tech config. '
                             'Dataprep and DRC lookup functions may not work.')
 
+    ''' 
+    Default Layer Properties 
+    
+    These properties make it easy for generator developers to reference tech-specific layers and properties in
+    a generic way.
+    '''
+
+    @property
+    def waveguide_layer(self) -> "layer_or_lpp_type":
+        raise NotImplementedError("Please specify the default waveguide layer in your tech file to support this "
+                                  "property")
+
+    @property
+    def waveguide_width(self) -> float:
+        raise NotImplementedError("Please specify the default waveguide width in your tech class to support this "
+                                  "property")
+
     @abc.abstractmethod
     def min_width_unit(self,
                        layer: "layer_or_lpp_type",
