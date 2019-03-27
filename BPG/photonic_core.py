@@ -148,6 +148,8 @@ class PhotonicBagProject(BagProject):
             self.log_filename = 'output.log'
         setup_logger(log_path=str(self.log_path), log_filename=str(self.log_filename))
 
+        logging.info(f'PhotonicCoreLayout initialized from spec file: {spec_file}')
+
         # Overwrite tech parameters if specified in the spec file
         # Setup the abstract tech layermap
         if 'layermap' in self.specs:
