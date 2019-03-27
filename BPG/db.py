@@ -14,12 +14,6 @@ from .content_list import ContentList
 # Plugin Imports
 from .compiler.dataprep_gdspy import Dataprep
 
-# # try to import advanced dataprep plugin
-# try:
-#     from DataprepPlugin.Calibre.dataprep_calibre import DataprepCalibre
-# except ImportError:
-#     DataprepCalibre = None
-
 # Typing Imports
 from typing import TYPE_CHECKING, Dict, Optional, Sequence, List, Tuple
 
@@ -93,27 +87,6 @@ class PhotonicTemplateDB(TemplateDB):
         end = time.time()
         logging.info(f'All dataprep operations completed in {end - start:.4g} s')
         return post_dataprep_flat_content_list
-
-    # def dataprep_calibre(self,
-    #                      is_lsf: bool = False,
-    #                      calibre_outfile_path: str = None,
-    #                      file_in: str = None,
-    #                      file_out: str = None,
-    #                      ):
-    #     if DataprepCalibre is None:
-    #         raise RuntimeError(f'Calibre dataprep module has not been added. Contact developers to see if access to '
-    #                            f'advanced dataprep routines can be provided.')
-    #
-    #     logging.info(f'In PhotonicTemplateDB.dataprep_calibre with is_lsf set to {is_lsf}')
-    #     dataprep_object = DataprepCalibre(photonic_tech_info=self.photonic_tech_info,
-    #                                       grid=self.grid,
-    #                                       is_lsf=is_lsf,
-    #                                       impl_cell=self.impl_cell,  # TODO: impl_cell??
-    #                                       calibre_outfile_path=calibre_outfile_path,
-    #                                       file_in=file_in,
-    #                                       file_out=file_out,
-    #                                       )
-    #     return dataprep_object.dataprep()
 
     @staticmethod
     def reverse_no_identity_and_check(in_dict: Dict[str, str]) -> Dict[str, str]:
