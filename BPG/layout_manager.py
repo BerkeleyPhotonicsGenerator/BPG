@@ -292,7 +292,6 @@ class PhotonicLayoutManager(PhotonicBagProject):
         timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
     def dataprep_calibre(self,
-                         run_dataprep=True,
                          file_in=None,
                          file_out=None,
                          ):
