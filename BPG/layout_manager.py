@@ -298,6 +298,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         Performs dataprep on the design
         """
+        if not self.calibre_dataprep_plugin:
+            raise ValueError(f'Calibre Dataprep plugin is not initialized. '
+                             f'Ensure the DataprepCalibre plugin is installed.')
+
         logging.info(f'\n\n{"Running dataprep calibre":-^80}')
 
         start = time.time()
