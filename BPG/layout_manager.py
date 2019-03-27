@@ -64,6 +64,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.gds_plugin: "GDSPlugin" = None
         self.lsf_plugin: "LumericalPlugin" = None
         self.template_plugin: 'PhotonicTemplateDB' = None
+        self.calibre_dataprep_plugin: 'CalibreDataprep' = None
         self.init_plugins()  # Initializes all of the built-in plugins
 
         # Template init
@@ -114,6 +115,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
                                           scripts_dir=self.scripts_dir)
+        if CalibreDataprep:
+            self.calibre_dataprep_plugin = CalibreDataprep(
+                calibre_run_dir=str(Path(self.data_dir) / 'DataprepRunDir'),
+                photonic_tech_info=self.photonic_tech_info,
+                grid=self.template_plugin.grid
+            )
+        else:
+            self.calibre_dataprep_plugin = None
 
     def generate_template(self,
                           temp_cls: "PhotonicTemplateType" = None,
@@ -283,58 +292,33 @@ class PhotonicLayoutManager(PhotonicBagProject):
         timing_logger.info(f'{end - start:<15.6g} | Dataprep')
 
     def dataprep_calibre(self,
-                         run_dataprep=True,
                          file_in=None,
                          file_out=None,
                          ):
         """
         Performs dataprep on the design
         """
-        logging.info(f'\n\n{"Running dataprep calibre":-^80}')
+        if not self.calibre_dataprep_plugin:
+            raise ValueError(f'Calibre Dataprep plugin is not initialized. '
+                             f'Ensure the DataprepCalibre plugin is installed.')
 
-        # if not self.content_list_flat:
-        #     raise ValueError('Must call PhotonicLayoutManager.generate_flat_content before calling dataprep')
+        logging.info(f'\n\n{"Running dataprep calibre":-^80}')
 
         start = time.time()
 
         if file_in:
             file_in = os.path.abspath(file_in)
+            if not Path(file_in).is_file():
+                raise ValueError(f'Input file cannot be found: {file_in}')
         else:
-            file_in = self.gds_path + '_flat.gds'
+            file_in = self.gds_path + '.gds'
+
         if file_out:
             file_out = os.path.abspath(file_out)
         else:
             file_out = self.gds_path + '_dataprep_calibre.gds'
 
-        self.calibre_rules_content = self.template_plugin.dataprep_calibre(
-            is_lsf=False,
-            calibre_outfile_path=str(self.data_dir / 'calibre_dataprep.cal'),
-            file_in=file_in,
-            file_out=file_out,
-        )
-
-        calibre_runset_template = self.photonic_tech_info.calibre_dataprep_runset_template
-
-        calibre_run_object = CalibreDataprep(output_dir=str(self.data_dir),
-                                             dataprep_runset_template=calibre_runset_template,
-                                             dataprep_rules=self.calibre_rules_content,
-                                             file_in=file_in,
-                                             file_out=file_out,
-                                             )
-
-        if run_dataprep:
-            # Batch call Calibre to run dataprep
-            logging.info(f'Calling Async Dataprep in Calibre')
-            dataprep_passed, dataprep_errors, dataprep_log = calibre_run_object.run_dataprep()
-
-            logging.info(f'Asyc Dataprep call completed.')
-            logging.info(f'Calibre run log: {dataprep_log}')
-            if (not dataprep_passed) or dataprep_errors:
-                logging.error(f'ERROR: Calibre did not complete or had errors when running. Please consult the log.')
-        else:
-            # Only create the runset, dont call calibre
-            calibre_run_object.setup_drc_flow()
-            logging.info(f'Generated Calibre SVRF rules for dataprep. Did not run Calibre to produce a GDS.')
+        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out)
 
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep_calibre')

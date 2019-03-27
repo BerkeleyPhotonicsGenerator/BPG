@@ -20,7 +20,6 @@ class GDSImport(PhotonicTemplateBase):
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
         self.gds_layermap = self.template_db.photonic_tech_info.layermap_path
-        print(self.gds_layermap)
 
     @classmethod
     def get_params_info(cls):
@@ -52,7 +51,7 @@ class GDSImport(PhotonicTemplateBase):
 
         # Import the GDS from the file
         gds_lib = gdspy.GdsLibrary()
-        gds_lib.read_gds(infile=gds_filepath)
+        gds_lib.read_gds(infile=gds_filepath, units='convert')
 
         # Get the top cell in the GDS and flatten its contents
         top_cell = gds_lib.top_level()
