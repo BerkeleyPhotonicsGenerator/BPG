@@ -1,7 +1,10 @@
-import BPG
+try:
+    from .context import BPG
+except:
+    import BPG
 from BPG.objects import PhotonicPath
-import numpy as np
 from BPG.objects import PhotonicPolygon
+import numpy as np
 
 
 class Path(BPG.PhotonicTemplateBase):

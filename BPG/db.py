@@ -229,7 +229,7 @@ class PhotonicTemplateDB(TemplateDB):
         # Looping handles case where multiple masters were passed to generate_flat_content_list
         for master, top_name in zip(master_list, name_list):
             flat_content_lists.append(
-                self._flatten_instantiate_master_helper(master)
+                self._flatten_instantiate_master_helper(master, top_name)
             )
         end = time.time()
         logging.info(f'Master content flattening took {end - start:.4g}s')
@@ -267,7 +267,7 @@ class PhotonicTemplateDB(TemplateDB):
 
         start = time.time()
 
-        master_content: ContentList = master.get_content(self.lib_name, self.format_cell_name).copy()
+        master_content: ContentList = master.get_content(hierarchy_name, self.format_cell_name).copy()
         # If the child is not made in BPG, it has a different content format, try to convert it here
         if not isinstance(master_content, ContentList):
             master_content = ContentList.from_bag_tuple_format(master_content)

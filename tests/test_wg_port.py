@@ -1,4 +1,7 @@
-import BPG
+try:
+    from .context import BPG
+except:
+    import BPG
 
 from typing import Dict, Set, Any, TYPE_CHECKING
 from bag.layout.core import BBox
@@ -212,14 +215,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
         )
 
         # Connect to the ports
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT0',
             self_port_name='VertPort_InDown_AlignedNoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT0',
             self_port_name='VertPort_InDown_AlignedReflect',
@@ -227,14 +230,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
             reflect=True
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT1',
             self_port_name='VertPort_InDown_180NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT1',
             self_port_name='VertPort_InDown_180Reflect',
@@ -281,14 +284,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
         )
 
         # Connect to the ports
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT0',
             self_port_name='VertPort_InDown_90NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT0',
             self_port_name='VertPort_InDown_90Reflect',
@@ -296,14 +299,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
             reflect=True
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT1',
             self_port_name='VertPort_InDown_270NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT1',
             self_port_name='VertPort_InDown_270Reflect',
@@ -350,14 +353,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
         )
 
         # Connect to the ports
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT1',
             self_port_name='HorzPort_InRight_AlignedNoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT1',
             self_port_name='HorzPort_InRight_AlignedReflect',
@@ -365,14 +368,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
             reflect=True
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT0',
             self_port_name='HorzPort_InRight_180NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_h_master,
             instance_port_name='PORT0',
             self_port_name='HorzPort_InRight_180Reflect',
@@ -419,14 +422,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
         )
 
         # Connect to the ports
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT0',
             self_port_name='HorzPort_InRight_90NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT0',
             self_port_name='HorzPort_InRight_90Reflect',
@@ -434,14 +437,14 @@ class WaveguideConnectTest(BPG.PhotonicTemplateBase):
             reflect=True
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT1',
             self_port_name='HorzPort_InRight_270NoReflect',
             instance_name='test',
         )
 
-        self.add_instances_port_to_port(
+        self.add_instance_port_to_port(
             inst_master=wg_v_master,
             instance_port_name='PORT1',
             self_port_name='HorzPort_InRight_270Reflect',

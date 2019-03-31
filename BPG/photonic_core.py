@@ -1,4 +1,5 @@
 import os
+import sys
 import bag
 import bag.io
 import abc
@@ -126,6 +127,13 @@ class PhotonicBagProject(BagProject):
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
         self.content_dir = self.project_dir / 'content'
+
+        # If users provide paths to add provide them here
+        if 'path_setup' in self.specs:
+            for path in self.specs['path_setup']:
+                if path not in sys.path:
+                    sys.path.append(path)
+                    print(f'Adding {path} to python module search path')
 
         # Make the project directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)

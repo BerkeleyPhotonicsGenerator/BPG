@@ -5,13 +5,13 @@ This module provides a command-line interface to using BPG
 import sys
 import argparse
 import os
-import BPG
 import pytest
 import runpy
 
 
 def run(args):
     """ Sets up your path and runs """
+    import BPG
     # Generate the content list
     if args.module:
         runpy.run_path(args.module, run_name='__main__')
@@ -42,9 +42,6 @@ def test():
     Runs the built-in test suite
     TODO: This only works in BAG_WORK_DIR...make it work in any directory
     """
-    # Use the built in config file for testing
-    os.environ['BAG_CONFIG_PATH'] = "./BPG/examples/tech/bag_config.yaml"
-    BPG.setup_environment()
     pytest.main(['BPG/tests'])
 
 
