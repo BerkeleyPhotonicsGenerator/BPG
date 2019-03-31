@@ -151,6 +151,10 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         generate_gds : bool
             If True
         """
+        # Clear the lists to prevent contamination
+        self.template_list = []
+        self.cell_name_list = []
+
         # Set the root name for all files in this batch
         root_path = self.scripts_dir
 
@@ -173,8 +177,6 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         lsfwriter.export_to_lsf()
 
         # Reset the lists after generating scripts
-        self.template_list = []
-        self.cell_name_list = []
         self.design_list = []
 
     @staticmethod
