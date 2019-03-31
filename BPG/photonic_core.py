@@ -132,7 +132,7 @@ class PhotonicBagProject(BagProject):
         if 'path_setup' in self.specs:
             for path in self.specs['path_setup']:
                 if path not in sys.path:
-                    sys.path.append(path)
+                    sys.path.insert(0, path)
                     print(f'Adding {path} to python module search path')
 
         # Make the project directories if they do not exists
