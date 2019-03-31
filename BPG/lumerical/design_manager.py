@@ -121,12 +121,12 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
             design_layout_params = self.base_layout_params
         else:
             design_layout_params = deepcopy(self.base_layout_params)
-            design_layout_params.update(self.base_layout_params)
+            design_layout_params.update(layout_params)
         if tb_params is None:
             design_tb_params = self.base_tb_params
         else:
             design_tb_params = deepcopy(self.base_tb_params)
-            design_tb_params.update(self.base_tb_params)
+            design_tb_params.update(tb_params)
 
         # Assemble final parameter dictionary to be sent to tb class
         params = dict(
@@ -139,7 +139,7 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         # Add the tb class and associated design parameters to the list
         self.design_list.append((self.base_tb_class, params))
 
-    def generate_batch(self, batch_name: str) -> None:
+    def generate_batch(self, batch_name: str, generate_gds: bool = False) -> None:
         """
         Generates the batch of content lists and lsf files from all of the current designs in the design_list. Also
         generates a sweep lsf file that automatically serially executes all of the individual lsf files.
@@ -148,7 +148,13 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         ----------
         batch_name : str
             This is the base name of the lumerical sweep files we will be generating.
+        generate_gds : bool
+            If True
         """
+        # Clear the lists to prevent contamination
+        self.template_list = []
+        self.cell_name_list = []
+
         # Set the root name for all files in this batch
         root_path = self.scripts_dir
 
@@ -158,6 +164,8 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
 
         # Generate all of the lsf files
         self.generate_flat_content()
+        if generate_gds:
+            self.generate_flat_gds()
         self.generate_lsf()
 
         # Create the sweep LSF file
@@ -169,8 +177,6 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         lsfwriter.export_to_lsf()
 
         # Reset the lists after generating scripts
-        self.template_list = []
-        self.cell_name_list = []
         self.design_list = []
 
     @staticmethod

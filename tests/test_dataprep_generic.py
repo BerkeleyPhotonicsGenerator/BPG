@@ -1,5 +1,7 @@
-
-import BPG
+try:
+    from .context import BPG
+except:
+    import BPG
 from BPG.objects import PhotonicRound, PhotonicRect
 from bag.layout.objects import BBox
 from bag.layout.template import TemplateBase

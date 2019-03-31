@@ -1,4 +1,7 @@
-import BPG
+try:
+    from .context import BPG
+except:
+    import BPG
 import math
 from BPG.port import PhotonicPort
 

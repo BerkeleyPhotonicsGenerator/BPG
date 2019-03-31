@@ -1,4 +1,7 @@
-import BPG
+try:
+    from .context import BPG
+except:
+    import BPG
 from BPG.objects import PhotonicRound
 import math
 import numpy as np
