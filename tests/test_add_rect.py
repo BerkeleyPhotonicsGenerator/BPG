@@ -31,7 +31,7 @@ class AddRect(BPG.PhotonicTemplateBase):
             coord2=self.params['point2'],
             unit_mode=False,
         )
-        1/0
+        print("Hello world")
 
         self.add_rect(
             layer='SI',
