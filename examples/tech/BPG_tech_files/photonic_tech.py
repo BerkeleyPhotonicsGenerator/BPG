@@ -368,15 +368,55 @@ class PhotonicTechInfoExample(PhotonicTechInfo):
 
         return rs_values[layer]
 
-    def via_max_width(self,
-                      layer: Union[str, Tuple[str, str]],
-                      ) -> float:
+    def via_max_width_unit(self,
+                           layer: Union[str, Tuple[str, str]],
+                           ) -> int:
+        """
+        Returns the metal width corresponding to minimum metal enclosure for a max width via array.
+        IE, a larger metal would satisfy via enclosure rules, but the via array cannot grow any larger.
+
+        So for BPG's via stack, the biggest enclosure width allowed to be passed into bag's add_via function is this
+        width, because bag does not check for this rule.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        max_width_unit : int
+            The max width
+        """
+        # If a tuple, look only at the layer of the LPP
         if isinstance(layer, tuple):
             layer = layer[0]
 
-        width_values = self.dataprep_parameters['MaxWidth']
-        if layer not in width_values:
-            raise ValueError(f'Layer {layer} not present in parameters for via_max_width.  In dummy technology, '
-                             f'via_max_width = MaxWidth')
+        layer_values = self.dataprep_parameters['ViaMaxWidth']
+        if layer not in layer_values:
+            raise ValueError('Layer {layer} not present in parameters for ViaMaxWidth'.format(layer=layer))
 
-        return width_values[layer]
+        return int(round(layer_values[layer] / self._resolution))
+
+    def via_max_width(self,
+                      layer: Union[str, Tuple[str, str]],
+                      ) -> float:
+        """
+        Returns the metal width corresponding to minimum metal enclosure for a max width via array.
+        IE, a larger metal would satisfy via enclosure rules, but the via array cannot grow any larger.
+
+        So for BPG's via stack, the biggest enclosure width allowed to be passed into bag's add_via function is this
+        width, because bag does not check for this rule.
+
+        Parameters
+        ----------
+        layer : Union[str, Tuple[str, str]]
+            The layer name or LPP of the layer.
+
+        Returns
+        -------
+        max_width : float
+            The max width
+        """
+
+        return self.via_max_width_unit(layer) * self._resolution

@@ -35,8 +35,6 @@ MinWidth:
   M4: 0.150
   M5: 0.150
   M6: 0.3
-  N: 0.1
-  P: 0.1
 
 # Minimum space between shapes on a layer
 MinSpace:
@@ -50,8 +48,6 @@ MinSpace:
   M4: 0.150
   M5: 0.150
   M6: 0.3
-  N: 0.15
-  P: 0.15
 
 # Height of the bottom of the given layer above SI layer.
 # Top of SI defined as 0
@@ -71,8 +67,6 @@ Height:
 Thickness:
   SI: 0.22
   POLY: 0.1
-  N: 0.05
-  P: 0.05
   M1: 0.1
   M2: 0.1
   M3: 0.1
@@ -121,5 +115,19 @@ MaxWidth:
   M5: 5
   M6: 100
 
+# Maximum width of shapes on a layer
+ViaMaxWidth:
+  SI: 100
+  POLY: 100
+  N: 100
+  P: 100
+  M1: 3
+  M2: 3
+  M3: 3
+  M4: 5
+  M5: 5
+  M6: 100
+
+# Resistance per square for given layer
 Rs:
   SI: 100
