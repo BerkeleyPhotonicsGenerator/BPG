@@ -188,8 +188,12 @@ class GDSPlugin(AbstractPlugin):
         sp_cols, sp_rows = via.sp_cols, via.sp_rows
         w_arr = num_cols * cw + (num_cols - 1) * sp_cols
         h_arr = num_rows * ch + (num_rows - 1) * sp_rows
-        x0 -= w_arr / 2
-        y0 -= h_arr / 2
+        bot_left_coord = via.bot_left_coord
+        if bot_left_coord:
+            x0, y0 = bot_left_coord
+        else:
+            x0 -= w_arr / 2
+            y0 -= h_arr / 2
         bl, br, bt, bb = via.enc1
         tl, tr, tt, tb = via.enc2
         bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
