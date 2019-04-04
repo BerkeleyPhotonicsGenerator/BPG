@@ -128,6 +128,31 @@ ViaMaxWidth:
   M5: 5
   M6: 100
 
+MetalStack:
+  SI:
+    index: 0
+    connect_to: 'M1'
+  POLY:
+    index: 0
+    connect_to: 'M1'
+  M1:
+    index: 1
+    connect_to: 'M2'
+  M2:
+    index: 2
+    connect_to: 'M3'
+  M3:
+    index: 3
+    connect_to: 'M4'
+  M4:
+    index: 4
+    connect_to: 'M5'
+  M5:
+    index: 5
+    connect_to: 'M6'
+  M6:
+    index: 6
+
 # Resistance per square for given layer
 Rs:
   SI: 100

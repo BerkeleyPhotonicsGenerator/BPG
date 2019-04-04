@@ -1,0 +1,19 @@
+# A sample specification file to generate a Waveguide project
+
+# Directory Locations
+project_name: bpg_test_suite
+
+# Output Settings
+lsf_filename: add_via_stack
+gds_filename: add_via_stack
+
+# Generator Params
+# Module that contains the layout generator class
+layout_package: 'tests.test_add_via_stack'
+layout_class: 'AddViaStack'  # Layout generator class name
+
+layout_params:
+
+# Cadence related parameters
+impl_lib: 'add_rect_lib'
+impl_cell: 'add_rect_cell'

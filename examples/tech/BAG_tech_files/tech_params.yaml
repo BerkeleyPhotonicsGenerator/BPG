@@ -15,7 +15,8 @@ pin_purpose: 'label'
 
 # mapping from metal layer ID to metal layer name.  Assume purpose is 'drawing'.
 layer_name:
-  0: SI
+  -1: SI
+  0: POLY
   1: M1
   2: M2
   3: M3
@@ -27,6 +28,7 @@ layer_name:
 # is used to figure out which EM rules to use.
 layer_type:
   SI: si
+  POLY: si
   M1: x
   M2: x
   M3: x
@@ -37,6 +39,7 @@ layer_type:
 # mapping from via bottom layer ID to via name.  Via name is used
 # to figure out enclosure rules.
 via_name:
+  -1: vo
   0: vo
   1: vx
   2: vx
@@ -49,6 +52,7 @@ via_id:
   !!python/tuple [!!python/tuple ['POLY', 'drawing'], 'M1']: VM1_POLY
   !!python/tuple [!!python/tuple ['SI', 'drawing'], 'M1']: VM1_SI
   !!python/tuple ['SI', 'M1']: VM1_SI
+  !!python/tuple ['POLY', 'M1']: VM1_POLY
   !!python/tuple ['M1', 'M2']: VM2_M1
   !!python/tuple ['M2', 'M3']: VM3_M2
   !!python/tuple ['M3', 'M4']: VM4_M3

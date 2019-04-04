@@ -725,6 +725,50 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 show=show
             )
 
+    def _find_metal_pairs(self,
+                          bot_layer,
+                          top_layer,
+                          metal_info,
+                          ):
+        """
+        Creates an ordered list of metal pairs required to generate a via stack between rect1 and rect2
+
+        Metal ordering algorithm
+        ------------------------
+        1) Map each rectangle's layer to index in the metal stack
+        2) Determine which rect is lower/higher in the stack based on the index
+        3) Add each metal pair in the stack between rect1 and rect2 to the metal_pair list, starting with the lower
+        rectangle and traversing up the metal stack
+        """
+        metal_pairs = []
+
+        # 1) Map each rectangle layer to index in the metal stack
+        index_bottom = metal_info[bot_layer]['index']
+        index_top = metal_info[top_layer]['index']
+
+        # Check if layer order needs to be swapped
+        if index_bottom > index_top:
+            top_layer, bot_layer = bot_layer, top_layer
+
+        top_layer_fixed = metal_info[top_layer].get('base_name', top_layer)
+
+        # 2) Add each layer pair (layer names) between bot_metal and top_metal to a metal_pair list
+        cur_bot = metal_info[bot_layer].get('base_name', bot_layer)
+        while True:
+            # Try to find the metal layer that the current bot layer connects to
+            try:
+                cur_top = metal_info[cur_bot]['connect_to']
+            except KeyError:
+                raise ValueError(f'Could not complete via stack from {bot_layer} to {top_layer}')
+            metal_pairs.append((cur_bot, cur_top))
+            if cur_top == top_layer_fixed:
+                # If we have made it from the bottom to the top of the via stack, break out of the loop
+                break
+            else:
+                # Otherwise continue traversing the via stack
+                cur_bot = cur_top
+        return metal_pairs
+
     def add_via_stack(self,
                       bot_layer: layer_or_lpp_type,
                       top_layer: layer_or_lpp_type,
@@ -768,18 +812,20 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         bot_layer = bag.io.fix_string(bot_layer)
         top_layer = bag.io.fix_string(top_layer)
 
-        bot_layer_id_global = self.grid.tech_info.get_layer_id(bot_layer)
-        top_layer_id_global = self.grid.tech_info.get_layer_id(top_layer)
+        metal_info = self.photonic_tech_info.dataprep_parameters['MetalStack']
 
-        for bot_lay_id in range(bot_layer_id_global, top_layer_id_global):
+        metal_pairs = self._find_metal_pairs(bot_layer=bot_layer,
+                                             top_layer=top_layer,
+                                             metal_info=metal_info,
+                                             )
 
-            bot_lay_name = self.grid.tech_info.get_layer_name(bot_lay_id)
-            if isinstance(bot_lay_name, list):
-                bot_lay_name = bot_layer
+        bot_layer_id_global = self.grid.tech_info.get_layer_id(metal_pairs[0][0])
+        top_layer_id_global = self.grid.tech_info.get_layer_id((metal_pairs[-1][1]))
+
+        for bot_lay_name, top_lay_name in metal_pairs:
             bot_lay_type = self.grid.tech_info.get_layer_type(bot_lay_name)
-
-            top_lay_name = self.grid.tech_info.get_layer_name(bot_lay_id + 1)
             top_lay_type = self.grid.tech_info.get_layer_type(top_lay_name)
+            bot_lay_id = self.grid.tech_info.get_layer_id(bot_lay_name)
 
             via_name = self.grid.tech_info.get_via_name(bot_lay_id)
             via_type_list = self.grid.tech_info.get_via_types(bmtype=bot_lay_type,
@@ -787,7 +833,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             for via_type, weight in via_type_list:
                 try:
-                    (sp, sp2_list, sp3, dim, enc_b, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
+                    (sp, sp2_list, sp3, dim, enc_b_list, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=bot_lay_type,
@@ -795,7 +841,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                         is_bot=True,
                     )
 
-                    (_, _, _, _, enc_t, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
+                    (_, _, _, _, enc_t_list, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=top_lay_type,
@@ -806,11 +852,16 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 except ValueError:
                     continue
 
-                # Got valid via info. just draw the first one we get, then break
-                # Need to find the right extensions. Want the centered one? all are valid...
-                # TODO: for now taking the first
-                enc_b = enc_b[0]
-                enc_t = enc_t[0]
+                # Want to use the via with symmetric enclosure, if available.
+                enc_b = enc_b_list[0]
+                enc_t = enc_t_list[0]
+                for enc in enc_b_list:
+                    if enc[0] == enc[1]:
+                        enc_b = enc
+                        break
+                for enc in enc_t_list:
+                    if enc[0] == enc[1]:
+                        enc_t = enc
 
                 # Fix minimum area violations:
                 if bot_lay_id > bot_layer_id_global or min_area_on_bot_top_layer:
