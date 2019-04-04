@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import pytest
 import os
+import sys
 import warnings
 
 test_set = ['BPG/tests',
@@ -13,4 +14,4 @@ if __name__ == '__main__':
                                 category=RuntimeWarning,
                                 message='.*polygon with more than 199 points was created.*')
 
-        pytest.main(test_set)
+        sys.exit(pytest.main(test_set))
