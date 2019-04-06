@@ -173,8 +173,7 @@ class GDSPlugin(AbstractPlugin):
         end = time.time()
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
 
-    @staticmethod
-    def _add_gds_via(gds_cell, via, lay_map, via_lay_info, x0, y0):
+    def _add_gds_via(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
         tlay, tpurp = lay_map[via_lay_info['top_layer']]
         vlay, vpurp = lay_map[via_lay_info['via_layer']]
@@ -188,12 +187,15 @@ class GDSPlugin(AbstractPlugin):
         sp_cols, sp_rows = via.sp_cols, via.sp_rows
         w_arr = num_cols * cw + (num_cols - 1) * sp_cols
         h_arr = num_rows * ch + (num_rows - 1) * sp_rows
-        bot_left_coord = via.bot_left_coord
-        if bot_left_coord:
-            x0, y0 = bot_left_coord
-        else:
-            x0 -= w_arr / 2
-            y0 -= h_arr / 2
+
+        x0 -= w_arr / 2
+        y0 -= h_arr / 2
+        # If the via array is odd dimension, prevent off-grid points
+        if int(round(w_arr / self.grid.resolution)) % 2 == 1:
+            x0 -= 0.5 * self.grid.resolution
+        if int(round(h_arr / self.grid.resolution)) % 2 == 1:
+            y0 -= 0.5 * self.grid.resolution
+
         bl, br, bt, bb = via.enc1
         tl, tr, tt, tb = via.enc2
         bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
