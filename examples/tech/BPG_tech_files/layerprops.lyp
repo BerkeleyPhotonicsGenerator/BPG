@@ -1,0 +1,556 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SI.drawing - 0/0</name>
+  <source>0/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SI.phot - 0/10</name>
+  <source>0/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SI.port - 0/100</name>
+  <source>0/100@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SI.exclude - 0/20</name>
+  <source>0/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SI.sim - 0/46</name>
+  <source>0/46@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>POLY.drawing - 4/0</name>
+  <source>4/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>POLY.phot - 4/10</name>
+  <source>4/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>POLY.port - 4/100</name>
+  <source>4/100@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>POLY.exclude - 4/20</name>
+  <source>4/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>POLY.sim - 4/46</name>
+  <source>4/46@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V0.drawing - 20/0</name>
+  <source>20/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V0.phot - 20/10</name>
+  <source>20/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M1.drawing - 11/0</name>
+  <source>11/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M1.label - 11/20</name>
+  <source>11/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M1.phot - 11/10</name>
+  <source>11/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V1.drawing - 21/0</name>
+  <source>21/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V1.phot - 21/10</name>
+  <source>21/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M2.drawing - 12/0</name>
+  <source>12/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M2.label - 12/20</name>
+  <source>12/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M2.phot - 12/10</name>
+  <source>12/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V2.drawing - 22/0</name>
+  <source>22/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V2.phot - 22/10</name>
+  <source>22/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M3.drawing - 13/0</name>
+  <source>13/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M3.label - 13/20</name>
+  <source>13/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M3.phot - 13/10</name>
+  <source>13/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V3.drawing - 23/0</name>
+  <source>23/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V3.phot - 23/10</name>
+  <source>23/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M4.drawing - 14/0</name>
+  <source>14/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M4.label - 14/20</name>
+  <source>14/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M4.phot - 14/10</name>
+  <source>14/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V4.drawing - 24/0</name>
+  <source>24/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V4.phot - 24/10</name>
+  <source>24/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M5.drawing - 15/0</name>
+  <source>15/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M5.label - 15/20</name>
+  <source>15/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M5.phot - 15/10</name>
+  <source>15/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V5.drawing - 25/0</name>
+  <source>25/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>V5.phot - 25/10</name>
+  <source>25/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M6.drawing - 16/0</name>
+  <source>16/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M6.label - 16/20</name>
+  <source>16/20@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>M6.phot - 16/10</name>
+  <source>16/10@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>NN.drawing - 50/0</name>
+  <source>50/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>N1.drawing - 51/0</name>
+  <source>51/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>N2.drawing - 52/0</name>
+  <source>52/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>N3.drawing - 53/0</name>
+  <source>53/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>N4.drawing - 54/0</name>
+  <source>54/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>N5.drawing - 55/0</name>
+  <source>55/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>PP.drawing - 60/0</name>
+  <source>60/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>P1.drawing - 61/0</name>
+  <source>61/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>P2.drawing - 62/0</name>
+  <source>62/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>P3.drawing - 63/0</name>
+  <source>63/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>P4.drawing - 64/0</name>
+  <source>64/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>P5.drawing - 65/0</name>
+  <source>65/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>SAL.drawing - 65/0</name>
+  <source>65/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>CLAD.phot - 8/0</name>
+  <source>8/0@1</source>
+ </properties>
+ <properties>
+  <valid>true</valid>
+  <visible>true</visible>
+  <transparent>false</transparent>
+  <width>1</width>
+  <marked>false</marked>
+  <animation>0</animation>
+  <name>BOX.phot - 9/0</name>
+  <source>9/0@1</source>
+ </properties>
+ <properties>
+  <source>*/*@*</source>
+ </properties>
+</layer-properties>
