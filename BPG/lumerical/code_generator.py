@@ -157,12 +157,18 @@ class LumericalDesignGenerator(LumericalCodeGenerator):
 
 
 class LumericalMaterialGenerator(LumericalCodeGenerator):
+
+    # SUPPORTED_TYPES = ['Lorentz', '(n,k) material']
+
     """ This class enables BPG to create a custom set of materials for use in Lumerical """
     def __init__(self, filepath):
         LumericalCodeGenerator.__init__(self)
         self.filepath = filepath
 
-    def add_material(self, name) -> None:
+    def add_material(self,
+                     name,
+                     type='Lorentz',
+                     ) -> None:
         """
         Each time this is called a new material with the provided name is created
 
@@ -170,9 +176,10 @@ class LumericalMaterialGenerator(LumericalCodeGenerator):
         ----------
         name : str
             name of the new material being created
+        type
         """
         self.add_code(f'matname = "{name}"')
-        self.add_code('newmaterial = addmaterial("Lorentz")')  # TODO: What is Lorentz, do we need other options here?
+        self.add_code(f'newmaterial = addmaterial("{type}")')
         self.add_code(f'setmaterial(newmaterial, "name", matname)')
 
     def add_property(self, prop_name, prop_value) -> None:
@@ -202,8 +209,8 @@ class LumericalMaterialGenerator(LumericalCodeGenerator):
         prop_dict : dict
             dict containing all the property info necessary to define the material
         """
-        self.add_material(material_name)
-        for key, value in prop_dict.items():
+        self.add_material(name=material_name, type=prop_dict['type'])
+        for key, value in prop_dict['parameters'].items():
             self.add_property(key, value)
 
     def import_material_file(self, material_dict) -> None:
