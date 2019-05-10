@@ -2,7 +2,7 @@ from distutils.core import setup
 
 
 setup(name='BPG',
-      version='0.8.2',
+      version='0.8.3',
       description='Berkeley Photonics Generator',
       install_requires=[
           'setuptools>=18.5',

@@ -168,7 +168,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls.__name__} Template generation')
 
-    def generate_content(self) -> List['ContentList']:
+    def generate_content(self,
+                         save_content: bool = True,
+                         ) -> List['ContentList']:
         """
         Generates a set of content lists from all of the templates in the queue.
 
@@ -188,12 +190,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_contentgen = time.time()
 
         # Save the content
-        self.save_content_list('content_list')
+        if save_content:
+            self.save_content_list('content_list')
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
         timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | - Content list generation')
-        timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
+        if save_content:
+            timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
 

@@ -354,7 +354,6 @@ class PhotonicBagLayout(BagLayout):
         for poly in self._polygon_list:
             self._bound_box.merge(poly.bound_box)
         if self._round_list != []:
-            logging.warning("round bounding boxes currently overestimate the size")
             for round in self._round_list:
                 self._bound_box.merge(round.bound_box)
 
