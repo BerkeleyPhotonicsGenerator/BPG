@@ -14,15 +14,23 @@ if TYPE_CHECKING:
 
 
 class GDSPlugin(AbstractPlugin):
-    def __init__(self, grid, gds_layermap, gds_filepath, lib_name):
+    def __init__(self,
+                 grid,
+                 gds_layermap,
+                 gds_filepath,
+                 lib_name,
+                 max_points_per_polygon: int = 199
+                 ):
         self.grid = grid
         self.gds_layermap = gds_layermap
         self.gds_filepath = gds_filepath
         self.lib_name = lib_name    # TODO: fix
+        self.max_points_per_polygon = max_points_per_polygon
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
                             name_append: str = '',
+                            max_points_per_polygon = None,
                             ):
         """
         Exports the physical design to GDS
@@ -33,12 +41,19 @@ class GDSPlugin(AbstractPlugin):
             A list of ContentList objects that represent the layout.
         name_append : str
             A suffix to add to the end of the generated gds filename
+        max_points_per_polygon : Optional[int]
+            Maximum number of points allowed per polygon shape in the gds.
+            Defaults to value set in the init of GDSPlugin if not specified.
+
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
+
+        if not max_points_per_polygon:
+            max_points_per_polygon = self.max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
             lay_info = yaml.load(f)
@@ -127,7 +142,7 @@ class GDSPlugin(AbstractPlugin):
                 lay_id, purp_id = lay_map[path['layer']]
                 cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
-                gds_cell.add(cur_path.fracture(precision=res))
+                gds_cell.add(cur_path.fracture(precision=res, max_points=max_points_per_polygon))
 
             for blockage in content_list.blockage_list:
                 pass
@@ -139,7 +154,7 @@ class GDSPlugin(AbstractPlugin):
                 lay_id, purp_id = lay_map[polygon['layer']]
                 cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
                                          verbose=False)
-                gds_cell.add(cur_poly.fracture(precision=res))
+                gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
 
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)

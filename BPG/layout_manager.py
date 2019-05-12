@@ -201,7 +201,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         return self.content_list
 
-    def generate_gds(self) -> None:
+    def generate_gds(self,
+                     max_points_per_polygon: Optional[int] = None,
+                     ) -> None:
         """
         Exports the content list to gds format
         """
@@ -210,7 +212,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
         start = time.time()
-        self.gds_plugin.export_content_list(content_lists=self.content_list)
+        self.gds_plugin.export_content_list(content_lists=self.content_list,
+                                            max_points_per_polygon=max_points_per_polygon)
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
