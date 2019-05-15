@@ -8,7 +8,7 @@ from bag.layout.util import BBox
 from BPG.content_list import ContentList
 from BPG.abstract_plugin import AbstractPlugin
 
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Optional
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
@@ -30,7 +30,8 @@ class GDSPlugin(AbstractPlugin):
     def export_content_list(self,
                             content_lists: List["ContentList"],
                             name_append: str = '',
-                            max_points_per_polygon = None,
+                            max_points_per_polygon: Optional[int] = None,
+                            write_gds: bool = True,
                             ):
         """
         Exports the physical design to GDS
@@ -44,6 +45,9 @@ class GDSPlugin(AbstractPlugin):
         max_points_per_polygon : Optional[int]
             Maximum number of points allowed per polygon shape in the gds.
             Defaults to value set in the init of GDSPlugin if not specified.
+        write_gds : bool
+            Default True.  True to write out the gds file.
+            False to create the gdspy object, but not write out the gds.
 
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
@@ -183,10 +187,13 @@ class GDSPlugin(AbstractPlugin):
                                             layer=lay_id, datatype=purp_id)
                     gds_cell.add(cur_round)
 
-        gds_lib.write_gds(out_fname)
+        if write_gds:
+            gds_lib.write_gds(out_fname)
 
         end = time.time()
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
+
+        return gds_lib
 
     def _add_gds_via(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]

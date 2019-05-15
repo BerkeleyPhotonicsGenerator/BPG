@@ -674,7 +674,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                port_names: Optional[Union[str, List[str]]] = None,
                                port_renaming: Optional[Dict[str, str]] = None,
                                show: bool = True,
-                               ) -> None:
+                               ) -> List["PhotonicPort"]:
         """
         Brings ports from lower level of hierarchy to the current hierarchy level
 
@@ -699,6 +699,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if port_renaming is None:
             port_renaming = {}
 
+        ports_out = []
+
         for port_name in port_names:
             old_port = inst[port_name]
             translation = inst.location_unit
@@ -714,16 +716,20 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if new_name in self._photonic_ports:
                 # Append unique number
                 new_name = self._get_unused_port_name(new_name)
-            self.add_photonic_port(
-                name=new_name,
-                center=old_port.center_unit.tolist(),
-                orient='R0',
-                angle=old_port.angle,
-                width=old_port.width_unit,
-                layer=old_port.layer,
-                unit_mode=True,
-                show=show
+            ports_out.append(
+                self.add_photonic_port(
+                    name=new_name,
+                    center=old_port.center_unit.tolist(),
+                    orient='R0',
+                    angle=old_port.angle,
+                    width=old_port.width_unit,
+                    layer=old_port.layer,
+                    unit_mode=True,
+                    show=show
+                )
             )
+
+        return ports_out
 
     def _find_metal_pairs(self,
                           bot_layer,
