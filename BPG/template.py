@@ -839,7 +839,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             for via_type, weight in via_type_list:
                 try:
-                    (sp, sp2_list, sp3, dim, enc_b_list, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
+                    (sp, sp2_list, sp3, sp6, dim, enc_b_list, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=bot_lay_type,
@@ -847,7 +847,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                         is_bot=True,
                     )
 
-                    (_, _, _, _, enc_t_list, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
+                    (_, _, _, _, _, enc_t_list, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=top_lay_type,
@@ -971,3 +971,4 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          hidden_params={'_angle': angle},
                                          **kwargs
                                          )
+
