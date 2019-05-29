@@ -173,7 +173,7 @@ class GDSPlugin(AbstractPlugin):
                                                     inner_radius=round_obj['rin'],
                                                     initial_angle=round_obj['theta0'] * pi / 180,
                                                     final_angle=round_obj['theta1'] * pi / 180,
-                                                    number_of_points=self.grid.resolution,
+                                                    tolerance=self.grid.resolution,
                                                     layer=lay_id, datatype=purp_id)
                             gds_cell.add(cur_round)
                 else:
@@ -181,7 +181,7 @@ class GDSPlugin(AbstractPlugin):
                                             inner_radius=round_obj['rin'],
                                             initial_angle=round_obj['theta0'] * pi / 180,
                                             final_angle=round_obj['theta1'] * pi / 180,
-                                            number_of_points=self.grid.resolution,
+                                            tolerance=self.grid.resolution,
                                             layer=lay_id, datatype=purp_id)
                     gds_cell.add(cur_round)
 
