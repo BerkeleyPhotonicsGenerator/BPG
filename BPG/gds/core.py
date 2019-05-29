@@ -144,8 +144,7 @@ class GDSPlugin(AbstractPlugin):
             for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
-                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
-                                         verbose=False)
+                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id)
                 gds_cell.add(cur_path.fracture(precision=res, max_points=max_points_per_polygon))
 
             for blockage in content_list.blockage_list:
@@ -156,8 +155,7 @@ class GDSPlugin(AbstractPlugin):
 
             for polygon in content_list.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
-                cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-                                         verbose=False)
+                cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id)
                 gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
 
             for round_obj in content_list.round_list:
@@ -312,7 +310,9 @@ class GDSPlugin(AbstractPlugin):
                            polygon_list=polygon_list)
 
     @staticmethod
-    def lpp_reverse_lookup(layermap: dict, gds_layerid: List[int]):
+    def lpp_reverse_lookup(layermap: dict,
+                           gds_layerid: List[int]
+                           ) -> str:
         """
         Given a layermap dictionary, find the layername that matches the provided gds layer id
 
@@ -333,5 +333,3 @@ class GDSPlugin(AbstractPlugin):
                 return layer_name
         else:
             print(f"{gds_layerid} was not found in the layermap!")
-
-
