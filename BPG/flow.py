@@ -116,3 +116,5 @@ class Flow:
                 if not code:
                     logging.info(f'Task # {ind} FAILED:   {task}')
             logging.info(f'\n\n')
+
+        return ret_codes, log_files

@@ -674,6 +674,11 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             None
         )
 
+        self.plvs_runset_template = self.photonic_tech_params.get(
+            'plvs_runset_template',
+            None
+        )
+
         self.layer_map = None
         self.via_info = None
         self.lsf_export_parameters = None

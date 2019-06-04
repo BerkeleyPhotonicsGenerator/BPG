@@ -4,7 +4,7 @@ import logging
 import time
 import json
 from pathlib import Path
-from collections import UserDict, namedtuple
+from collections import UserDict
 import os
 
 
@@ -19,7 +19,7 @@ from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
 from .lumerical.core import LumericalPlugin
 
-from typing import TYPE_CHECKING, List, Optional, Dict, Any, Tuple
+from typing import TYPE_CHECKING, List, Optional, Dict, Any
 
 try:
     from DataprepPlugin.Calibre.calibre import CalibreDataprep
@@ -38,8 +38,6 @@ if TYPE_CHECKING:
     from gdspy import GdsLibrary
 
 timing_logger = logging.getLogger('timing')
-
-FlowStep = namedtuple('FlowStep', 'command logfile run_dir callback_function step_name')
 
 
 class PhotonicLayoutManager(PhotonicBagProject):
@@ -425,37 +423,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
     def run_photonic_lvs(self,
                          gds_layout_path=None,
                          plvs_runset_template=None,
-                         ) -> Tuple[bool, str]:
+                         ):
 
         if not PLVS:
             raise ValueError(f'PLVS plugin is not initialized. '
                              f'Ensure the PLVS plugin is installed.')
-
-        # def run_flow_step(flow_step: FlowStep):
-        #     cmd = flow_step.command
-        #     run_dir = flow_step.run_dir
-        #     logfile = flow_step.logfile
-        #     step_name = flow_step.step_name
-        #     callback_func = flow_step.callback_function
-        #
-        #     logfile_path = str(Path(run_dir) / logfile)
-        #
-        #     logging.info(
-        #         f'Running Calibre command for flow step: {step_name}\n'
-        #         f'Press <Ctrl> + C to exit.\n')
-        #
-        #     with open(logfile_path, 'w') as f:
-        #         retval = subprocess.run(cmd, stdout=f)
-        #
-        #     if 0:  # callback_func:
-        #         callback_func(
-        #             retcode=retval.returncode,
-        #             log_file=logfile_path
-        #         )
-        #
-        #     logging.info(f'Calibre command completed.\n')
-        #
-        #     return retval.returncode, logfile_path
 
         logging.info(f'\n\n{"Photonic LVS":-^80}')
         start_time = time.time()
@@ -463,59 +435,20 @@ class PhotonicLayoutManager(PhotonicBagProject):
         if not gds_layout_path:
             gds_layout_path = self.gds_path + '_dataprep_calibre.gds'
 
+        if not plvs_runset_template:
+            plvs_runset_template = self.photonic_tech_info.plvs_runset_template
+
+        if not plvs_runset_template:
+            raise ValueError(f'plvs_runset_template not specified in function call, '
+                             f'and no default provided in the photonic tech config yaml')
+
         plvs = PLVS(self, gds_layout_path, plvs_runset_template)
-        plvs.run_plvs()
+        ret_codes, log_files = plvs.run_plvs()
 
         end_time = time.time()
         timing_logger.info(f'{end_time - start_time:<13.6g} | Photonic LVS')
 
-        # # Set up LVS variables
-        # lib_name = self.specs['impl_lib']
-        # cell_name = self.specs['impl_cell']
-        # sch_view = 'schematic'
-        # lay_view = 'layout'
-        # kwargs = dict()
-        # params = dict(
-        #     lvsRulesFile='$BAG_WORK_DIR/PLVS/PLVS/plvs_mod_main.lvs.cal',
-        #     cmnRunMT=1,
-        #     cmnRunHyper=1,
-        #     cmnNumTurbo=4,
-        #     lvsGetLayoutFromViewer=0,
-        #     lvsGetSourceFromViewer=0,
-        # )
-        # kwargs['gds_layout_path'] = gds_layout_path
-        #
-        # run_dir = os.path.join(self.impl_db.checker.lvs_run_dir, lib_name, cell_name)
-        #
-        # flow = self.impl_db.checker.setup_lvs_flow(lib_name,
-        #                                            cell_name,
-        #                                            sch_view,
-        #                                            lay_view,
-        #                                            params,
-        #                                            **kwargs)
-        #
-        # for flow_step in flow:
-        #     tmp = FlowStep(command=flow_step[0],
-        #                    logfile=flow_step[1],
-        #                    run_dir=run_dir,
-        #                    callback_function=flow_step[3],
-        #                    step_name='asdf')
-        #     run_flow_step(tmp)
-
-
-
-
-        # status, log = self.run_lvs(lib_name=self.specs['impl_lib'],
-        #                            cell_name=self.specs['impl_cell'],
-        #                            lvs_params=dict(
-        #                                lvsRulesFile='$BAG_WORK_DIR/PLVS/PLVS/plvs_mod_main.lvs.cal',
-        #                                cmnRunMT=1,
-        #                                cmnRunHyper=1,
-        #                                cmnNumTurbo=4,
-        #                            ),
-        #                            gds_layout_path=gds_layout_path
-        #                            )
-                # return status, log
+        return ret_codes, log_files
 
     def save_content_list(self,
                           content_list: str,
