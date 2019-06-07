@@ -47,6 +47,10 @@ def setup_logger(log_path: str,
     root_logger.addHandler(file_handler_info)
     # Add filter to prevent dataprep debug logs from hitting the main logger
 
+    # Add filter to prevent duplicates of annoying messages
+    duplicate_filter = DontRepeatFilter()
+    out_handler.addFilter(duplicate_filter)
+
     # Print out the current date and time
     root_logger.info('##########################')
     root_logger.info('Starting BPG Build')
@@ -102,7 +106,6 @@ def setup_logger(log_path: str,
 
     timing_logger.propagate = True
 
-
     """
     Adding an end-of-execution summary message that indicates how many errors / warnings were generated during the run.
     """
@@ -117,7 +120,6 @@ def setup_logger(log_path: str,
         ip = get_ipython()
     except NameError:
         from atexit import register as exit_register
-
 
     @exit_register
     def callback():
@@ -135,3 +137,30 @@ def setup_logger(log_path: str,
               f'{f"Ran with {errors} errors." if errors else ""}'
               f'\nSee {log_path}/{log_filename} for details.\n\n'
               )
+        duplicate_filter.clear_history()
+
+
+class DontRepeatFilter:
+    def __init__(self):
+        self.dont_repeat_filters = {
+            "vias are currently not considered in master bounding box calculations": 0,
+            "round bounding boxes currently overestimate the size": 0
+        }
+
+    def filter(self, record):
+        if record.msg not in self.dont_repeat_filters:
+            return True
+        else:
+            if self.dont_repeat_filters[record.msg] == 0:
+                self.dont_repeat_filters[record.msg] += 1
+                record.msg = '\n'.join([record.msg, 'ATTENTION: THE ABOVE WARNING WILL NOT BE REPEATED'])
+                return True
+            else:
+                return False
+
+    def clear_history(self):
+        for key in self.dont_repeat_filters:
+            self.dont_repeat_filters[key] = 0
+
+    def add_key(self, key):
+        self.dont_repeat_filters[key] = 0
