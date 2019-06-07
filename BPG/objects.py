@@ -592,14 +592,7 @@ class PhotonicRound(Arrayable):
 
     @property
     def bound_box(self) -> BBox:
-        return BBox(
-            left=self.center_unit[0] - self.rout_unit,
-            bottom=self.center_unit[1] - self.rout_unit,
-            right=self.center_unit[0] + self.rout_unit,
-            top=self.center_unit[1] + self.rout_unit,
-            resolution=self._res,
-            unit_mode=True
-        )
+        return self.export_to_polygon()[0].bound_box
 
     @property
     def content(self):

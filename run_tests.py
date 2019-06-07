@@ -4,9 +4,7 @@ import os
 import sys
 import warnings
 
-test_set = ['BPG/tests',
-            'BPG/examples/Waveguide.py',
-            ]
+test_set = ['BPG/tests']
 
 if __name__ == '__main__':
     with warnings.catch_warnings():

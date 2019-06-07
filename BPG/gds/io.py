@@ -57,10 +57,11 @@ class GDSImport(PhotonicTemplateBase):
         top_cell = gds_lib.top_level()
         if len(top_cell) != 1:
             raise ValueError("Cannot import a GDS with multiple top level cells")
-        top_cell = top_cell[0]
+        top_cell = top_cell[0]  # top_cell returns a list, so just grab the only element
         top_cell.flatten()
 
-        for polyset in top_cell.elements:
+        # TODO: This currently accesses an internal attr polygons, instead of the get_polygons() method, may be unstable
+        for polyset in top_cell.polygons:
             for count in range(len(polyset.polygons)):
                 points = polyset.polygons[count]
                 layer = polyset.layers[count]

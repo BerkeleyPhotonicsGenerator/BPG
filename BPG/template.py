@@ -674,7 +674,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                port_names: Optional[Union[str, List[str]]] = None,
                                port_renaming: Optional[Dict[str, str]] = None,
                                show: bool = True,
-                               ) -> None:
+                               ) -> List["PhotonicPort"]:
         """
         Brings ports from lower level of hierarchy to the current hierarchy level
 
@@ -699,6 +699,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if port_renaming is None:
             port_renaming = {}
 
+        ports_out = []
+
         for port_name in port_names:
             old_port = inst[port_name]
             translation = inst.location_unit
@@ -714,16 +716,20 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if new_name in self._photonic_ports:
                 # Append unique number
                 new_name = self._get_unused_port_name(new_name)
-            self.add_photonic_port(
-                name=new_name,
-                center=old_port.center_unit.tolist(),
-                orient='R0',
-                angle=old_port.angle,
-                width=old_port.width_unit,
-                layer=old_port.layer,
-                unit_mode=True,
-                show=show
+            ports_out.append(
+                self.add_photonic_port(
+                    name=new_name,
+                    center=old_port.center_unit.tolist(),
+                    orient='R0',
+                    angle=old_port.angle,
+                    width=old_port.width_unit,
+                    layer=old_port.layer,
+                    unit_mode=True,
+                    show=show
+                )
             )
+
+        return ports_out
 
     def _find_metal_pairs(self,
                           bot_layer,
@@ -833,7 +839,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
             for via_type, weight in via_type_list:
                 try:
-                    (sp, sp2_list, sp3, dim, enc_b_list, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
+                    (sp, sp2_list, sp3, sp6, dim, enc_b_list, arr_enc_b, arr_test_b) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=bot_lay_type,
@@ -841,7 +847,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                         is_bot=True,
                     )
 
-                    (_, _, _, _, enc_t_list, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
+                    (_, _, _, _, _, enc_t_list, arr_enc_t, arr_test_t) = self.grid.tech_info.get_via_drc_info(
                         vname=via_name,
                         vtype=via_type,
                         mtype=top_lay_type,
@@ -965,3 +971,4 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          hidden_params={'_angle': angle},
                                          **kwargs
                                          )
+

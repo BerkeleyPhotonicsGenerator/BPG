@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
     from BPG.content_list import ContentList
     from .bpg_custom_types import PhotonicTemplateType
+    from gdspy import GdsLibrary
 
 timing_logger = logging.getLogger('timing')
 
@@ -168,7 +169,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls.__name__} Template generation')
 
-    def generate_content(self) -> List['ContentList']:
+    def generate_content(self,
+                         save_content: bool = True,
+                         ) -> List['ContentList']:
         """
         Generates a set of content lists from all of the templates in the queue.
 
@@ -188,16 +191,20 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_contentgen = time.time()
 
         # Save the content
-        self.save_content_list('content_list')
+        if save_content:
+            self.save_content_list('content_list')
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
         timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | - Content list generation')
-        timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
+        if save_content:
+            timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
 
-    def generate_gds(self) -> None:
+    def generate_gds(self,
+                     max_points_per_polygon: Optional[int] = None,
+                     ) -> "GdsLibrary":
         """
         Exports the content list to gds format
         """
@@ -206,9 +213,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
         start = time.time()
-        self.gds_plugin.export_content_list(content_lists=self.content_list)
+        gdspy_lib = self.gds_plugin.export_content_list(content_lists=self.content_list,
+                                                        max_points_per_polygon=max_points_per_polygon)
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
+
+        return gdspy_lib
 
     def generate_flat_content(self) -> List["ContentList"]:
         """
