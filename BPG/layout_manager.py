@@ -7,6 +7,7 @@ from pathlib import Path
 from collections import UserDict
 import os
 
+
 # BAG imports
 from bag.layout import RoutingGrid
 from bag.util.cache import _get_unique_name
@@ -24,6 +25,11 @@ try:
     from DataprepPlugin.Calibre.calibre import CalibreDataprep
 except ImportError:
     CalibreDataprep = None
+
+try:
+    from PLVS.PLVS import PLVS
+except ImportError:
+    PLVS = None
 
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
@@ -413,6 +419,36 @@ class PhotonicLayoutManager(PhotonicBagProject):
         timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')
         timing_logger.info(f'  {end_design - end_create_design_module:<13.6g} | - Designing schematic')
         timing_logger.info(f'  {end_implement - end_design:<13.6g} | - Instantiating schematic')
+
+    def run_photonic_lvs(self,
+                         gds_layout_path=None,
+                         plvs_runset_template=None,
+                         ):
+
+        if not PLVS:
+            raise ValueError(f'PLVS plugin is not initialized. '
+                             f'Ensure the PLVS plugin is installed.')
+
+        logging.info(f'\n\n{"Photonic LVS":-^80}')
+        start_time = time.time()
+
+        if not gds_layout_path:
+            gds_layout_path = self.gds_path + '_dataprep_calibre.gds'
+
+        if not plvs_runset_template:
+            plvs_runset_template = self.photonic_tech_info.plvs_runset_template
+
+        if not plvs_runset_template:
+            raise ValueError(f'plvs_runset_template not specified in function call, '
+                             f'and no default provided in the photonic tech config yaml')
+
+        plvs = PLVS(self, gds_layout_path, plvs_runset_template)
+        ret_codes, log_files = plvs.run_plvs()
+
+        end_time = time.time()
+        timing_logger.info(f'{end_time - start_time:<13.6g} | Photonic LVS')
+
+        return ret_codes, log_files
 
     def save_content_list(self,
                           content_list: str,
