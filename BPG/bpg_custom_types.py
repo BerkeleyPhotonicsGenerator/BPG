@@ -1,4 +1,5 @@
 from typing import Union, Tuple, TypeVar
+from collections import namedtuple
 
 # Type representing a dimension.
 # Types in BAG/BPG can be floats or ints depending on whether or not
@@ -16,3 +17,5 @@ lpp_type = Tuple[str, str]
 layer_or_lpp_type = Union[str, Tuple[str, str]]
 
 PhotonicTemplateType = TypeVar('PhotonicTemplateType', bound="PhotonicTemplateBase")
+
+FlowStep = namedtuple('FlowStep', 'command logfile run_dir callback_function step_name')
