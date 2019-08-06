@@ -1,0 +1,135 @@
+# Sample BAG socket configuration
+# Replace dummyLib with your Cadence tech library
+socket:
+  # the host running the database.  localhost if on the same machine.
+  host: "localhost"
+  # file containing BAG server port number
+  port_file: "BAG_server_port.txt"
+  # the log file for socket communication debugging
+  log_file: "BAG_socket.log"
+  # number of messages allowed in a pipeline
+  pipeline: 100
+
+# CAD database configuration
+# Right now only virtuoso is supported.
+database:
+  # the python class that handles database interaction.
+  class: "bag.interface.skill.SkillInterface"
+  # default directory to create generated libraries in.
+  default_lib_path: "${BAG_WORK_DIR}/gen_libs"
+  # configurations for schematic import and generation
+  schematic:
+    # technology library to configure new libraries with
+    tech_lib: "dummyLib"
+    # symbol pin master
+    sympin: ["basic", "sympin", "symbolNN"]
+    # input pin master
+    ipin: ["basic", "ipin", "symbol"]
+    # output pin master
+    opin: ["basic", "opin", "symbol"]
+    # inout pin master
+    iopin: ["basic", "iopin", "symbolr"]
+    # simulators where termOrder CDF field should be filled
+    simulators: ["auLvs", "auCdl", "spectre", "hspiceD"]
+    # libraries to exclude for schematic import
+    exclude_libraries: ["analogLib", "basic", "dummyLib"]
+  # configurations for testbench creation
+  testbench:
+    # config view global libraries
+    config_libs: "dummyLib analogLib basic"
+    # config view cellviews
+    config_views: "spectre schematic calibre veriloga"
+    # config view stop cellviews
+    config_stops: "spectre veriloga"
+    # default simulation environment name
+    default_env: "tt"
+    # simulation environment file
+    env_file: "${BAG_TECH_CONFIG_DIR}/corners_setup.sdb"
+    # definition files to include
+    def_files: []
+  # configurations used to create a Checker object to run LVS/RCX
+  checker:
+    # the Checker class.
+    checker_cls: "bag.verification.calibre.Calibre"
+    # LVS run directory
+    lvs_run_dir: "${BAG_TEMP_DIR}/calibre_run/lvs_run_dir"
+    # RCX run directory
+    rcx_run_dir: "${BAG_TEMP_DIR}/calibre_run/rcx_run_dir"
+    # LVS runset
+    lvs_runset: "${BAG_TECH_CONFIG_DIR}/workspace_setup/lvs_runset"
+    # RCX runset
+    rcx_runset: "${BAG_TECH_CONFIG_DIR}/workspace_setup/rcx_runset"
+    # source.added file location
+    source_added_file: "{BAG_TECH_CONFIG_DIR}/workspace_setup/include.sp"
+    # maximum number of LVS/RCX processes BAG can launch
+    max_workers: 1
+  # True to use calibre view
+  use_calibreview: False
+  # calibreview generation setting
+  calibreview:
+    # the calibreview cell map file.
+    cell_map: "${BAG_TECH_CONFIG_DIR}/calview.cellmap"
+    # calibreview view name.
+    view_name: "calibre"
+
+# Simulation configurations
+simulation:
+  # python class that talks with the simulator
+  class: "bag.interface.ocean.OceanInterface"
+  # maximum number of Ocean processes BAG can launch
+  max_workers: 1
+  # file to load at simulator startup.
+  init_file: ""
+  # testbench view name
+  view: "adexl"
+  # testbench setup state name
+  state: "ocean_default"
+  # when simulation goes long, a reminder message will be printed at this interval
+  update_timeout_ms: 120000
+  # amount of time to wait for process cancellation to succeed.
+  cancel_timeout_ms: 10000
+  # True to show interactive log viewer.
+  show_log_viewer: True
+  # ocean command settings
+  kwargs:
+    # the command to start
+    command: "ocean"
+    # current working directory.  Null for same directory as virtuoso.
+    cwd: !!null
+    # environment variables.  Null for same environment as BAG.
+    env: !!null
+  # Ocean job options.
+  job_options:
+    configuretimeout: "300"
+    distributionmethod: "Local"
+    lingertimeout: "300"
+    maxjobs: "7"
+    preemptivestart: "1"
+    reconfigureimmediately: "1"
+    runtimeout: "-1"
+    showerrorwhenretrying: "1"
+    starttimeout: "300"
+
+# technology specific configuration are stored in a separate file.
+# this field tells BAG where to look for it.
+tech_config_path: "${BAG_WORK_DIR}/BPG/examples/tech/BAG_tech_files/tech_config.yaml"
+
+# BAG design libraries definition file.
+lib_defs: "bag_libs.def"
+
+# place to put new design libraries
+new_lib_path: "BagModules"
+
+# Add the following modules to the python search path
+path_setup:
+  - "${BAG_WORK_DIR}/BAG_framework"
+  - "${BAG_WORK_DIR}/Photonic_Core_Layout"
+  - "${BAG_WORK_DIR}/BAG2_TEMPLATES_EC"
+  - "${BAG_WORK_DIR}/BPG"
+
+# Configuration for Berkeley Photonics Generator
+bpg_config:
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
+
+# Use this section of the settings to activate/deactivate beta features
+feature_flags: {}
