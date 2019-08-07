@@ -96,7 +96,7 @@ class PhotonicBagProject(BagProject):
         self.specs = read_yaml(spec_file)
         self.specs.update(**kwargs)  # Update the read specs with any passed variables
         BPG.run_settings.load_configuration(self.specs)  # Update the base run_settings with anything from the yaml
-        self.specs = BPG.run_settings
+        # self.specs = BPG.run_settings
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
@@ -104,7 +104,7 @@ class PhotonicBagProject(BagProject):
         # If user specifies a particular bag or tech config in the yaml, reload the tech_info / photonic_tech_info
         if 'bag_config_path' in BPG.run_settings:
             self.bag_config = self.load_yaml(BPG.run_settings['bag_config_path'])
-            self.tech_info = create_tech_info(bag_config_path=self.specs['bag_config_path'])
+            self.tech_info = create_tech_info(bag_config_path=BPG.run_settings['bag_config_path'])
             # BAG might reset the photonic_tech_info config, need to reset it
             self.photonic_tech_info = create_photonic_tech_info(
                 bpg_config=self.bag_config['bpg_config'],
@@ -112,26 +112,26 @@ class PhotonicBagProject(BagProject):
             )
             self.photonic_tech_info.load_tech_files()
 
-        if 'photonic_tech_config_path' in self.specs:
+        if 'photonic_tech_config_path' in BPG.run_settings:
             self.photonic_tech_info = create_photonic_tech_info(
-                bpg_config=dict(photonic_tech_config_path=self.specs['photonic_tech_config_path']),
+                bpg_config=dict(photonic_tech_config_path=BPG.run_settings['photonic_tech_config_path']),
                 tech_info=self.tech_info,
             )
             self.photonic_tech_info.load_tech_files()
 
         # Setup relevant output files and directories
-        if 'project_dir' in self.specs:
-            self.project_dir = Path(self.specs['project_dir']).expanduser()
+        if 'project_dir' in BPG.run_settings:
+            self.project_dir = Path(BPG.run_settings['project_dir']).expanduser()
         else:
             default_path = Path(self.bag_config['database']['default_lib_path'])
-            self.project_dir = default_path / self.specs['project_name']
+            self.project_dir = default_path / BPG.run_settings['project_name']
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
         self.content_dir = self.project_dir / 'content'
 
         # If users provide paths to add provide them here
-        if 'path_setup' in self.specs:
-            for path in self.specs['path_setup']:
+        if 'path_setup' in BPG.run_settings:
+            for path in BPG.run_settings['path_setup']:
                 if path not in sys.path:
                     sys.path.insert(0, path)
                     print(f'Adding {path} to python module search path')
@@ -143,9 +143,9 @@ class PhotonicBagProject(BagProject):
         self.content_dir.mkdir(exist_ok=True)
 
         # Enable logging for BPG
-        if 'logfile' in self.specs:
+        if 'logfile' in BPG.run_settings:
             # If logfile is specified in specs, dump all logs in that location
-            log_path = bag_work_dir / self.specs['logfile']
+            log_path = bag_work_dir / BPG.run_settings['logfile']
             if log_path.is_dir():
                 self.log_path = log_path
                 self.log_filename = 'output.log'
@@ -161,31 +161,31 @@ class PhotonicBagProject(BagProject):
 
         # Overwrite tech parameters if specified in the spec file
         # Setup the abstract tech layermap
-        if 'layermap' in self.specs:
-            self.photonic_tech_info.layermap_path = bag_work_dir / self.specs['layermap']
+        if 'layermap' in BPG.run_settings:
+            self.photonic_tech_info.layermap_path = bag_work_dir / BPG.run_settings['layermap']
         logging.info(f'loading layermap from {self.photonic_tech_info.layermap_path}')
 
         # Setup the dataprep procedure
-        if 'dataprep' in self.specs:
-            self.photonic_tech_info.dataprep_routine_filepath = bag_work_dir / self.specs['dataprep']
+        if 'dataprep' in BPG.run_settings:
+            self.photonic_tech_info.dataprep_routine_filepath = bag_work_dir / BPG.run_settings['dataprep']
         logging.info(f'loading dataprep procedure from {self.photonic_tech_info.dataprep_routine_filepath}')
 
-        if 'dataprep_params' in self.specs:
-            self.photonic_tech_info.dataprep_parameters_filepath = bag_work_dir / self.specs['dataprep_params']
+        if 'dataprep_params' in BPG.run_settings:
+            self.photonic_tech_info.dataprep_parameters_filepath = bag_work_dir / BPG.run_settings['dataprep_params']
         logging.info(f'loading dataprep and DRC parameters from '
                      f'{self.photonic_tech_info.dataprep_parameters_filepath}')
 
         # Setup the lumerical export map
-        if 'lsf_export_map' in self.specs:
-            self.photonic_tech_info.lsf_export_path = bag_work_dir / self.specs['lsf_export_map']
+        if 'lsf_export_map' in BPG.run_settings:
+            self.photonic_tech_info.lsf_export_path = bag_work_dir / BPG.run_settings['lsf_export_map']
         logging.info(f'loading lumerical export configuration from {self.photonic_tech_info.lsf_export_path}')
 
         # Now that paths are fully settled, load the tech files
         self.photonic_tech_info.load_tech_files()
 
         # Set the paths of the output files
-        self.lsf_path = str(self.scripts_dir / self.specs['lsf_filename'])
-        self.gds_path = str(self.data_dir / self.specs['gds_filename'])
+        self.lsf_path = str(self.scripts_dir / BPG.run_settings['lsf_filename'])
+        self.gds_path = str(self.data_dir / BPG.run_settings['gds_filename'])
         logging.info('loaded paths successfully')
 
     @staticmethod

@@ -11,6 +11,7 @@ import os
 # BAG imports
 from bag.layout import RoutingGrid
 from bag.util.cache import _get_unique_name
+import BPG
 from BPG.photonic_core import PhotonicBagProject
 
 # Plugin imports
@@ -96,12 +97,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         Creates all built-in plugins based on the provided configuration and tech-info
         """
-        lib_name = self.specs['impl_lib']
+        lib_name = BPG.run_settings['impl_lib']
         self.impl_lib = lib_name
 
         # Extract routing grid information from spec file if provided. If not, default to dummy values
-        if 'routing_grid' in self.specs:
-            grid_specs = self.specs['routing_grid']
+        if 'routing_grid' in BPG.run_settings:
+            grid_specs = BPG.run_settings['routing_grid']
         else:
             grid_specs = self.photonic_tech_info.photonic_tech_params['default_routing_grid']
 
@@ -155,14 +156,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Generating template":-^80}')
         if params is None:
-            params = self.specs['layout_params']
+            params = BPG.run_settings['layout_params']
         if temp_cls is None:
-            cls_package = self.specs['layout_package']
-            cls_name = self.specs['layout_class']
+            cls_package = BPG.run_settings['layout_package']
+            cls_name = BPG.run_settings['layout_class']
             lay_module = importlib.import_module(cls_package)
             temp_cls = getattr(lay_module, cls_name)
         if cell_name is None:
-            cell_name = self.specs['impl_cell']
+            cell_name = BPG.run_settings['impl_cell']
 
         start_time = time.time()
         self.template_list.append(self.template_plugin.new_template(params=params,
@@ -403,8 +404,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         start_time = time.time()
 
         # Get name of schematic template's library and cell
-        sch_lib = self.specs['sch_lib']
-        sch_cell = self.specs['sch_cell']
+        sch_lib = BPG.run_settings['sch_lib']
+        sch_cell = BPG.run_settings['sch_cell']
 
         dsn = self.create_design_module(lib_name=sch_lib, cell_name=sch_cell)
         end_create_design_module = time.time()
