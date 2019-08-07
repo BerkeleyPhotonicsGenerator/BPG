@@ -3,6 +3,7 @@ import sys
 from collections import UserDict
 from .template import PhotonicTemplateBase  # Expose PhotonicTemplateBase so that all generators can subclass it
 from .layout_manager import PhotonicLayoutManager  # Expose PLM to simplify BPG usage
+from typing import Union
 
 
 class ConfigDict(UserDict):
@@ -19,18 +20,19 @@ class ConfigDict(UserDict):
 
         Parameters
         ----------
-        default_dict : dict
+        default_dict : Union[dict, ConfigDict]
             A dictionary to be reloaded prior to every call to load_configuration
         """
         UserDict.__init__(self)
         self.default_dict = default_dict
+        self.load_configuration(config_dict={})
 
     def __setitem__(self, key, value):
         """ This class prevents unintentional mutation of global settings """
         raise ValueError(f"Dynamically modifying global settings is not allowed!"
                          f"Please set {key} to {value} in either your global config file or spec file")
 
-    def load_configuration(self, config_dict: dict):
+    def load_configuration(self, config_dict: Union[dict, "ConfigDict"]):
         """ Use this method to explicitly modify the internal settings of the dictionary """
         if self.default_dict:
             self.data.update(self.default_dict)
@@ -67,7 +69,16 @@ print(f'Loaded BPG v{__version__}')
 check_environment()
 setup_environment()
 
-# These variables contain the raw settings that can be imported and read globally
-# TODO: Change this to load BPG default settings, then user settings, then initialize run_settings
-global_settings = ConfigDict()
-run_settings = ConfigDict()
+# Use the core setting built into BPG as a base for all configuration
+bpg_default_config = PhotonicLayoutManager.load_yaml(
+    os.path.dirname(os.path.realpath(__file__)) + "/default_config.yaml"
+)
+
+# Import settings from the global config file
+global_settings = ConfigDict(default_dict=bpg_default_config)
+_bpg_global_config_file = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
+global_settings.load_configuration(_bpg_global_config_file)
+
+# Initialize these run settings to share the global settings, this will typically be modified for each spec file
+# By PhotonicLayoutManager
+run_settings = ConfigDict(default_dict=global_settings)

@@ -17,6 +17,7 @@ from bag.io.file import read_yaml
 from bag.layout.core import BagLayout
 
 # BPG imports
+import BPG
 from BPG.content_list import ContentList
 from BPG.geometry import BBoxMut
 
@@ -59,10 +60,10 @@ class PhotonicBagProject(BagProject):
         self.specs = None
         self.log_path = None
         self.log_filename = 'output.log'
-        self.project_dir: Path = None
-        self.scripts_dir: Path = None
-        self.data_dir: Path = None
-        self.content_dir: Path = None
+        self.project_dir: Optional[Path] = None
+        self.scripts_dir: Optional[Path] = None
+        self.data_dir: Optional[Path] = None
+        self.content_dir: Optional[Path] = None
         self.lsf_path = None
         self.gds_path = None
 
@@ -74,7 +75,7 @@ class PhotonicBagProject(BagProject):
                 bag_config_path = os.environ['BAG_CONFIG_PATH']
 
         # Load core BPG configuration variables from bag_config file
-        self.bag_config = self.load_yaml(bag_config_path)
+        self.bag_config = BPG.run_settings
         if 'bpg_config' in self.bag_config:
             self.bpg_config = self.bag_config['bpg_config']
         else:
@@ -93,16 +94,16 @@ class PhotonicBagProject(BagProject):
                              ):
         """ Receives a specification file from the user and configures the project paths accordingly """
         self.specs = read_yaml(spec_file)
-
-        # Update the read specs with any passed variables
-        self.specs.update(**kwargs)
+        self.specs.update(**kwargs)  # Update the read specs with any passed variables
+        BPG.run_settings.load_configuration(self.specs)  # Update the base run_settings with anything from the yaml
+        self.specs = BPG.run_settings
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
 
         # If user specifies a particular bag or tech config in the yaml, reload the tech_info / photonic_tech_info
-        if 'bag_config_path' in self.specs:
-            self.bag_config = self.load_yaml(self.specs['bag_config_path'])
+        if 'bag_config_path' in BPG.run_settings:
+            self.bag_config = self.load_yaml(BPG.run_settings['bag_config_path'])
             self.tech_info = create_tech_info(bag_config_path=self.specs['bag_config_path'])
             # BAG might reset the photonic_tech_info config, need to reset it
             self.photonic_tech_info = create_photonic_tech_info(
