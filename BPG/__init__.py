@@ -1,6 +1,6 @@
 import os
 import sys
-from collections import UserDict
+from collections import UserDict, Mapping
 from .template import PhotonicTemplateBase  # Expose PhotonicTemplateBase so that all generators can subclass it
 from .layout_manager import PhotonicLayoutManager  # Expose PLM to simplify BPG usage
 from typing import Union
@@ -36,7 +36,22 @@ class ConfigDict(UserDict):
         """ Use this method to explicitly modify the internal settings of the dictionary """
         if self.default_dict:
             self.data.update(self.default_dict)
-        self.data.update(config_dict)
+        self._update(config_dict)
+
+    def _update(self, mapping) -> None:
+        """
+        Private update method to allow nested dictionaries to have their some internal values updated without
+        overwriting the whole thing. Since this method is specific to ConfigDict, this does not allow updating
+        beyond 2 levels of hierarchy.
+        """
+        for key, value in mapping.items():
+            dict_value = self.data.get(key, {})
+            if not isinstance(dict_value, Mapping):
+                self.data[key] = value
+            elif isinstance(value, Mapping):
+                dict_value.update(value)
+            else:
+                self.data[key] = value
 
 
 def setup_environment():

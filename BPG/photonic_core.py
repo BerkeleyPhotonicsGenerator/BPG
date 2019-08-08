@@ -57,7 +57,6 @@ class PhotonicBagProject(BagProject):
         BagProject.__init__(self, bag_config_path, port)
 
         # Init empty path variables to be set by user spec file
-        self.specs = None
         self.log_path = None
         self.log_filename = 'output.log'
         self.project_dir: Optional[Path] = None
@@ -93,10 +92,9 @@ class PhotonicBagProject(BagProject):
                              **kwargs: Dict[str, Any],
                              ):
         """ Receives a specification file from the user and configures the project paths accordingly """
-        self.specs = read_yaml(spec_file)
-        self.specs.update(**kwargs)  # Update the read specs with any passed variables
-        BPG.run_settings.load_configuration(self.specs)  # Update the base run_settings with anything from the yaml
-        # self.specs = BPG.run_settings
+        specs = read_yaml(spec_file)
+        specs.update(**kwargs)  # Update the read specs with any passed variables
+        BPG.run_settings.load_configuration(specs)  # Update the base run_settings with anything from the yaml
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
