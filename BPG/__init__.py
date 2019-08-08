@@ -50,6 +50,7 @@ class ConfigDict(UserDict):
                 self.data[key] = value
             elif isinstance(value, Mapping):
                 dict_value.update(value)
+                self.data[key] = dict_value
             else:
                 self.data[key] = value
 
