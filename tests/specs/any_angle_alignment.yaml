@@ -11,10 +11,12 @@ gds_filename: any_angle_alignment
 # Module that contains the layout generator class
 layout_package: 'tests.test_anyangle_alignment'
 layout_class: 'SBend'  # Layout generator class name
-
 layout_params:
-
 
 # Cadence related parameters
 impl_lib: 'any_angle'
 impl_cell: 'sbend'
+
+# Base configuration for Berkeley Photonics Generator
+bpg_config:
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
