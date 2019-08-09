@@ -1,5 +1,6 @@
 import os
 import sys
+from copy import deepcopy
 from collections import UserDict, Mapping
 from .template import PhotonicTemplateBase  # Expose PhotonicTemplateBase so that all generators can subclass it
 from .layout_manager import PhotonicLayoutManager  # Expose PLM to simplify BPG usage
@@ -27,15 +28,10 @@ class ConfigDict(UserDict):
         self.default_dict = default_dict
         self.load_configuration(config_dict={})
 
-    def __setitem__(self, key, value):
-        """ This class prevents unintentional mutation of global settings """
-        raise ValueError(f"Dynamically modifying global settings is not allowed!"
-                         f"Please set {key} to {value} in either your global config file or spec file")
-
     def load_configuration(self, config_dict: Union[dict, "ConfigDict"]):
         """ Use this method to explicitly modify the internal settings of the dictionary """
         if self.default_dict:
-            self.data.update(self.default_dict)
+            self.data = deepcopy(self.default_dict)
         self._update(config_dict)
 
     def _update(self, mapping) -> None:

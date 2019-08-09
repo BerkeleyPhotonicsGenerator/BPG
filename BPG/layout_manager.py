@@ -119,7 +119,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                   gds_lay_file=self.photonic_tech_info.layermap_path,
                                                   photonic_tech_info=self.photonic_tech_info)
         self.template_plugin._prj = self
-
+        print(f'GDS layermap is: {self.photonic_tech_info.layermap_path}')
         self.gds_plugin = GDSPlugin(grid=routing_grid,
                                     gds_layermap=self.photonic_tech_info.layermap_path,
                                     gds_filepath=self.gds_path,

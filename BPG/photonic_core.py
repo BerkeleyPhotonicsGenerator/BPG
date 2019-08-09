@@ -14,7 +14,7 @@ from itertools import chain
 from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
 from bag.layout.util import BBox
 from bag.io.file import read_yaml
-from bag.layout.core import BagLayout
+from bag.layout.core import BagLayout, DummyTechInfo
 
 # BPG imports
 import BPG
@@ -66,49 +66,35 @@ class PhotonicBagProject(BagProject):
         self.lsf_path = None
         self.gds_path = None
 
-        # Setup bag config path from env if not provided
-        if bag_config_path is None:
-            if 'BAG_CONFIG_PATH' not in os.environ:
-                raise EnvironmentError('BAG_CONFIG_PATH not defined')
-            else:
-                bag_config_path = os.environ['BAG_CONFIG_PATH']
-
-        # Load core BPG configuration variables from bag_config file
-        self.bag_config = BPG.run_settings
-        if 'bpg_config' in self.bag_config:
-            self.bpg_config = self.bag_config['bpg_config']
-        else:
-            raise ValueError('bpg configuration vars not set in bag_config.yaml')
-
-        # Grab technology information
-        print('Setting up tech info class')
-        self.tech_info = create_tech_info(bag_config_path=bag_config_path)
-        self.photonic_tech_info = create_photonic_tech_info(bpg_config=self.bpg_config,
-                                                            tech_info=self.tech_info)
-        self.photonic_tech_info.load_tech_files()
-
     def load_spec_file_paths(self,
                              spec_file: str,
                              **kwargs: Dict[str, Any],
                              ):
         """ Receives a specification file from the user and configures the project paths accordingly """
-        specs = read_yaml(spec_file)
+        specs = self.load_yaml(spec_file)
         specs.update(**kwargs)  # Update the read specs with any passed variables
         BPG.run_settings.load_configuration(specs)  # Update the base run_settings with anything from the yaml
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])
 
-        # If user specifies a particular bag or tech config in the yaml, reload the tech_info / photonic_tech_info
-        if 'bag_config_path' in BPG.run_settings:
-            self.bag_config = self.load_yaml(BPG.run_settings['bag_config_path'])
-            self.tech_info = create_tech_info(bag_config_path=BPG.run_settings['bag_config_path'])
-            # BAG might reset the photonic_tech_info config, need to reset it
-            self.photonic_tech_info = create_photonic_tech_info(
-                bpg_config=self.bag_config['bpg_config'],
-                tech_info=self.tech_info,
-            )
-            self.photonic_tech_info.load_tech_files()
+        # self.tech_info = create_tech_info(bag_config_path=BPG.run_settings['bag_config_path'])
+        tech_params = _parse_yaml_file(BPG.run_settings['tech_config_path'])
+        if 'class' in tech_params:
+            tech_cls = _import_class_from_str(tech_params['class'])
+            self.tech_info = tech_cls(tech_params)
+        else:
+            # just make a default tech_info object as place holder.
+            print('*WARNING*: No TechInfo class defined.  Using a dummy version.')
+            self.tech_info = DummyTechInfo(tech_params)
+
+        # BAG might reset the photonic_tech_info config, need to reset it
+        self.photonic_tech_info = create_photonic_tech_info(
+            bpg_config=BPG.run_settings['bpg_config'],
+            tech_info=self.tech_info,
+        )
+        print(f"BPG.run_settings: {BPG.run_settings['bpg_config']}")
+        self.photonic_tech_info.load_tech_files()
 
         if 'photonic_tech_config_path' in BPG.run_settings:
             self.photonic_tech_info = create_photonic_tech_info(
@@ -121,7 +107,7 @@ class PhotonicBagProject(BagProject):
         if 'project_dir' in BPG.run_settings:
             self.project_dir = Path(BPG.run_settings['project_dir']).expanduser()
         else:
-            default_path = Path(self.bag_config['database']['default_lib_path'])
+            default_path = Path(BPG.run_settings['database']['default_lib_path'])
             self.project_dir = default_path / BPG.run_settings['project_name']
         self.scripts_dir = self.project_dir / 'scripts'
         self.data_dir = self.project_dir / 'data'
@@ -691,16 +677,16 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     def load_tech_files(self):
         with open(self.layermap_path, 'r') as f:
-            layer_info = yaml.load(f)
+            layer_info = yaml.full_load(f)
             self.layer_map = layer_info['layer_map']
             self.via_info = layer_info['via_info']
 
         with open(self.lsf_export_path, 'r') as f:
-            self.lsf_export_parameters = yaml.load(f)
+            self.lsf_export_parameters = yaml.full_load(f)
 
         if self.dataprep_parameters_filepath:
             with open(self.dataprep_parameters_filepath, 'r') as f:
-                self.dataprep_parameters = yaml.load(f)
+                self.dataprep_parameters = yaml.full_load(f)
         else:
             self.dataprep_parameters = None
             logging.warning('Warning: dataprep_parameters_filepath not specified in tech config. '
@@ -708,7 +694,7 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
         if self.dataprep_routine_filepath:
             with open(self.dataprep_routine_filepath, 'r') as f:
-                self.dataprep_routine_data = yaml.load(f)
+                self.dataprep_routine_data = yaml.full_load(f)
             self.global_dataprep_size_amount = self.dataprep_routine_data['GlobalDataprepSizeAmount']
             self.global_grid_size = self.dataprep_routine_data['GlobalGridSize']
             self.global_rough_grid_size = self.dataprep_routine_data['GlobalRoughGridSize']
