@@ -2,14 +2,16 @@
 # This test suite does the following:
 #   Sets up anaconda python
 #   conda installs dependencies for rtree/shapely
-#   TODO: Clones BAG from ucb-art
+#   pip installs BAG from ucb-art
 #   pip installs BPG
 #   TODO: runs BPG test suite
 
-#trigger:
-#  - master
+# Run this pipeline whenever a commit is pushed onto master
+trigger:
+  - master
 
 # Run this pipeline whenever a pull request to master or release is executed
+# This allows developers to iterate in PRs and get their changes to be clean
 pr:
   - master
   - releases/*
@@ -35,5 +37,6 @@ steps:
       source activate myEnvironment
       pwd
       ls -la
+      pip install git+https://github.com/ucb-art/BAG_Framework
       pip install .
-    displayName: 'Install BPG'
+    displayName: 'Install BAG and BPG'
