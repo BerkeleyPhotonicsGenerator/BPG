@@ -1,10 +1,13 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# BPG CI/CD Pipeline
+# This test suite does the following:
+#   Sets up anaconda python
+#   conda installs dependencies for rtree/shapely
+#   TODO: Clones BAG from ucb-art
+#   pip installs BPG
+#   TODO: runs BPG test suite
 
-trigger:
-  - master
+#trigger:
+#  - master
 
 # Run this pipeline whenever a pull request to master or release is executed
 pr:
@@ -12,15 +15,25 @@ pr:
   - releases/*
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-16.04'
 
 steps:
-  - script: echo Hello, world!
-    displayName: 'Run a one-line script'
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: 'Add conda to PATH'
 
-  - script: |
-      echo Add other tasks to build, test, and deploy your project.
-      echo See https://aka.ms/yaml
+  - bash: conda create --yes --quiet --name myEnvironment
+    displayName: 'Create Anaconda environment'
+
+  - bash: |
+      source activate myEnvironment
+      conda install --yes --name myEnvironment numpy
+      conda install --yes --name myEnvironment rtree
+      conda install --yes --name myEnvironment shapely
+    displayName: 'Install Anaconda dependencies'
+
+  - bash: |
+      source activate myEnvironment
       pwd
       ls -la
-    displayName: 'Run a multi-line script'
+      pip install .
+    displayName: 'Install BPG'
