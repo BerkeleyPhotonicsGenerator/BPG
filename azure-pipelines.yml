@@ -16,6 +16,8 @@ pr:
   - master
   - releases/*
 
+# Perform all of these tests on Ubuntu
+# TODO: Extend these tests to be run on Windows + MacOS
 pool:
   vmImage: 'ubuntu-16.04'
 
@@ -35,8 +37,14 @@ steps:
 
   - bash: |
       source activate myEnvironment
-      pwd
-      ls -la
       pip install git+https://github.com/ucb-art/BAG_Framework
       pip install .
     displayName: 'Install BAG and BPG'
+
+  - bash: |
+      source activate myEnvironment
+      pip install pytest
+      cd ..
+      ls -la
+      pwd
+    displayName: 'Run BPG test suite'
