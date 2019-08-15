@@ -44,7 +44,9 @@ steps:
   - bash: |
       source activate myEnvironment
       pip install pytest
-      cd ..
+      bpg setup
+      source sourceme.sh
       ls -la
       pwd
+      env
     displayName: 'Run BPG test suite'

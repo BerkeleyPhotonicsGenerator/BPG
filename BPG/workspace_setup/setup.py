@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
-from shutil import copyfile
+from shutil import copyfile, copytree
 
 
-def copy_files():
+def copy_setup_files():
     # The root directory is where the workspace will be created, setup files are stored locally
     root = os.getcwd()
     install_dir = os.path.dirname(os.path.realpath(__file__))
@@ -15,5 +15,4 @@ def copy_files():
     # Copy over basic files
     copyfile(install_dir + '/.gitignore', root + '/.gitignore')
     copyfile(install_dir + '/sourceme.sh', root + '/sourceme.sh')
-
-# TODO: Clone over the BAG_Framework repo...
+    copytree(install_dir + '/../examples' + '/tech', root + '/example_tech')

@@ -47,8 +47,8 @@ def test():
 
 def setup():
     """ Copy over files """
-    from BPG.workspace_setup.setup import copy_files
-    copy_files()
+    from BPG.workspace_setup.setup import copy_setup_files
+    copy_setup_files()
 
 
 def get_cmd_line_args(arg_list):
