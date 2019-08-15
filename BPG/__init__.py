@@ -6,13 +6,16 @@ from .layout_manager import PhotonicLayoutManager  # Expose PLM to simplify BPG 
 
 def setup_environment():
     """ Sets up python module search path from config file """
-    config = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
-    # Add paths specified in config file
-    if 'path_setup' in config:
-        for path in config['path_setup']:
-            if path not in sys.path:
-                sys.path.append(path)
-                print(f'Adding {path} to python module search path')
+    if 'BAG_CONFIG_PATH' in os.environ:
+        config = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
+        # Add paths specified in config file
+        if 'path_setup' in config:
+            for path in config['path_setup']:
+                if path not in sys.path:
+                    sys.path.append(path)
+                    print(f'Adding {path} to python module search path')
+    else:
+        print('Configuration yaml file not provided!')
 
 
 def check_environment():
