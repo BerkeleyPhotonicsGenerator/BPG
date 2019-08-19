@@ -5,8 +5,9 @@ This module provides a command-line interface to using BPG
 import sys
 import argparse
 import os
-import pytest
 import runpy
+from pathlib import Path
+from shutil import copyfile, copytree
 
 
 def run(args):
@@ -39,14 +40,27 @@ def run(args):
 
 def setup():
     """ Copy over files """
-    from BPG.workspace_setup.setup import copy_setup_files
-    copy_setup_files()
+    root = os.getcwd()
+    install_dir = os.path.dirname(os.path.realpath(__file__)) + '/workspace_setup'
+
+    # Create temp directory
+    tmp_dir = Path(root) / 'tmp'
+    tmp_dir.mkdir(exist_ok=True)
+
+    # Copy over basic files
+    copyfile(install_dir + '/.gitignore', root + '/.gitignore')
+    copyfile(install_dir + '/sourceme.sh', root + '/sourceme.sh')
+    copytree(install_dir + '/../../examples' + '/tech', root + '/example_tech')
 
 
 def setup_test():
     """ Copy over files """
-    from BPG.workspace_setup.setup import copy_test_files
-    copy_test_files()
+    # The root directory is where the workspace will be created, setup files are stored locally
+    root = os.getcwd()
+    install_dir = os.path.dirname(os.path.realpath(__file__)) + '/workspace_setup'
+
+    # Copy over basic files
+    copytree(install_dir + '/../../tests', root + '/bpg_test_suite')
 
 
 def get_cmd_line_args(arg_list):
