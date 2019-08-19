@@ -35,7 +35,7 @@ class DummyClass(BPG.PhotonicTemplateBase):
 
 
 def test_logger():
-    spec_file = 'BPG/tests/specs/logger_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/logger_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_template()
     plm.generate_content()
@@ -46,7 +46,7 @@ def test_logger():
 
 
 def test_logger_no_logfile():
-    spec_file = 'BPG/tests/specs/logger_specs_no_logfile.yaml'
+    spec_file = 'bpg_test_suite/specs/logger_specs_no_logfile.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_template()
     plm.generate_content()
