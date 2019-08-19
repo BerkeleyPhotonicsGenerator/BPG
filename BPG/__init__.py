@@ -51,20 +51,6 @@ class ConfigDict(UserDict):
                 self.data[key] = value
 
 
-def setup_environment():
-    """ Sets up python module search path from config file """
-    if 'BAG_CONFIG_PATH' in os.environ:
-        config = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
-        # Add paths specified in config file
-        if 'path_setup' in config:
-            for path in config['path_setup']:
-                if path not in sys.path:
-                    sys.path.append(path)
-                    print(f'Adding {path} to python module search path')
-    else:
-        print('Configuration yaml file not provided!')
-
-
 def check_environment():
     """ Checks that all required environment variables have been set """
     env_list = [('BAG_WORK_DIR', 'Root directory where all generator folders are located'),
@@ -82,18 +68,30 @@ def check_environment():
 __version__ = '0.8.5'
 print(f'Loaded BPG v{__version__}')
 check_environment()
-setup_environment()
 
-# Use the core setting built into BPG as a base for all configuration
-bpg_default_config = PhotonicLayoutManager.load_yaml(
-    os.path.dirname(os.path.realpath(__file__)) + "/default_config.yaml"
-)
+# If BAG_CONFIG_PATH is not provided, don't try to load any settings, this mostly happens when trying to
+# run the bpg command line setup script for the first time
+if 'BAG_CONFIG_PATH' in os.environ:
+    config = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
+    # Add paths specified in config file
+    if 'path_setup' in config:
+        for path in config['path_setup']:
+            if path not in sys.path:
+                sys.path.append(path)
+                print(f'Adding {path} to python module search path')
+    # Use the core setting built into BPG as a base for all configuration
+    bpg_default_config = PhotonicLayoutManager.load_yaml(
+        os.path.dirname(os.path.realpath(__file__)) + "/default_config.yaml"
+    )
 
-# Import settings from the global config file
-global_settings = ConfigDict(default_dict=bpg_default_config)
-_bpg_global_config_file = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
-global_settings.load_configuration(_bpg_global_config_file)
+    # Import settings from the global config file
+    global_settings = ConfigDict(default_dict=bpg_default_config)
+    _bpg_global_config_file = PhotonicLayoutManager.load_yaml(os.environ['BAG_CONFIG_PATH'])
+    global_settings.load_configuration(_bpg_global_config_file)
 
-# Initialize these run settings to share the global settings, this will typically be modified for each spec file
-# By PhotonicLayoutManager
-run_settings = ConfigDict(default_dict=global_settings)
+    # Initialize these run settings to share the global settings, this will typically be modified for each spec file
+    # By PhotonicLayoutManager
+    run_settings = ConfigDict(default_dict=global_settings)
+
+else:
+    print('Configuration yaml file not provided!')
