@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.objects import PhotonicRound, PhotonicRect
 from bag.layout.objects import BBox
 from bag.layout.template import TemplateBase
@@ -220,8 +217,8 @@ class SubLevel2(BPG.PhotonicTemplateBase):
 
 
 def test_dataprep():
-    # spec_file = 'BPG/tests/specs/dataprep_debug_specs.yaml'
-    spec_file = 'BPG/tests/specs/dataprep_specs.yaml'
+    # spec_file = 'bpg_test_suite/specs/dataprep_debug_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/dataprep_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

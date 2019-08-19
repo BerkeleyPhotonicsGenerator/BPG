@@ -37,18 +37,16 @@ def run(args):
         raise ValueError("You must provide either a python module or a spec file to run")
 
 
-def test():
-    """
-    Runs the built-in test suite
-    TODO: This only works in BAG_WORK_DIR...make it work in any directory
-    """
-    pytest.main(['BPG/tests'])
-
-
 def setup():
     """ Copy over files """
     from BPG.workspace_setup.setup import copy_setup_files
     copy_setup_files()
+
+
+def setup_test():
+    """ Copy over files """
+    from BPG.workspace_setup.setup import copy_test_files
+    copy_test_files()
 
 
 def get_cmd_line_args(arg_list):
@@ -97,10 +95,10 @@ def main(arg_list):
     # action switch statement
     if args.action == 'run':
         run(args)
-    elif args.action == 'test':
-        test()
     elif args.action == 'setup':
         setup()
+    elif args.action == 'setup_test':
+        setup_test()
     elif args.action == 'shell':
         from IPython import embed
         embed()

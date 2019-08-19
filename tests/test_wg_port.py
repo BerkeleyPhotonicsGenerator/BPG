@@ -1,8 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
-
+import BPG
 from typing import Dict, Set, Any, TYPE_CHECKING
 from bag.layout.core import BBox
 
@@ -493,7 +489,7 @@ class PortTest(BPG.PhotonicTemplateBase):
 
 
 def test_wg_port():
-    spec_file = 'BPG/tests/specs/waveguide_and_port_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/waveguide_and_port_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

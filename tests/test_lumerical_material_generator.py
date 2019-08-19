@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 import yaml
 from BPG.lumerical.code_generator import LumericalMaterialGenerator
 from pathlib import Path

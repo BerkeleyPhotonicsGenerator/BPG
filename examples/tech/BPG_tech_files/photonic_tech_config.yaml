@@ -1,26 +1,26 @@
 # GDS layermap
-layermap: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/gds_map.yaml"
+layermap: "${BAG_WORK_DIR}/example_tech/BPG_tech_files/gds_map.yaml"
 
 # The Photonic Technology class
-photonic_tech_class: 'examples.tech.BPG_tech_files.photonic_tech.PhotonicTechInfoExample'
+photonic_tech_class: 'example_tech.BPG_tech_files.photonic_tech.PhotonicTechInfoExample'
 
 # File containing dataprep procedure information
-dataprep_routine_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_routine.yaml"
+dataprep_routine_filepath: "${BAG_WORK_DIR}/example_tech/BPG_tech_files/dataprep_routine.yaml"
 
 # File containing dataprep / DRC parameter information
-dataprep_parameters_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_parameters.yaml"
+dataprep_parameters_filepath: "${BAG_WORK_DIR}/example_tech/BPG_tech_files/dataprep_parameters.yaml"
 
 # File containing the skill procedures to implement dataprep.
 # The DataPrepWrapper( "{lib_name}" "{cell_name}" {debug} ) method must be implemented to call dataprep via BPGs
 # build in method
-dataprep_skill_path: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/dataprep_skill.il"
+dataprep_skill_path: "${BAG_WORK_DIR}/example_tech/BPG_tech_files/dataprep_skill.il"
 
 # Calibre based dataprep runset. Optional.
 dataprep_calibre_runset_template: "${BAG_WORK_DIR}/DataprepPlugin/Calibre/dataprep_runset_template.runset"
 
 
 # Lumerical dataprep file and mapping
-lsf_dataprep_filepath: "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/lumerical_map.yaml"
+lsf_dataprep_filepath: "${BAG_WORK_DIR}/example_tech/BPG_tech_files/lumerical_map.yaml"
 
 # Default routing grid to use for this process.
 default_routing_grid:

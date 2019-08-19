@@ -1,8 +1,5 @@
 from pathlib import Path
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 import logging
 
 str_list = ['LOG1UNIQUE', 'LOG2UNIQUE', 'LOG3UNIQUE', 'LOG4UNIQUE']

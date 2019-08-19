@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from bag.layout.util import BBox
 
 
@@ -88,7 +85,7 @@ class AddRect(BPG.PhotonicTemplateBase):
 
 
 def test_add_rect():
-    spec_file = 'BPG/tests/specs/sweep_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/sweep_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     # Sweep the length and width of the rectangle
     size = 1

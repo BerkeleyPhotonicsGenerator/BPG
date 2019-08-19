@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 import math
 from BPG.port import PhotonicPort
 
@@ -169,7 +166,7 @@ class PortExtraction(BPG.PhotonicTemplateBase):
 
 
 def test_port_extraction():
-    spec_file = 'BPG/tests/specs/port_extraction_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/port_extraction_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

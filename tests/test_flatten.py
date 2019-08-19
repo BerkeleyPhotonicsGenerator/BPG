@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 
 
 class SubLevel2(BPG.PhotonicTemplateBase):
@@ -146,7 +143,7 @@ class TopLevel(BPG.PhotonicTemplateBase):
 
 
 def test_flatten():
-    spec_file = 'BPG/tests/specs/flatten_test_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/flatten_test_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

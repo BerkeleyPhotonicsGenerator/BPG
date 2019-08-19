@@ -9,7 +9,7 @@ gds_filename: any_angle
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_anyangle'
+layout_package: 'bpg_test_suite.test_anyangle'
 layout_class: 'AnyAngleTest'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here

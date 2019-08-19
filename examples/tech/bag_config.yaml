@@ -112,7 +112,7 @@ simulation:
 
 # technology specific configuration are stored in a separate file.
 # this field tells BAG where to look for it.
-tech_config_path: "${BAG_WORK_DIR}/BPG/examples/tech/BAG_tech_files/tech_config.yaml"
+tech_config_path: "${BAG_WORK_DIR}/example_tech/BAG_tech_files/tech_config.yaml"
 
 # BAG design libraries definition file.
 lib_defs: "bag_libs.def"
@@ -125,8 +125,8 @@ path_setup:
   - "${BAG_WORK_DIR}/BAG_framework"
   - "${BAG_WORK_DIR}/Photonic_Core_Layout"
   - "${BAG_WORK_DIR}/BAG2_TEMPLATES_EC"
-  - "${BAG_WORK_DIR}/BPG"
+  - "${BAG_WORK_DIR}/bpg_test_suite"
 
 # Configuration for Berkeley Photonics Generator
 bpg_config:
-  photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"
