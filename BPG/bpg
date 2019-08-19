@@ -50,7 +50,7 @@ def setup():
     # Copy over basic files
     copyfile(install_dir + '/.gitignore', root + '/.gitignore')
     copyfile(install_dir + '/sourceme.sh', root + '/sourceme.sh')
-    copytree(install_dir + '/../../examples' + '/tech', root + '/example_tech')
+    copytree(install_dir + '/../examples' + '/tech', root + '/example_tech')
 
 
 def setup_test():
@@ -60,7 +60,7 @@ def setup_test():
     install_dir = os.path.dirname(os.path.realpath(__file__)) + '/workspace_setup'
 
     # Copy over basic files
-    copytree(install_dir + '/../../tests', root + '/bpg_test_suite')
+    copytree(install_dir + '/../tests', root + '/bpg_test_suite')
 
 
 def get_cmd_line_args(arg_list):
