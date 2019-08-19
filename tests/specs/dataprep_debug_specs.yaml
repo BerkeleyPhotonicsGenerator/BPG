@@ -6,7 +6,7 @@
 project_name: bpg_test_suite
 
 # file containing technology information
-dataprep: 'BPG/tests/specs/dataprep_routine.yaml'
+dataprep: 'bpg_test_suite/specs/dataprep_routine.yaml'
 
 # Output Settings
 lsf_filename: dataprep_debug
@@ -15,7 +15,7 @@ gds_filename: dataprep_debug
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_dataprep'
+layout_package: 'bpg_test_suite.test_dataprep'
 # Layout generator class name
 layout_class: 'SubLevel2'
 

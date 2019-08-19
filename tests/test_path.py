@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.objects import PhotonicPath
 from BPG.objects import PhotonicPolygon
 import numpy as np
@@ -77,7 +74,7 @@ class Path(BPG.PhotonicTemplateBase):
 
 
 def test_path():
-    spec_file = 'BPG/tests/specs/path_test_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/path_test_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

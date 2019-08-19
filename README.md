@@ -1,4 +1,6 @@
 # Berkeley Photonics Generator 
+[![Build Status](https://dev.azure.com/pvnbhargava/BPG_CI/_apis/build/status/pvnbhargava.BPG?branchName=master)](https://dev.azure.com/pvnbhargava/BPG_CI/_build/latest?definitionId=1&branchName=master)
+
 The Berkeley Photonics Generator (BPG) is a Python framework that enables you to generate and simulate silicon photonics 
 layout. BPG leverages the [BAG 2.0 framework](https://github.com/ucb-art/BAG_framework), and has similar syntax and 
 file structure. BPG is primarily focused on enabling photonic simulation through Lumerical, but other open-source options will 

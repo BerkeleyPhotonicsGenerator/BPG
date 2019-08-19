@@ -1,24 +1,54 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# BPG CI/CD Pipeline
+# This test suite does the following:
+#   Sets up anaconda python
+#   conda installs dependencies for rtree/shapely
+#   pip installs BAG from ucb-art
+#   pip installs BPG
+#   TODO: runs BPG test suite
 
+# Run this pipeline whenever a commit is pushed onto master
 trigger:
   - master
 
 # Run this pipeline whenever a pull request to master or release is executed
+# This allows developers to iterate in PRs and get their changes to be clean
 pr:
   - master
   - releases/*
 
+# Perform all of these tests on Ubuntu
+# TODO: Extend these tests to be run on Windows + MacOS
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-16.04'
 
 steps:
-  - script: echo Hello, world!
-    displayName: 'Run a one-line script'
+  - bash: echo "##vso[task.prependpath]$CONDA/bin"
+    displayName: 'Add conda to PATH'
 
-  - script: |
-      echo Add other tasks to build, test, and deploy your project.
-      echo See https://aka.ms/yaml
-    displayName: 'Run a multi-line script'
+  - bash: conda create --yes --quiet --name myEnvironment
+    displayName: 'Create Anaconda environment'
+
+  - bash: |
+      source activate myEnvironment
+      conda install --yes --name myEnvironment numpy
+      conda install --yes --name myEnvironment rtree
+      conda install --yes --name myEnvironment shapely
+    displayName: 'Install Anaconda dependencies'
+
+  - bash: |
+      source activate myEnvironment
+      pip install git+https://github.com/ucb-art/BAG_Framework
+      pip install .
+    displayName: 'Install BAG and BPG'
+
+  - bash: |
+      source activate myEnvironment
+      pip install pytest
+      bpg setup
+      bpg setup_test
+      source sourceme.sh
+      ls -la
+      pwd
+      env
+      pytest bpg_test_suite
+    displayName: 'Run BPG test suite'

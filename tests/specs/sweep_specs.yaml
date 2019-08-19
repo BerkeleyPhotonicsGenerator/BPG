@@ -9,7 +9,7 @@ gds_filename: rect_sweep
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_sweep'
+layout_package: 'bpg_test_suite.test_sweep'
 layout_class: 'AddRect'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here

@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from bag.layout.util import BBox
 
 
@@ -41,11 +38,12 @@ class AddViaStack(BPG.PhotonicTemplateBase):
                     unit_mode=False
                 )
 
+
 def test_add_via_stack():
     """
     Unit test definition
     """
-    spec_file = 'BPG/tests/specs/add_via_stack.yaml'
+    spec_file = 'bpg_test_suite/specs/add_via_stack.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

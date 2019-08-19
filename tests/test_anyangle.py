@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.geometry import Transformable2D
 import random
 import math
@@ -502,7 +499,7 @@ def test_anyangle_conversion_functions():
 
 
 def test_rectangle_rotation():
-    spec_file = 'BPG/tests/specs/any_angle_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/any_angle_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()
@@ -514,7 +511,7 @@ def test_rectangle_rotation():
 
 
 def test_instance_port_to_port_at_angle_no_hierarchy():
-    spec_file = 'BPG/tests/specs/any_angle_port_to_port_at_angle_no_hierarchy_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/any_angle_port_to_port_at_angle_no_hierarchy_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()
@@ -526,7 +523,7 @@ def test_instance_port_to_port_at_angle_no_hierarchy():
 
 
 def test_instance_port_to_port_at_angle_hierarchy():
-    spec_file = 'BPG/tests/specs/any_angle_port_to_port_at_angle_hierarchy_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/any_angle_port_to_port_at_angle_hierarchy_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()
