@@ -7,7 +7,7 @@ lsf_filename: waveguide_port
 gds_filename: waveguide_port
 
 # Generator Params
-layout_package: 'tests.test_wg_port'
+layout_package: 'bpg_test_suite.test_wg_port'
 # Layout generator class name
 layout_class: 'WaveguideConnectTest'
 
@@ -26,6 +26,5 @@ layout_params:
 impl_lib: 'test_lib'
 impl_cell: 'test_cell'
 
-# Base configuration for Berkeley Photonics Generator
 bpg_config:
   photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"

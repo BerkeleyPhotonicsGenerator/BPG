@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from bag.layout.util import BBox
 
 
@@ -50,7 +47,7 @@ def test_add_rect():
     """
     Unit test definition
     """
-    spec_file = 'BPG/tests/specs/add_rect_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/add_rect_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

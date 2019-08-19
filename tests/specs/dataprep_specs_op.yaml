@@ -6,8 +6,8 @@
 project_name: bpg_test_suite
 
 # file containing technology information
-dataprep: 'BPG/tests/specs/dataprep_routine_op.yaml'
-layermap: 'BPG/tests/specs/dataprep_layermap_op.yaml'
+dataprep: 'bpg_test_suite/specs/dataprep_routine_op.yaml'
+layermap: 'bpg_test_suite/specs/dataprep_layermap_op.yaml'
 
 # Output Settings
 lsf_filename: test_dataprep_op
@@ -16,7 +16,7 @@ gds_filename: test_dataprep_op
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_dataprep_op'
+layout_package: 'bpg_test_suite.test_dataprep_op'
 # Layout generator class name
 layout_class: 'DataprepOpsTest'
 
@@ -29,6 +29,5 @@ layout_params:
 impl_lib: 'Top_Level_Lib'
 impl_cell: 'Top_Level_Cell'
 
-# Base configuration for Berkeley Photonics Generator
 bpg_config:
   photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"

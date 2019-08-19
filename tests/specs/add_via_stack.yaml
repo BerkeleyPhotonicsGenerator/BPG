@@ -9,7 +9,7 @@ gds_filename: add_via_stack
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_add_via_stack'
+layout_package: 'bpg_test_suite.test_add_via_stack'
 layout_class: 'AddViaStack'  # Layout generator class name
 
 layout_params:

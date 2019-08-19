@@ -9,7 +9,7 @@ gds_filename: add_rect
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_add_rect'
+layout_package: 'bpg_test_suite.test_add_rect'
 layout_class: 'AddRect'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here
@@ -23,6 +23,5 @@ layout_params:  # Place parameters to be passed to the generator class under her
 impl_lib: 'add_rect_lib'
 impl_cell: 'add_rect_cell'
 
-## Configuration for Berkeley Photonics Generator
 bpg_config:
   photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"

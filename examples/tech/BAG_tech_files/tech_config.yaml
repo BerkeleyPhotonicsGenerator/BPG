@@ -1,5 +1,5 @@
 # the Technology class
-class: 'examples.tech.BAG_tech_files.tech.TechInfoGeneric'
+class: 'example_tech.BAG_tech_files.tech.TechInfoGeneric'
 
 # layout related parameters
 layout:

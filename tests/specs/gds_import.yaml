@@ -9,7 +9,7 @@ gds_filename: gds_import
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_gds_import'
+layout_package: 'bpg_test_suite.test_gds_import'
 layout_class: 'TestGDSImport'  # Layout generator class name
 
 layout_params:

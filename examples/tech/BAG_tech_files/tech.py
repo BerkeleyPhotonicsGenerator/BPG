@@ -9,8 +9,8 @@ from typing import List, Tuple, Union, Optional, Callable, TYPE_CHECKING
 from bag.layout.tech import TechInfoConfig
 from bag.layout.util import BBox
 
-from abs_templates_ec.analog_mos.soi import MOSTechSOIGenericBC
-from abs_templates_ec.resistor.planar import ResTechPlanarGeneric
+# from abs_templates_ec.analog_mos.soi import MOSTechSOIGenericBC
+# from abs_templates_ec.resistor.planar import ResTechPlanarGeneric
 
 if TYPE_CHECKING:
     from bag.layout.template import TemplateBase
@@ -27,8 +27,8 @@ class TechInfoGeneric(TechInfoConfig):
         TechInfoConfig.__init__(self, config, tech_params,
                                 mos_entry_name='mos_analog')
 
-        tech_params['layout']['mos_tech_class'] = MOSTechSOIGenericBC(config, self)
-        tech_params['layout']['res_tech_class'] = ResTechPlanarGeneric(config, self)
+        # tech_params['layout']['mos_tech_class'] = MOSTechSOIGenericBC(config, self)
+        # tech_params['layout']['res_tech_class'] = ResTechPlanarGeneric(config, self)
 
     def get_layer_id(self, layer_name):
         # type: (str) -> int

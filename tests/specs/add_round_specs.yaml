@@ -15,7 +15,7 @@ impl_cell: 'add_round_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_add_round'
+layout_package: 'bpg_test_suite.test_add_round'
 # Layout generator class name
 layout_class: 'AddRound'
 

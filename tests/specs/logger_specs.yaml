@@ -17,7 +17,7 @@ impl_cell: 'add_round_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_logger'
+layout_package: 'bpg_test_suite.test_logger'
 # Layout generator class name
 layout_class: 'DummyClass'
 

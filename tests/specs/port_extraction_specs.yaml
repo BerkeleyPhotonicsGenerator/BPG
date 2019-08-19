@@ -11,11 +11,11 @@ lsf_filename: port_extraction
 gds_filename: port_extraction
 
 # Specify a generic layermap
-bag_config_path: 'BPG/examples/tech/bag_config.yaml'
+bag_config_path: 'example_tech/bag_config.yaml'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_port_extraction'
+layout_package: 'bpg_test_suite.test_port_extraction'
 # Layout generator class name
 layout_class: 'PortExtraction'
 
