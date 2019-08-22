@@ -25,7 +25,6 @@ layout_class: 'DummyClass'
 layout_params:  # Place parameters to be passed to the generator class under here
 
 
-# Vestigial parameters required by BAG class
-sweep_params:
-  intent: [standard]
-root_dir: 'data'
+# Base configuration for Berkeley Photonics Generator
+bpg_config:
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"

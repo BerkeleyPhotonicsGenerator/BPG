@@ -19,3 +19,7 @@ layout_params:
 # Cadence related parameters
 impl_lib: 'gds_import'
 impl_cell: 'gds_import'
+
+# Base configuration for Berkeley Photonics Generator
+bpg_config:
+  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"

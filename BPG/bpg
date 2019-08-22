@@ -5,8 +5,9 @@ This module provides a command-line interface to using BPG
 import sys
 import argparse
 import os
-import pytest
 import runpy
+from pathlib import Path
+from shutil import copyfile, copytree
 
 
 def run(args):
@@ -95,7 +96,7 @@ def main(arg_list):
     # action switch statement
     if args.action == 'run':
         run(args)
-    elif args.action == 'setup':
+    elif args.action == 'setup_workspace':
         setup()
     elif args.action == 'setup_test':
         setup_test()

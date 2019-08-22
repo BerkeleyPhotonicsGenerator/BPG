@@ -67,13 +67,13 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
             Dictionary of parameters to be sent to the layout generator
         """
         if layout_module is None or layout_class is None:
-            self.base_layout_package = self.specs['layout_package']
-            self.base_layout_class = self.specs['layout_class']
+            self.base_layout_package = BPG.run_settings['layout_package']
+            self.base_layout_class = BPG.run_settings['layout_class']
         else:
             self.base_layout_package = layout_module
             self.base_layout_class = layout_class
         if layout_params is None:
-            self.base_layout_params = self.specs['layout_params']
+            self.base_layout_params = BPG.run_settings['layout_params']
         else:
             self.base_layout_params = layout_params
 
@@ -93,12 +93,12 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
             dictionary of testbench parameters to the sent to the generator class
         """
         if tb_cls is None:
-            self.base_tb_class = self.get_cls_from_str(module_name=self.specs['tb_package'],
-                                                       cls_name=self.specs['tb_class'])
+            self.base_tb_class = self.get_cls_from_str(module_name=BPG.run_settings['tb_package'],
+                                                       cls_name=BPG.run_settings['tb_class'])
         else:
             self.base_tb_class = tb_cls
         if tb_params is None:
-            self.base_tb_params = self.specs['tb_params']
+            self.base_tb_params = BPG.run_settings['tb_params']
         else:
             self.base_tb_params = tb_params
 
