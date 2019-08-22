@@ -24,5 +24,5 @@ def copy_test_files():
     install_dir = os.path.dirname(os.path.realpath(__file__))
 
     # Copy over basic files
-    rmtree(root + '/bpg_test_suite')
+    rmtree(root + '/bpg_test_suite', ignore_errors=True)
     copytree(install_dir + '/../../tests', root + '/bpg_test_suite')
