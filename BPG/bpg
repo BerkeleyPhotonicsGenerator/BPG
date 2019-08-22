@@ -96,7 +96,7 @@ def main(arg_list):
     # action switch statement
     if args.action == 'run':
         run(args)
-    elif args.action == 'setup':
+    elif args.action == 'setup_workspace':
         setup()
     elif args.action == 'setup_test':
         setup_test()
