@@ -42,17 +42,6 @@ a directory with sample technology information, and a new file called `sourceme.
 are using a bash/sh/zsh shell.
 3) At this point any layout generator can be run by executing `python <PATH TO PYTHONFILE>`
 
-BPG is based on the idea of creating parametrized layout generators. These layout generators (internally referred to 
-as templates or masters) contain a generic procedural description of how to construct a device given a set 
-of technology and device parameters. Every layout generator must subclass `BPG.PhotonicTemplateBase`. An example of a 
-basic rectangular waveguide is provided in `BPG/examples/Waveguide.py`. You can find the implementation for PhotonicTemplateBase
-in `BPG/template.py`
-
-In order to use this template to generate a real GDS/LSF, we create a `BPG.PhotonicLayoutManager` instance, and pass it a specification
-yaml file which describes what parameters to use. This design can then be exported directly into GDS with `BPG.PhotonicLayoutManager.generate_gds()`
-or to Lumerical with `BPG.PhotonicLayoutManager.generate_lsf()` (after calling generate_flat_gds). You can find the implementation
-of PhotonicLayoutManager in `BPG/layout_manager.py`
-
 ## Contributing
 We'd love your help in building and improving BPG! Please create an issue and contact Pavan at 
 pvnbhargava@berkeley.edu before sending your first pull request. Please make sure to run the test suite (run_tests.py)
