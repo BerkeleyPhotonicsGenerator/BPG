@@ -4,7 +4,7 @@
 #   conda installs dependencies for rtree/shapely
 #   pip installs BAG from ucb-art
 #   pip installs BPG
-#   TODO: runs BPG test suite
+#   runs BPG test suite
 
 # Run this pipeline whenever a commit is pushed onto master
 trigger:
