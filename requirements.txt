@@ -1,7 +1,6 @@
 asn1crypto==0.24.0
 atomicwrites==1.2.1
 attrs==18.2.0
--e git+https://github.com/ucb-art/BAG_framework.git@e2b2f54423735020be61f66a915b676da5c54797#egg=bag&subdirectory=../../BAG_framework
 certifi==2018.10.15
 cffi==1.11.5
 chardet==3.0.4
