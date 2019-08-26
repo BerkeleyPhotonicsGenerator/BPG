@@ -53,8 +53,6 @@ yaml file which describes what parameters to use. This design can then be export
 or to Lumerical with `BPG.PhotonicLayoutManager.generate_lsf()` (after calling generate_flat_gds). You can find the implementation
 of PhotonicLayoutManager in `BPG/layout_manager.py`
 
-More detail and screenshots coming soon...
-
 ## Contributing
 We'd love your help in building and improving BPG! Please create an issue and contact Pavan at 
 pvnbhargava@berkeley.edu before sending your first pull request. Please make sure to run the test suite (run_tests.py)
