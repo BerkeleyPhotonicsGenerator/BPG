@@ -242,6 +242,12 @@ class ContentList(UserDict):
         for key in self.layout_objects_keys:
             self[key].extend(new_content[key])
 
+    def optical_design_content(self) -> "ContentList":
+        return ContentList(cell_name=self.cell_name,
+                           sim_list=self.sim_list,
+                           source_list=self.source_list,
+                           monitor_list=self.monitor_list)
+
     def transform_content(self,
                           res: float,
                           loc: coord_type,

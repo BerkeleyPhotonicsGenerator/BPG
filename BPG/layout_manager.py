@@ -126,7 +126,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                     lib_name=self.impl_lib)
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
-                                          scripts_dir=self.scripts_dir)
+                                          )
         if CalibreDataprep:
             self.calibre_dataprep_plugin = CalibreDataprep(
                 calibre_run_dir=str(Path(self.data_dir) / 'DataprepRunDir'),
@@ -227,7 +227,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         return gdspy_lib
 
-    def generate_flat_content(self) -> List["ContentList"]:
+    def generate_flat_content(self,
+                              save_content: bool = True,
+                              ) -> List["ContentList"]:
         """
         Generates a flattened content list from generated templates.
 
@@ -249,7 +251,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_contentgen = time.time()
 
         # Save the content
-        self.save_content_list('content_list_flat')
+        if save_content:
+            self.save_content_list('content_list_flat')
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Generate flat content')
@@ -272,7 +275,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, flat')
 
-    def generate_lsf(self, create_materials=True):
+    def generate_lsf(self,
+                     create_materials=True,
+                     export_dir: Optional[Path] = None
+                     ):
         """ Converts generated layout to lsf format for lumerical import """
         logging.info(f'\n\n{"Generating the design .lsf file":-^80}')
 
@@ -292,7 +298,49 @@ class PhotonicLayoutManager(PhotonicBagProject):
         )
         # TODO: Fix naming here as well
         self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
-                                            name_list=self.cell_name_list)
+                                            name_list=self.cell_name_list,
+                                            export_dir=export_dir if export_dir else self.scripts_dir
+                                            )
+
+    def generate_lsf_calibre(self,
+                             create_materials: bool = True,
+                             file_in: Optional[str] = None,
+                             file_out: Optional[str] = None,
+                             export_dir: Optional[Path] = None,
+                             ):
+        """ Converts generated layout to lsf format for lumerical import """
+        logging.info(f'\n\n{"Generating the design .lsf file via Calibre":-^80}')
+
+        if create_materials is True:
+            self.create_materials_file()
+
+        if file_in:
+            file_in = os.path.abspath(file_in)
+            if not Path(file_in).is_file():
+                raise ValueError(f'Input file cannot be found: {file_in}')
+        else:
+            file_in = self.gds_path + '.gds'
+
+        if file_out:
+            file_out = os.path.abspath(file_out)
+        else:
+            file_out = self.gds_path + '_lsf_dataprep.gds'
+
+        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out,
+                                                  is_lumerical_dataprep=True)
+
+        self.content_list_post_lsf_dataprep = self.gds_plugin.import_content_list(gds_filepath=file_out)
+
+        self.content_list_post_lsf_dataprep.extend_content_list(
+            self.content_list[-1].optical_design_content()
+        )
+        self.content_list_post_lsf_dataprep = [self.content_list_post_lsf_dataprep]
+
+        # TODO: Fix naming here as well
+        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
+                                            name_list=self.cell_name_list,
+                                            export_dir=export_dir if export_dir else self.scripts_dir
+                                            )
 
     def dataprep(self):
         """

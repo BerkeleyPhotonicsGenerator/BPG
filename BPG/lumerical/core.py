@@ -10,16 +10,20 @@ from typing import TYPE_CHECKING, List
 
 if TYPE_CHECKING:
     from BPG.content_list import ContentList
+    from pathlib import Path
 
 
 class LumericalPlugin(AbstractPlugin):
-    def __init__(self, lsf_export_config, scripts_dir):
+    def __init__(self,
+                 lsf_export_config,
+                 ):
         self.lsf_export_config = lsf_export_config
-        self.scripts_dir = scripts_dir
+        self.export_dir = None
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
-                            name_list: List[str] = None
+                            name_list: List[str] = None,
+                            export_dir: "Path" = None,
                             ):
         """
         Exports the physical design into the lumerical LSF format
@@ -30,7 +34,14 @@ class LumericalPlugin(AbstractPlugin):
             A list of flattened content lists that have already been run through lumerical dataprep
         name_list : List[str]
             A list of names to give to each generated lsf
+        export_dir : Path
+            The path in which the LSF files will be generated
         """
+
+        if export_dir is None:
+            raise ValueError(f'export_dir must be specified')
+        self.export_dir = export_dir
+
         start = time.time()
         # 1) Import tech information for the layermap and lumerical properties
         with open(self.lsf_export_config, 'r') as f:
@@ -39,7 +50,7 @@ class LumericalPlugin(AbstractPlugin):
 
         # 2) For each element in the content list, convert it into lsf code and append to running file
         for name, content_list in zip(name_list, content_lists):
-            lsfwriter = LumericalDesignGenerator(str(self.scripts_dir / name))
+            lsfwriter = LumericalDesignGenerator(str(self.export_dir / name))
 
             if len(content_list.rect_list) != 0:
                 lsfwriter.add_formatted_line(' ')
