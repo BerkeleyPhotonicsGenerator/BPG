@@ -1,0 +1,2 @@
+graft-dir examples
+graft-dir tests/specs/*
