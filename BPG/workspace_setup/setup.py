@@ -15,7 +15,7 @@ def copy_setup_files():
     # Copy over basic files
     copyfile(install_dir + '/.gitignore', root + '/.gitignore')
     copyfile(install_dir + '/sourceme.sh', root + '/sourceme.sh')
-    copytree(install_dir + '/../../examples' + '/tech', root + '/example_tech')
+    copytree(install_dir + '/../examples' + '/tech', root + '/example_tech')
 
 
 def copy_test_files():
