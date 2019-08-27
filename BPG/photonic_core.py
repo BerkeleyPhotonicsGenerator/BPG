@@ -66,6 +66,8 @@ class PhotonicBagProject(BagProject):
         self.lsf_path = None
         self.gds_path = None
 
+        BPG.run_settings.load_new_configuration(config_dict={})
+
     def load_spec_file_paths(self,
                              spec_file: str,
                              **kwargs: Dict[str, Any],
@@ -73,7 +75,12 @@ class PhotonicBagProject(BagProject):
         """ Receives a specification file from the user and configures the project paths accordingly """
         specs = self.load_yaml(spec_file)
         specs.update(**kwargs)  # Update the read specs with any passed variables
-        BPG.run_settings.load_configuration(specs)  # Update the base run_settings with anything from the yaml
+
+        # If a new bag configuration is passed in the yaml, load it
+        if 'bag_config_path' in specs:
+            BPG.run_settings.update_configuration(self.load_yaml(specs['bag_config_path']))
+
+        BPG.run_settings.update_configuration(specs)  # Update the base run_settings with anything from the yaml
 
         # Get root path for the project
         bag_work_dir = Path(os.environ['BAG_WORK_DIR'])

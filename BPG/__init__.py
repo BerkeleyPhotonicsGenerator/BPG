@@ -26,10 +26,14 @@ class ConfigDict(UserDict):
         """
         UserDict.__init__(self)
         self.default_dict = default_dict
-        self.load_configuration(config_dict={})
+        self.load_new_configuration(config_dict={})
 
-    def load_configuration(self, config_dict: Union[dict, "ConfigDict"]):
+    def update_configuration(self, config_dict: Union[dict, "ConfigDict"]):
         """ Use this method to explicitly modify the internal settings of the dictionary """
+        self._update(config_dict)
+
+    def load_new_configuration(self, config_dict: Union[dict, "ConfigDict"]):
+        """ Use this method to reset and then update the internal settings of the dictionary """
         if self.default_dict:
             self.data = deepcopy(self.default_dict)
         self._update(config_dict)
@@ -86,7 +90,7 @@ if 'BAG_CONFIG_PATH' in os.environ:
 
     # Import settings from the global config file
     _global_settings = ConfigDict(default_dict=_bpg_default_config)
-    _global_settings.load_configuration(_config)
+    _global_settings.load_new_configuration(_config)
 
     # Initialize these run settings to share the global settings, this will typically be modified for each spec file
     # By PhotonicLayoutManager
