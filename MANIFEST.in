@@ -1,2 +1,3 @@
 graft-dir examples
 graft-dir tests/specs/*
+graft-dir BPG/workspace_setup/*

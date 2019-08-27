@@ -25,7 +25,7 @@ setup(
     ],
     url='https://github.com/BerkeleyPhotonicsGenerator/BPG',
     license='BSD-3-Clause',
-    packages=[find_packages()],
+    packages=find_packages(exclude=("tests", "docs")),
     scripts=['BPG/bpg'],
     include_package_data=True,
 )
