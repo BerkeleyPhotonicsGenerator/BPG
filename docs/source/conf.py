@@ -27,7 +27,7 @@ author = 'Pavan Bhargava'
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.5.3'
+release = '0.8.5'
 
 
 # -- General configuration ---------------------------------------------------

@@ -1,5 +1,7 @@
 # Berkeley Photonics Generator 
 [![Build Status](https://dev.azure.com/pvnbhargava/BPG_CICD/_apis/build/status/BerkeleyPhotonicsGenerator.BPG?branchName=master)](https://dev.azure.com/pvnbhargava/BPG_CICD/_build/latest?definitionId=2&branchName=master)
+[![Documentation Status](https://readthedocs.org/projects/bpg/badge/?version=latest)](https://bpg.readthedocs.io/en/latest/?badge=latest)
+
 The Berkeley Photonics Generator (BPG) is a Python framework that enables you to generate and simulate silicon photonics 
 layout. BPG leverages the [BAG 2.0 framework](https://github.com/ucb-art/BAG_framework), and has similar syntax and 
 file structure.
@@ -12,8 +14,7 @@ file structure.
 - [Credits](#Credits)
 
 ## Documentation
-Once cloned, the most up to date BPG user manual can be found at `./BPG/docs/BPG_User_Manual.pdf`. Alternatively, you
-can read it online [here](docs/BPG_User_Manual.pdf). A readthedocs website will be hosted once the repo is made public
+The most up to date BPG documentation can be found [here](https://bpg.readthedocs.io)
 
 ## Installation
 We highly recommend you use an [Anaconda](https://www.anaconda.com/distribution/) environment with a Python version 
@@ -41,6 +42,9 @@ a directory with sample technology information, and a new file called `sourceme.
 2) Next run `source sourceme.sh` to set up all of the environment variables needed. This soruce file assumes that you 
 are using a bash/sh/zsh shell.
 3) At this point any layout generator can be run by executing `python <PATH TO PYTHONFILE>`
+
+For more information check out the [getting started guide](https://bpg.readthedocs.io/en/latest/getting_started/root.html)
+
 
 ## Contributing
 We'd love your help in building and improving BPG! Please create an issue and contact Pavan at 
