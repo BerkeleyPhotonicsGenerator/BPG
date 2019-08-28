@@ -1,0 +1,3 @@
+include BPG/examples/specs/*
+include BPG/workspace_setup/.gitignore
+include BPG/workspace_setup/sourceme.sh
