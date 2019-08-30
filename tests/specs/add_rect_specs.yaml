@@ -23,5 +23,4 @@ layout_params:  # Place parameters to be passed to the generator class under her
 impl_lib: 'add_rect_lib'
 impl_cell: 'add_rect_cell'
 
-bpg_config:
-  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

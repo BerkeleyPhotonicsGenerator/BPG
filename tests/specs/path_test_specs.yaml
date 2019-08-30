@@ -19,6 +19,4 @@ layout_params:  # Place parameters to be passed to the generator class under her
 impl_lib: 'path_lib'
 impl_cell: 'path_cell'
 
-# Base configuration for Berkeley Photonics Generator
-bpg_config:
-  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

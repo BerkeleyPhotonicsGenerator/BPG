@@ -10,9 +10,6 @@ project_name: bpg_test_suite
 lsf_filename: port_extraction
 gds_filename: port_extraction
 
-# Specify a generic layermap
-bag_config_path: 'example_tech/bag_config.yaml'
-
 # Generator Params
 # Module that contains the layout generator class
 layout_package: 'bpg_test_suite.test_port_extraction'
@@ -28,6 +25,4 @@ layout_params:
 impl_lib: 'Top_Level_Lib'
 impl_cell: 'Top_Level_Cell'
 
-# Base configuration for Berkeley Photonics Generator
-bpg_config:
-  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"
