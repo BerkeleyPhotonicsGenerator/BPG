@@ -7,8 +7,6 @@ project_name: bpg_test_suite
 lsf_filename: any_angle_port_to_port_at_angle_no_hierarchy
 gds_filename: any_angle_port_to_port_at_angle_no_hierarchy
 
-bag_config_path: 'example_tech/bag_config.yaml'
-
 # Generator Params
 # Module that contains the layout generator class
 layout_package: 'bpg_test_suite.test_anyangle'
@@ -22,6 +20,4 @@ layout_params:  # Place parameters to be passed to the generator class under her
 impl_lib: 'any_angle'
 impl_cell: 'any_angle'
 
-# Base configuration for Berkeley Photonics Generator
-bpg_config:
-  photonic_tech_config_path:  "${BAG_WORK_DIR}/example_tech/BPG_tech_files/photonic_tech_config.yaml"
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"
