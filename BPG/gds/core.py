@@ -269,7 +269,7 @@ class GDSPlugin(AbstractPlugin):
         polygon_list = []
         pin_list = []
 
-        for polyset in top_cell.elements:
+        for polyset in top_cell.polygons:
             for count in range(len(polyset.polygons)):
                 points = polyset.polygons[count]
                 layer = polyset.layers[count]
