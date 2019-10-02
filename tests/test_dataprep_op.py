@@ -122,6 +122,8 @@ def test_dataprep():
     plm.dataprep()
     plm.generate_dataprep_gds()
 
+    plm.dataprep_klayout()
+
 
 if __name__ == '__main__':
     test_dataprep()
