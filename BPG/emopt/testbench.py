@@ -51,8 +51,8 @@ class EmoptFDFD_TETestbench(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
             A dictionary containing the corners and spatial resolution of the simulation rectangle
         """
         wlen = self.tb_params["wavelength"]
-        X = dim["Xright"] - dim["Xleft"]
-        Y = dim["Yright"] - dim["Yleft"]
+        X = abs(dim["X1"] - dim["X2"])
+        Y = abs(dim["Y1"] - dim["Y2"])
         dX = dim["dX"]
         dY = dim["dY"]
 
