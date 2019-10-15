@@ -2,6 +2,8 @@ import abc
 import importlib
 from copy import deepcopy
 
+import numpy as np
+
 
 import emopt
 
@@ -29,16 +31,17 @@ class EmoptFDFD_TETestbench(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
 
         # The internal emopt simulation object won't be added until the user calls add_sim
         self.sim = None
-        self._real_sim_dimensions = {"X": 0,
-                                     "Y": 0,
-                                     "dX": 0,
-                                     "dY": 0}
-        self._abs_sim_dimensions = {"Xleft": 0,
-                                    "Xright": 0,
-                                    "Yleft": 0,
-                                    "Yright": 0,
-                                    "dX": 0,
-                                    "dY": 0}
+        self.emopt_coord_domain = None
+#       self._real_sim_dimensions = {"X": 0,
+#                                    "Y": 0,
+#                                    "dX": 0,
+#                                    "dY": 0}
+#       self._abs_sim_dimensions = {"Xleft": 0,
+#                                   "Xright": 0,
+#                                   "Yleft": 0,
+#                                   "Yright": 0,
+#                                   "dX": 0,
+#                                   "dY": 0}
 
     def add_sim(self, dim):
         """Instantiates the internal emopt simulation object for the testbench. This method
@@ -123,4 +126,27 @@ class EmoptFDFD_TETestbench(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
                                           loc=(self._real_sim_dimensions["X"]/2,self._real_sim_dimensions["Y"]/2)
                                           )
 
+
+class OffsetDomain(emopt.misc.DomainCoordinates):
+    """Based on the interface of emopt DomainCoordinates, but incorporates an offset in initialization.
+    Offset is the value in the (i,j,k) coordinate system that corresponds to (0,0,0) in the (x,y,z) coordinate system.
+    This allows smoother translation between BPG and emopt simulations."""
+    def __init__(self, xmin, xmax, ymin, ymax, zmin, zmax, dx, dy, dz, Dx, Dy, Dz):
+        i1 = int(zmin/dz)+Dz
+        i2 = int(zmax/dz)+1+Dz
+
+        j1 = int(ymin/dy)+Dy
+        j2 = int(ymax/dy)+1+Dy
+
+        k1 = int(xmin/dx)+Dx
+        k2 = int(xmax/dx)+1+Dx
+
+        self.set_region(k1, k2, j1, j2, i1, i2, dx, dy, dz)
+
+        self.offset_indices = np.array(Dx, Dy, Dz)
+        self.offset_real = self.offset_indices * np.array(dx, dy, dz)
+
+#       self._x += Dx * dx
+#       self._y += Dy * dy
+#       self._z += Dz * dz
 
