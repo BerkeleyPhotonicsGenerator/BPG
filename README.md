@@ -17,6 +17,8 @@ file structure.
 The most up to date BPG documentation can be found [here](https://bpg.readthedocs.io)
 
 ## Installation
+WARNING: Installation instructions are currently in flux.
+
 We highly recommend you use an [Anaconda](https://www.anaconda.com/distribution/) environment with a Python version 
 greater than 3.6. BPG generally will not function with Python versions less than 3.6, and requires packages with 
 C/C++ dependencies that are most easily installed using Anaconda.
