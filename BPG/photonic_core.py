@@ -166,6 +166,11 @@ class PhotonicBagProject(BagProject):
         logging.info(f'loading dataprep and DRC parameters from '
                      f'{self.photonic_tech_info.dataprep_parameters_filepath}')
 
+        if 'dataprep_label_depth' in BPG.run_settings:
+            self.photonic_tech_info.dataprep_label_depth = BPG.run_settings['dataprep_label_depth']
+        logging.info(f'dataprep_label_depth set to '
+                     f'{self.photonic_tech_info.dataprep_label_depth}')
+
         # Setup the lumerical export map
         if 'lsf_export_map' in BPG.run_settings:
             self.photonic_tech_info.lsf_export_path = bag_work_dir / BPG.run_settings['lsf_export_map']
@@ -670,6 +675,15 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
             'plvs_runset_template',
             None
         )
+
+        # Dataprep defaults to keeping labels at all depths of hierarchy present in post-dataprep output
+        # Can be overwritten in user yaml
+        self.dataprep_label_depth = self.photonic_tech_params.get(
+            'dataprep_label_depth',
+            -1
+        )
+
+
 
         self.layer_map = None
         self.via_info = None

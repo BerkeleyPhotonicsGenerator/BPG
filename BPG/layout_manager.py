@@ -387,7 +387,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         else:
             file_out = self.gds_path + '_dataprep_calibre.gds'
 
-        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out)
+        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in,
+                                                  file_out=file_out,
+                                                  label_depth=self.photonic_tech_info.dataprep_label_depth
+                                                  )
 
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep_calibre')
