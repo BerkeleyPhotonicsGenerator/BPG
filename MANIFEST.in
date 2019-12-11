@@ -1,3 +1,5 @@
 include BPG/examples/specs/*
+include BPG/examples/tech/*
+include BPG/default_config.yaml
 include BPG/workspace_setup/.gitignore
 include BPG/workspace_setup/sourceme.sh

@@ -30,9 +30,18 @@ conda install rtree
 conda install shapely
 ```
 
-Finally, actually install BPG with:
+Then clone and install BAG with in any folder with:
 ```bash
-pip install bpg
+git clone git@github.com:ucb-art/BAG_Framework.git
+cd BAG_Framework
+pip install .
+```
+
+Finally clone and install BPG in any folder with:
+```bash
+git clone git@github.com:BerkeleyPhotonicsGenerator/BPG.git
+cd BPG
+pip install .
 ```
 
 BPG generally generates output layouts in the GDSII format. To view these layouts, we recommend you install and use the 
