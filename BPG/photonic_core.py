@@ -6,14 +6,15 @@ import abc
 import yaml
 import logging
 import math
+import string
 from .logger import setup_logger
 from pathlib import Path
 from itertools import chain
 
 # BAG imports
-from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
+from bag.core import BagProject, create_tech_info, _import_class_from_str
 from bag.layout.util import BBox
-from bag.io.file import read_yaml
+from bag.io.file import read_yaml, read_file
 from bag.layout.core import BagLayout, DummyTechInfo
 
 # BPG imports
@@ -34,6 +35,24 @@ try:
     import cybagoa
 except ImportError:
     cybagoa = None
+
+
+def _parse_yaml_file(fname):
+    # type: (str) -> Dict[str, Any]
+    """Parse YAML file with environment variable substitution.
+    Parameters
+    ----------
+    fname : str
+        yaml file name.
+    Returns
+    -------
+    table : Dict[str, Any]
+        the yaml file as a dictionary.
+    """
+    content = read_file(fname)
+    # substitute environment variables
+    content = string.Template(content).substitute(os.environ)
+    return yaml.load(content)
 
 
 # From bag/core
@@ -187,7 +206,7 @@ class PhotonicBagProject(BagProject):
     @staticmethod
     def load_yaml(filepath):
         """ Setup standardized method for yaml loading """
-        return bag.core._parse_yaml_file(filepath)
+        return _parse_yaml_file(filepath)
 
 
 def create_photonic_tech_info(bpg_config: Dict,
