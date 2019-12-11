@@ -12,7 +12,7 @@ from pathlib import Path
 from itertools import chain
 
 # BAG imports
-from bag.core import BagProject, create_tech_info, _parse_yaml_file, _import_class_from_str
+from bag.core import BagProject, create_tech_info, _import_class_from_str
 from bag.layout.util import BBox
 from bag.io.file import read_yaml, read_file
 from bag.layout.core import BagLayout, DummyTechInfo
