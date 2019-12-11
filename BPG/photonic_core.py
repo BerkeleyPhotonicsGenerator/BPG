@@ -206,7 +206,7 @@ class PhotonicBagProject(BagProject):
     @staticmethod
     def load_yaml(filepath):
         """ Setup standardized method for yaml loading """
-        return bag.core._parse_yaml_file(filepath)
+        return _parse_yaml_file(filepath)
 
 
 def create_photonic_tech_info(bpg_config: Dict,
