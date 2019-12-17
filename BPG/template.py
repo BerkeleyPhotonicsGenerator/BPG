@@ -672,7 +672,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def extract_photonic_ports(self,
                                inst: Union[PhotonicInstance, "Instance"],
                                port_names: Optional[Union[str, List[str]]] = None,
-                               port_renaming: Optional[Dict[str, str]] = None,
+                               port_renaming: Optional[Union[List, Dict[str, str]]] = None,  # TODO: allow a list assume same order
                                show: bool = True,
                                ) -> List["PhotonicPort"]:
         """
@@ -699,18 +699,25 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if port_renaming is None:
             port_renaming = {}
 
+        if isinstance(port_renaming, list):
+            if len(port_renaming) != len(port_names):
+                raise ValueError(f'If port_renaming is a list, must be same length as port_names')
+
         ports_out = []
 
-        for port_name in port_names:
+        for ind, port_name in enumerate(port_names):
             old_port = inst[port_name]
             translation = inst.location_unit
             orientation = inst.orientation
 
             # Get new desired name
-            if port_name in port_renaming.keys():
-                new_name = port_renaming[port_name]
+            if isinstance(port_renaming, dict):
+                if port_name in port_renaming.keys():
+                    new_name = port_renaming[port_name]
+                else:
+                    new_name = port_name
             else:
-                new_name = port_name
+                new_name = port_renaming[ind]
 
             # If name is already used
             if new_name in self._photonic_ports:
