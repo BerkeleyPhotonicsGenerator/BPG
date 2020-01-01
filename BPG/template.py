@@ -360,7 +360,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         if port.name not in self._photonic_ports.keys() or overwrite:
             self._photonic_ports[port.name] = port
         else:
-            raise ValueError('Port "{}" already exists in cell.'.format(name))
+            raise ValueError('Port "{}" already exists in cell.'.format(port.name))
 
         if port.name is not None:
             self.add_label(
