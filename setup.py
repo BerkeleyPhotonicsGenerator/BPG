@@ -18,10 +18,13 @@ setup(
         'numpy>=1.10',
         'pytest>=4',
         'matplotlib>=3',
-        'gdspy==1.4',
+        'gdspy @ https://github.com/heitzmann/gdspy/archive/900ec9efecd066e3440e502bd8a046789bbab552.zip',
         'scipy>=1.1.0',
         'memory_profiler>=0.54.0',
         'Jinja2>=2.10.1',
+    ],
+    dependency_links=[
+
     ],
     url='https://github.com/BerkeleyPhotonicsGenerator/BPG',
     license='BSD-3-Clause',
