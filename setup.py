@@ -23,9 +23,6 @@ setup(
         'memory_profiler>=0.54.0',
         'Jinja2>=2.10.1',
     ],
-    dependency_links=[
-
-    ],
     url='https://github.com/BerkeleyPhotonicsGenerator/BPG',
     license='BSD-3-Clause',
     packages=find_packages(exclude=("tests", "docs")),
