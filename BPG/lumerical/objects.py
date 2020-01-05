@@ -1319,7 +1319,7 @@ class PhotonicPolygon(Polygon):
             z_min = CoordBase(z_min_val).meters
             z_max = CoordBase(z_max_val).meters
 
-            lsf_code.extend = [
+            lsf_code.extend([
                 '\n',
                 'addpoly;\n',
                 'set("material", "{}");\n'.format(layer_prop['material']),
@@ -1339,7 +1339,7 @@ class PhotonicPolygon(Polygon):
                 # Set the thickness values from the layermap file
                 'set("z min", {});\n'.format(z_min),
                 'set("z max", {});\n'.format(z_max)
-            ]
+            ])
 
             if 'mesh_order' in layer_prop:
                 lsf_code.append('set("override mesh order from material database", 1);\n')

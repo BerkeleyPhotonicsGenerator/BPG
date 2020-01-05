@@ -217,8 +217,9 @@ class LumericalMaterialGenerator(LumericalCodeGenerator):
         material_dict : dict
             dict of dicts specifying the materials to be created
         """
-        for key, value in material_dict.items():
-            self.import_material_from_dict(material_name=key, prop_dict=value)
+        if material_dict is not None:
+            for key, value in material_dict.items():
+                self.import_material_from_dict(material_name=key, prop_dict=value)
 
     def export_to_lsf(self):
         file = self.get_file_header()
