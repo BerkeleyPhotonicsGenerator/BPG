@@ -51,7 +51,7 @@ def setup_logger(log_path: str,
     # Add filter to prevent dataprep debug logs from hitting the main logger
 
     # Add filter to prevent duplicates of annoying messages
-    duplicate_filter = DontRepeatFilter()
+    duplicate_filter = WarningFilter()
     out_handler.addFilter(duplicate_filter)
 
     # Print out the current date and time
@@ -143,16 +143,16 @@ def setup_logger(log_path: str,
         duplicate_filter.clear_history()
 
 
-class DontRepeatFilter(logging.Filter):
+class WarningFilter(logging.Filter):
     def __init__(self):
-        logging.Filter.__init__(self, 'DontRepeatFilter')
-        excludes = BPG.run_settings['bpg_config'].get('duplicate_filter_excludes', [])
-        self.dont_repeat_filters = dict()
-        for pattern in excludes:
-            self.dont_repeat_filters[pattern] = 0
+        logging.Filter.__init__(self, 'WarningFilter')
+        filters = BPG.run_settings['bpg_config'].get('warning_filters', [])
+        self.filter_dict = dict()
+        for pattern in filters:
+            self.filter_dict[pattern] = 0
 
         # Make a regex that matches if any of our regexes match.
-        self.combined_regex = "(" + ")|(".join(excludes) + ")"
+        self.combined_regex = "(" + ")|(".join(filters) + ")"
 
     def filter(self, record):
         if not re.match(self.combined_regex, record.msg):
@@ -167,8 +167,8 @@ class DontRepeatFilter(logging.Filter):
             #     return False
 
     def clear_history(self):
-        for key in self.dont_repeat_filters:
-            self.dont_repeat_filters[key] = 0
+        for key in self.filter_dict:
+            self.filter_dict[key] = 0
 
     def add_key(self, key):
-        self.dont_repeat_filters[key] = 0
+        self.filter_dict[key] = 0
