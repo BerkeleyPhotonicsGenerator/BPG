@@ -2,6 +2,9 @@ import logging
 from datetime import datetime
 import atexit
 import sys
+import BPG
+import re
+
 
 def setup_logger(log_path: str,
                  log_filename: str = 'bpg.log',
@@ -48,7 +51,7 @@ def setup_logger(log_path: str,
     # Add filter to prevent dataprep debug logs from hitting the main logger
 
     # Add filter to prevent duplicates of annoying messages
-    duplicate_filter = DontRepeatFilter()
+    duplicate_filter = WarningFilter()
     out_handler.addFilter(duplicate_filter)
 
     # Print out the current date and time
@@ -140,27 +143,32 @@ def setup_logger(log_path: str,
         duplicate_filter.clear_history()
 
 
-class DontRepeatFilter:
+class WarningFilter(logging.Filter):
     def __init__(self):
-        self.dont_repeat_filters = {
-            "vias are currently not considered in master bounding box calculations": 0,
-            "round bounding boxes currently overestimate the size": 0
-        }
+        logging.Filter.__init__(self, 'WarningFilter')
+        filters = BPG.run_settings['bpg_config'].get('warning_filters', [])
+        self.filter_dict = dict()
+        for pattern in filters:
+            self.filter_dict[pattern] = 0
+
+        # Make a regex that matches if any of our regexes match.
+        self.combined_regex = "(" + ")|(".join(filters) + ")"
 
     def filter(self, record):
-        if record.msg not in self.dont_repeat_filters:
+        if not re.match(self.combined_regex, record.msg):
             return True
         else:
-            if self.dont_repeat_filters[record.msg] == 0:
-                self.dont_repeat_filters[record.msg] += 1
-                record.msg = '\n'.join([record.msg, 'ATTENTION: THE ABOVE WARNING WILL NOT BE REPEATED'])
-                return True
-            else:
-                return False
+            return False
+            # if self.dont_repeat_filters[record.msg] == 0:
+            #     self.dont_repeat_filters[record.msg] += 1
+            #     record.msg = '\n'.join([record.msg, 'ATTENTION: THE ABOVE WARNING WILL NOT BE REPEATED'])
+            #     return True
+            # else:
+            #     return False
 
     def clear_history(self):
-        for key in self.dont_repeat_filters:
-            self.dont_repeat_filters[key] = 0
+        for key in self.filter_dict:
+            self.filter_dict[key] = 0
 
     def add_key(self, key):
-        self.dont_repeat_filters[key] = 0
+        self.filter_dict[key] = 0
