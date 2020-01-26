@@ -672,7 +672,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def extract_photonic_ports(self,
                                inst: Union[PhotonicInstance, "Instance"],
                                port_names: Optional[Union[str, List[str]]] = None,
-                               port_renaming: Optional[Union[List, Dict[str, str]]] = None,  # TODO: allow a list assume same order
+                               port_renaming: Optional[Union[str, List[str], Dict[str, str]]] = None,
                                show: bool = True,
                                ) -> List["PhotonicPort"]:
         """
@@ -698,6 +698,9 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
         if port_renaming is None:
             port_renaming = {}
+
+        if isinstance(port_renaming, str):
+            port_renaming = [port_renaming]
 
         if isinstance(port_renaming, list):
             if len(port_renaming) != len(port_names):
