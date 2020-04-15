@@ -82,7 +82,7 @@ class GeometryManager(BPG.PhotonicLayoutManager):
             export_params.update(temp_params)
 
         self.generate_template(params=export_params)
-        self.generate_content()
+        self.generate_content(save_content=False)
 
         self.lumerical_plugin.export_content_list(
             content_lists=self.content_list,

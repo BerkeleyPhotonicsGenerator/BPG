@@ -71,33 +71,43 @@ class LumericalAPIPlugin:
                     y_min = CoordBase(rect['bbox'][0][1]).meters
                     y_max = CoordBase(rect['bbox'][1][1]).meters
 
-                    z_min = CoordBase(layer_prop['z_min']).meters
-                    z_max = CoordBase(layer_prop['z_max']).meters
+                    if not isinstance(layer_prop['z_min'], list):
+                        z_min_list = [layer_prop['z_min']]
+                    else:
+                        z_min_list = layer_prop['z_min']
+                    if not isinstance(layer_prop['z_max'], list):
+                        z_max_list = [layer_prop['z_max']]
+                    else:
+                        z_max_list = layer_prop['z_max']
 
-                    nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
-                    spx, spy = CoordBase(rect.get('arr_spx', 0)).meters, CoordBase(rect.get('arr_spy', 0)).meters
+                    for z_min_val, z_max_val in zip(z_min_list, z_max_list):
+                        z_min = CoordBase(z_min_val).meters
+                        z_max = CoordBase(z_max_val).meters
 
-                    for x_count in range(nx):
-                        for y_count in range(ny):
-                            lum_rectangle = sim.fdtd.addrect()
+                        nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
+                        spx, spy = CoordBase(rect.get('arr_spx', 0)).meters, CoordBase(rect.get('arr_spy', 0)).meters
+
+                        for x_count in range(nx):
+                            for y_count in range(ny):
+                                lum_rectangle = sim.fdtd.addrect()
 
 
-                            lum_rectangle['material'] = layer_prop['material']
-                            if 'alpha' in layer_prop:
-                                lum_rectangle['alpha'] = layer_prop['alpha']
+                                lum_rectangle['material'] = layer_prop['material']
+                                if 'alpha' in layer_prop:
+                                    lum_rectangle['alpha'] = layer_prop['alpha']
 
-                            if 'mesh_order' in layer_prop:
-                                lum_rectangle['override mesh order from material database'] = 1
-                                lum_rectangle['mesh order'] = layer_prop['mesh_order']
+                                if 'mesh_order' in layer_prop:
+                                    lum_rectangle['override mesh order from material database'] = 1
+                                    lum_rectangle['mesh order'] = layer_prop['mesh_order']
 
-                            lum_rectangle['x min'] = x_min + x_count * spx
-                            lum_rectangle['x max'] = x_max + x_count * spx
-                            lum_rectangle['y min'] = y_min + y_count * spy
-                            lum_rectangle['y max'] = y_max + y_count * spy
-                            lum_rectangle['z min'] = z_min
-                            lum_rectangle['z max'] = z_max
+                                lum_rectangle['x min'] = x_min + x_count * spx
+                                lum_rectangle['x max'] = x_max + x_count * spx
+                                lum_rectangle['y min'] = y_min + y_count * spy
+                                lum_rectangle['y max'] = y_max + y_count * spy
+                                lum_rectangle['z min'] = z_min
+                                lum_rectangle['z max'] = z_max
 
-                            sim.fdtd.addtogroup(name)
+                                sim.fdtd.addtogroup(name)
 
             # for via in via_list:
             #     pass
@@ -118,31 +128,41 @@ class LumericalAPIPlugin:
                 if tuple(polygon['layer']) in prop_map:
                     layer_prop = prop_map[tuple(polygon['layer'])]
 
-                    z_min = CoordBase(layer_prop['z_min']).meters
-                    z_max = CoordBase(layer_prop['z_max']).meters
+                    if not isinstance(layer_prop['z_min'], list):
+                        z_min_list = [layer_prop['z_min']]
+                    else:
+                        z_min_list = layer_prop['z_min']
+                    if not isinstance(layer_prop['z_max'], list):
+                        z_max_list = [layer_prop['z_max']]
+                    else:
+                        z_max_list = layer_prop['z_max']
 
-                    # TODO: figure out better way to convert units
-                    points = np.array(polygon['points']) * 1e-6
+                    for z_min_val, z_max_val in zip(z_min_list, z_max_list):
+                        z_min = CoordBase(z_min_val).meters
+                        z_max = CoordBase(z_max_val).meters
 
-                    lum_polygon = sim.fdtd.addpoly()
+                        # TODO: figure out better way to convert units
+                        points = np.array(polygon['points']) * 1e-6
 
-                    lum_polygon['material'] = layer_prop['material']
+                        lum_polygon = sim.fdtd.addpoly()
 
-                    if 'alpha' in layer_prop:
-                        lum_polygon['alpha'] = layer_prop['alpha']
+                        lum_polygon['material'] = layer_prop['material']
 
-                    if 'mesh_order' in layer_prop:
-                        lum_polygon['override mesh order from material database'] = 1
-                        lum_polygon['mesh order'] = layer_prop['mesh_order']
+                        if 'alpha' in layer_prop:
+                            lum_polygon['alpha'] = layer_prop['alpha']
 
-                    lum_polygon['x'] = 0
-                    lum_polygon['y'] = 0
-                    lum_polygon['z min'] = z_min
-                    lum_polygon['z max'] = z_max
+                        if 'mesh_order' in layer_prop:
+                            lum_polygon['override mesh order from material database'] = 1
+                            lum_polygon['mesh order'] = layer_prop['mesh_order']
 
-                    lum_polygon['vertices'] = points
+                        lum_polygon['x'] = 0
+                        lum_polygon['y'] = 0
+                        lum_polygon['z min'] = z_min
+                        lum_polygon['z max'] = z_max
 
-                    sim.fdtd.addtogroup(name)
+                        lum_polygon['vertices'] = points
+
+                        sim.fdtd.addtogroup(name)
 
             for round_obj in content_list.round_list:
                 pass
