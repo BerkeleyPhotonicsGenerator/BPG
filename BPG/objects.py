@@ -98,7 +98,7 @@ class PhotonicInstance(Instance):
                  spx: dim_type = 0,
                  spy: dim_type = 0,
                  unit_mode: bool = False,
-                 angle: float = 0,
+                 angle: float = 0.0,
                  mirrored: bool = False,
                  ) -> None:
         Instance.__init__(self, parent_grid, lib_name, master, loc, orient,
@@ -119,6 +119,7 @@ class PhotonicInstance(Instance):
         # If the angle of this instance is not 0, rotate the instance
         # TODO: is_cardinal / close enough to cardinal?
         if angle != 0.0 or mirrored:
+            # print(f'PUTTING AT ANGLE:   angle: {angle}  mirrored: {mirrored}')
             logging.debug(f'PhotonicInstance with master {master} is at angle {angle}')
             self.rotate(
                 loc=self.location_unit,
@@ -382,11 +383,20 @@ class PhotonicInstance(Instance):
         )
         logging.debug(f'Origin is {self._origin}')
 
+        # print(f'rotate mod angle: {self.mod_angle}')
         # Regenerate the master based on the new origin
         self.new_master_with(angle=self.mod_angle)
 
         # Re-extract the port locations
         self._import_photonic_ports()
+
+    def get_port(self, name='', row=0, col=0):
+        # Overwrite to use the proper location
+        dx, dy = self.get_item_location(row=row, col=col, unit_mode=True)
+        xshift, yshift = self.location_unit
+        loc = (xshift + dx, yshift + dy)
+        return self._master.get_port(name).transform(self._parent_grid, loc=loc,
+                                                     orient=self.orientation, unit_mode=True)
 
 
 class PhotonicRound(Arrayable):
@@ -582,14 +592,7 @@ class PhotonicRound(Arrayable):
 
     @property
     def bound_box(self) -> BBox:
-        return BBox(
-            left=self.center_unit[0] - self.rout_unit,
-            bottom=self.center_unit[1] - self.rout_unit,
-            right=self.center_unit[0] + self.rout_unit,
-            top=self.center_unit[1] + self.rout_unit,
-            resolution=self._res,
-            unit_mode=True
-        )
+        return self.export_to_polygon()[0].bound_box
 
     @property
     def content(self):

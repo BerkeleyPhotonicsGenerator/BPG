@@ -7,11 +7,9 @@ project_name: bpg_test_suite
 lsf_filename: any_angle_port_to_port_at_angle_hierarchy
 gds_filename: any_angle_port_to_port_at_angle_hierarchy
 
-bag_config_path: 'BPG/examples/tech/bag_config.yaml'
-
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_anyangle'
+layout_package: 'bpg_test_suite.test_anyangle'
 layout_class: 'AnyAngleWithHierarchyPortToPort'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here
@@ -21,3 +19,5 @@ layout_params:  # Place parameters to be passed to the generator class under her
 # Cadence related parameters
 impl_lib: 'any_angle'
 impl_cell: 'any_angle'
+
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

@@ -9,7 +9,7 @@ gds_filename: gds_import
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_gds_import'
+layout_package: 'bpg_test_suite.test_gds_import'
 layout_class: 'TestGDSImport'  # Layout generator class name
 
 layout_params:
@@ -19,3 +19,5 @@ layout_params:
 # Cadence related parameters
 impl_lib: 'gds_import'
 impl_cell: 'gds_import'
+
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

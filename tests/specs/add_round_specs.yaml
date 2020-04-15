@@ -15,7 +15,7 @@ impl_cell: 'add_round_cell'
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_add_round'
+layout_package: 'bpg_test_suite.test_add_round'
 # Layout generator class name
 layout_class: 'AddRound'
 
@@ -27,8 +27,4 @@ layout_params:  # Place parameters to be passed to the generator class under her
   theta0: 82
   theta1: 319
 
-
-# Vestigial parameters required by BAG class
-sweep_params:
-  intent: [standard]
-root_dir: 'data'
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

@@ -1,17 +1,31 @@
-from distutils.core import setup
+from setuptools import find_packages, setup
+from pathlib import Path
 
+here = Path(__file__).parent
+readme = (here / "README.md").read_text()
 
-setup(name='BPG',
-      version='0.8.2',
-      description='Berkeley Photonics Generator',
-      install_requires=[
-          'setuptools>=18.5',
-          'PyYAML>=4.2b1',
-          'numpy>=1.10',
-          'pytest',
-          'memory_profiler>=0.54.0',
-      ],
-      url='https://github.com/pvnbhargava/BPG',
-      packages=['BPG'],
-      scripts=['BPG/bpg']
-      )
+setup(
+    name='BerkeleyPhotonicsGenerator',
+    version='0.8.5',
+    author='Pavan Bhargava and Sidney Buchbinder',
+    author_email='pvnbhargava@berkeley.edu',
+    description='A Python framework for generating masks and simulating integrated optical systems',
+    long_description=readme,
+    long_description_content_type="text/markdown",
+    install_requires=[
+        'setuptools>=18.5',
+        'PyYAML>=5.1',
+        'numpy>=1.10',
+        'pytest>=4',
+        'matplotlib>=3',
+        'gdspy @ https://github.com/heitzmann/gdspy/archive/900ec9efecd066e3440e502bd8a046789bbab552.zip',
+        'scipy>=1.1.0',
+        'memory_profiler>=0.54.0',
+        'Jinja2>=2.10.1',
+    ],
+    url='https://github.com/BerkeleyPhotonicsGenerator/BPG',
+    license='BSD-3-Clause',
+    packages=find_packages(exclude=("tests", "docs")),
+    scripts=['BPG/bpg'],
+    include_package_data=True,
+)

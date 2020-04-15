@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.gds.io import GDSImport
 
 
@@ -18,7 +15,7 @@ class TestGDSImport(BPG.PhotonicTemplateBase):
 
 
 def test_gds_import():
-    spec_file = 'BPG/tests/specs/gds_import.yaml'
+    spec_file = 'bpg_test_suite/specs/gds_import.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

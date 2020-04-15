@@ -130,3 +130,6 @@ path_setup:
 # Configuration for Berkeley Photonics Generator
 bpg_config:
   photonic_tech_config_path:  "${BAG_WORK_DIR}/BPG/examples/tech/BPG_tech_files/photonic_tech_config.yaml"
+
+# Use this section of the settings to activate/deactivate beta features
+feature_flags: {}

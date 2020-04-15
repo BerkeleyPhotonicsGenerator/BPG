@@ -9,7 +9,7 @@ gds_filename: any_angle
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_anyangle'
+layout_package: 'bpg_test_suite.test_anyangle'
 layout_class: 'AnyAngleTest'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here
@@ -19,3 +19,5 @@ layout_params:  # Place parameters to be passed to the generator class under her
 # Cadence related parameters
 impl_lib: 'add_rect_lib'
 impl_cell: 'add_rect_cell'
+
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

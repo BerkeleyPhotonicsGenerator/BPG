@@ -60,6 +60,12 @@ class LumericalTB(BPG.PhotonicTemplateBase, metaclass=abc.ABCMeta):
         self._sim_db.append(temp_code)
         return temp_code
 
+    def add_code(self, code):
+        temp_code = LumericalCodeObj()
+        self._sim_db.append(temp_code)
+        temp_code.add_code(code)
+        return temp_code
+
     ''' Simulation Solvers '''
     def add_FDTD_solver(self) -> FDTDSolver:
         """ Create a blank FDTD solver, add it to the db, and return it to the user for manipulation """

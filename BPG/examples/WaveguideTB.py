@@ -3,7 +3,10 @@ from BPG.lumerical.testbench import LumericalTB
 
 
 class WaveguideFDE(LumericalTB):
-    """ Runs an FDE sim on the Waveguide example to get the modes """
+    """
+    Runs an FDE sim on the Waveguide example to get the modes
+    NOTE: This class currently does not generate FDE instances because the LSF api is in flux
+    """
 
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         LumericalTB.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
@@ -33,4 +36,4 @@ if __name__ == '__main__':
     PLM.generate_content()
     PLM.generate_flat_content()
     PLM.generate_flat_gds()
-    PLM.generate_tb()
+    PLM.generate_lsf()

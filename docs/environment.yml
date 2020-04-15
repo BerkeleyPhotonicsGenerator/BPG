@@ -1,0 +1,6 @@
+name: docs_env
+dependencies:
+  - shapely
+  - rtree
+  - pip:
+    - "git+git://github.com/ucb-art/BAG_framework@master#egg=bag"

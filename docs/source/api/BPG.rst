@@ -48,6 +48,14 @@ BPG.db module
     :undoc-members:
     :show-inheritance:
 
+BPG.flow module
+---------------
+
+.. automodule:: BPG.flow
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 BPG.geometry module
 -------------------
 

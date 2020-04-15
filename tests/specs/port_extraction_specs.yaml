@@ -10,12 +10,9 @@ project_name: bpg_test_suite
 lsf_filename: port_extraction
 gds_filename: port_extraction
 
-# Specify a generic layermap
-bag_config_path: 'BPG/examples/tech/bag_config.yaml'
-
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_port_extraction'
+layout_package: 'bpg_test_suite.test_port_extraction'
 # Layout generator class name
 layout_class: 'PortExtraction'
 
@@ -27,3 +24,5 @@ layout_params:
 # Cadence related parameters
 impl_lib: 'Top_Level_Lib'
 impl_cell: 'Top_Level_Cell'
+
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

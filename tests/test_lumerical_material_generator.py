@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 import yaml
 from BPG.lumerical.code_generator import LumericalMaterialGenerator
 from pathlib import Path
@@ -14,7 +11,7 @@ def test_example_lumerical_map():
     """
 
     # 1) load the lumerical map file from the examples dir into the
-    filepath = 'BPG/examples/tech/BPG_tech_files/lumerical_map.yaml'
+    filepath = 'example_tech/BPG_tech_files/lumerical_map.yaml'
     # If the path where we place the output does not exist, create it
     outpath = Path('gen_libs/bpg_test_suite/lsf_writer_tests')
     outpath.mkdir(exist_ok=True, parents=True)

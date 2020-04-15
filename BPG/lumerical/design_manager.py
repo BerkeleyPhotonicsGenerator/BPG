@@ -67,13 +67,13 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
             Dictionary of parameters to be sent to the layout generator
         """
         if layout_module is None or layout_class is None:
-            self.base_layout_package = self.specs['layout_package']
-            self.base_layout_class = self.specs['layout_class']
+            self.base_layout_package = BPG.run_settings['layout_package']
+            self.base_layout_class = BPG.run_settings['layout_class']
         else:
             self.base_layout_package = layout_module
             self.base_layout_class = layout_class
         if layout_params is None:
-            self.base_layout_params = self.specs['layout_params']
+            self.base_layout_params = BPG.run_settings['layout_params']
         else:
             self.base_layout_params = layout_params
 
@@ -93,12 +93,12 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
             dictionary of testbench parameters to the sent to the generator class
         """
         if tb_cls is None:
-            self.base_tb_class = self.get_cls_from_str(module_name=self.specs['tb_package'],
-                                                       cls_name=self.specs['tb_class'])
+            self.base_tb_class = self.get_cls_from_str(module_name=BPG.run_settings['tb_package'],
+                                                       cls_name=BPG.run_settings['tb_class'])
         else:
             self.base_tb_class = tb_cls
         if tb_params is None:
-            self.base_tb_params = self.specs['tb_params']
+            self.base_tb_params = BPG.run_settings['tb_params']
         else:
             self.base_tb_params = tb_params
 
@@ -139,7 +139,11 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         # Add the tb class and associated design parameters to the list
         self.design_list.append((self.base_tb_class, params))
 
-    def generate_batch(self, batch_name: str, generate_gds: bool = False) -> None:
+    def generate_batch(self,
+                       batch_name: str,
+                       generate_gds: bool = False,
+
+                       ) -> None:
         """
         Generates the batch of content lists and lsf files from all of the current designs in the design_list. Also
         generates a sweep lsf file that automatically serially executes all of the individual lsf files.
@@ -167,6 +171,47 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         if generate_gds:
             self.generate_flat_gds()
         self.generate_lsf()
+
+        # Create the sweep LSF file
+        batch_sweep_name = batch_name + '_main'
+        sweep_filename = str(root_path / batch_sweep_name)
+        lsfwriter = LumericalSweepGenerator(sweep_filename)
+        for script in self.cell_name_list:
+            lsfwriter.add_sweep_point(script_name=script)
+        lsfwriter.export_to_lsf()
+
+        # Reset the lists after generating scripts
+        self.design_list = []
+
+    def generate_batch_calibre(self,
+                               batch_name: str,
+                               export_dir = None,
+                               ) -> None:
+        """
+        Generates the batch of content lists and lsf files from all of the current designs in the design_list. Also
+        generates a sweep lsf file that automatically serially executes all of the individual lsf files.
+
+        Parameters
+        ----------
+        batch_name : str
+            This is the base name of the lumerical sweep files we will be generating.
+        """
+        # Clear the lists to prevent contamination
+        self.template_list = []
+        self.cell_name_list = []
+
+        temp_list = []
+
+        # Set the root name for all files in this batch
+        root_path = self.scripts_dir
+
+        # Generate templates from all of the sweep points
+        for dsn in self.design_list:
+            self.template_list = []
+            self.generate_template(temp_cls=dsn[0], params=dsn[1], cell_name=batch_name)
+            self.generate_content(save_content=False)
+            self.generate_gds()
+            self.generate_lsf_calibre(export_dir=export_dir)
 
         # Create the sweep LSF file
         batch_sweep_name = batch_name + '_main'

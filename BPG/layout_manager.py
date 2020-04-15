@@ -7,9 +7,11 @@ from pathlib import Path
 from collections import UserDict
 import os
 
+
 # BAG imports
 from bag.layout import RoutingGrid
 from bag.util.cache import _get_unique_name
+import BPG
 from BPG.photonic_core import PhotonicBagProject
 
 # Plugin imports
@@ -25,10 +27,16 @@ try:
 except ImportError:
     CalibreDataprep = None
 
+try:
+    from PLVS.PLVS import PLVS
+except ImportError:
+    PLVS = None
+
 if TYPE_CHECKING:
     from BPG.photonic_core import PhotonicBagProject
     from BPG.content_list import ContentList
     from .bpg_custom_types import PhotonicTemplateType
+    from gdspy import GdsLibrary
 
 timing_logger = logging.getLogger('timing')
 
@@ -89,12 +97,12 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         Creates all built-in plugins based on the provided configuration and tech-info
         """
-        lib_name = self.specs['impl_lib']
+        lib_name = BPG.run_settings['impl_lib']
         self.impl_lib = lib_name
 
         # Extract routing grid information from spec file if provided. If not, default to dummy values
-        if 'routing_grid' in self.specs:
-            grid_specs = self.specs['routing_grid']
+        if 'routing_grid' in BPG.run_settings:
+            grid_specs = BPG.run_settings['routing_grid']
         else:
             grid_specs = self.photonic_tech_info.photonic_tech_params['default_routing_grid']
 
@@ -111,14 +119,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                   gds_lay_file=self.photonic_tech_info.layermap_path,
                                                   photonic_tech_info=self.photonic_tech_info)
         self.template_plugin._prj = self
-
+        print(f'GDS layermap is: {self.photonic_tech_info.layermap_path}')
         self.gds_plugin = GDSPlugin(grid=routing_grid,
                                     gds_layermap=self.photonic_tech_info.layermap_path,
                                     gds_filepath=self.gds_path,
                                     lib_name=self.impl_lib)
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
-                                          scripts_dir=self.scripts_dir)
+                                          )
         if CalibreDataprep:
             self.calibre_dataprep_plugin = CalibreDataprep(
                 calibre_run_dir=str(Path(self.data_dir) / 'DataprepRunDir'),
@@ -148,14 +156,14 @@ class PhotonicLayoutManager(PhotonicBagProject):
         """
         logging.info(f'\n\n{"Generating template":-^80}')
         if params is None:
-            params = self.specs['layout_params']
+            params = BPG.run_settings['layout_params']
         if temp_cls is None:
-            cls_package = self.specs['layout_package']
-            cls_name = self.specs['layout_class']
+            cls_package = BPG.run_settings['layout_package']
+            cls_name = BPG.run_settings['layout_class']
             lay_module = importlib.import_module(cls_package)
             temp_cls = getattr(lay_module, cls_name)
         if cell_name is None:
-            cell_name = self.specs['impl_cell']
+            cell_name = BPG.run_settings['impl_cell']
 
         start_time = time.time()
         self.template_list.append(self.template_plugin.new_template(params=params,
@@ -168,7 +176,9 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         timing_logger.info(f'{end_time - start_time:<15.6g} | {temp_cls.__name__} Template generation')
 
-    def generate_content(self) -> List['ContentList']:
+    def generate_content(self,
+                         save_content: bool = True,
+                         ) -> List['ContentList']:
         """
         Generates a set of content lists from all of the templates in the queue.
 
@@ -188,16 +198,20 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_contentgen = time.time()
 
         # Save the content
-        self.save_content_list('content_list')
+        if save_content:
+            self.save_content_list('content_list')
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Content list creation')
         timing_logger.info(f'  {end_time_contentgen - start_time:<13.6g} | - Content list generation')
-        timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
+        if save_content:
+            timing_logger.info(f'  {end_time_save - end_time_contentgen:<13.6g} | - Content list saving')
 
         return self.content_list
 
-    def generate_gds(self) -> None:
+    def generate_gds(self,
+                     max_points_per_polygon: Optional[int] = None,
+                     ) -> "GdsLibrary":
         """
         Exports the content list to gds format
         """
@@ -206,11 +220,16 @@ class PhotonicLayoutManager(PhotonicBagProject):
             raise ValueError('Must call PhotonicLayoutManager.generate_content before calling generate_gds')
 
         start = time.time()
-        self.gds_plugin.export_content_list(content_lists=self.content_list)
+        gdspy_lib = self.gds_plugin.export_content_list(content_lists=self.content_list,
+                                                        max_points_per_polygon=max_points_per_polygon)
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, not flat')
 
-    def generate_flat_content(self) -> List["ContentList"]:
+        return gdspy_lib
+
+    def generate_flat_content(self,
+                              save_content: bool = True,
+                              ) -> List["ContentList"]:
         """
         Generates a flattened content list from generated templates.
 
@@ -232,7 +251,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end_time_contentgen = time.time()
 
         # Save the content
-        self.save_content_list('content_list_flat')
+        if save_content:
+            self.save_content_list('content_list_flat')
         end_time_save = time.time()
 
         timing_logger.info(f'{end_time_save - start_time:<15.6g} | Generate flat content')
@@ -255,7 +275,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | GDS export, flat')
 
-    def generate_lsf(self, create_materials=True):
+    def generate_lsf(self,
+                     create_materials=True,
+                     export_dir: Optional[Path] = None
+                     ):
         """ Converts generated layout to lsf format for lumerical import """
         logging.info(f'\n\n{"Generating the design .lsf file":-^80}')
 
@@ -275,7 +298,49 @@ class PhotonicLayoutManager(PhotonicBagProject):
         )
         # TODO: Fix naming here as well
         self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
-                                            name_list=self.cell_name_list)
+                                            name_list=self.cell_name_list,
+                                            export_dir=export_dir if export_dir else self.scripts_dir
+                                            )
+
+    def generate_lsf_calibre(self,
+                             create_materials: bool = True,
+                             file_in: Optional[str] = None,
+                             file_out: Optional[str] = None,
+                             export_dir: Optional[Path] = None,
+                             ):
+        """ Converts generated layout to lsf format for lumerical import """
+        logging.info(f'\n\n{"Generating the design .lsf file via Calibre":-^80}')
+
+        if create_materials is True:
+            self.create_materials_file()
+
+        if file_in:
+            file_in = os.path.abspath(file_in)
+            if not Path(file_in).is_file():
+                raise ValueError(f'Input file cannot be found: {file_in}')
+        else:
+            file_in = self.gds_path + '.gds'
+
+        if file_out:
+            file_out = os.path.abspath(file_out)
+        else:
+            file_out = self.gds_path + '_lsf_dataprep.gds'
+
+        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out,
+                                                  is_lumerical_dataprep=True)
+
+        self.content_list_post_lsf_dataprep = self.gds_plugin.import_content_list(gds_filepath=file_out)
+
+        self.content_list_post_lsf_dataprep.extend_content_list(
+            self.content_list[-1].optical_design_content()
+        )
+        self.content_list_post_lsf_dataprep = [self.content_list_post_lsf_dataprep]
+
+        # TODO: Fix naming here as well
+        self.lsf_plugin.export_content_list(content_lists=self.content_list_post_lsf_dataprep,
+                                            name_list=self.cell_name_list,
+                                            export_dir=export_dir if export_dir else self.scripts_dir
+                                            )
 
     def dataprep(self):
         """
@@ -322,7 +387,10 @@ class PhotonicLayoutManager(PhotonicBagProject):
         else:
             file_out = self.gds_path + '_dataprep_calibre.gds'
 
-        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out)
+        self.calibre_dataprep_plugin.run_dataprep(file_in=file_in,
+                                                  file_out=file_out,
+                                                  label_depth=self.photonic_tech_info.dataprep_label_depth
+                                                  )
 
         end = time.time()
         timing_logger.info(f'{end - start:<15.6g} | Dataprep_calibre')
@@ -387,8 +455,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
         start_time = time.time()
 
         # Get name of schematic template's library and cell
-        sch_lib = self.specs['sch_lib']
-        sch_cell = self.specs['sch_cell']
+        sch_lib = BPG.run_settings['sch_lib']
+        sch_cell = BPG.run_settings['sch_cell']
 
         dsn = self.create_design_module(lib_name=sch_lib, cell_name=sch_cell)
         end_create_design_module = time.time()
@@ -403,6 +471,36 @@ class PhotonicLayoutManager(PhotonicBagProject):
         timing_logger.info(f'  {end_create_design_module - start_time:<13.6g} | - Creating schematic design module')
         timing_logger.info(f'  {end_design - end_create_design_module:<13.6g} | - Designing schematic')
         timing_logger.info(f'  {end_implement - end_design:<13.6g} | - Instantiating schematic')
+
+    def run_photonic_lvs(self,
+                         gds_layout_path=None,
+                         plvs_runset_template=None,
+                         ):
+
+        if not PLVS:
+            raise ValueError(f'PLVS plugin is not initialized. '
+                             f'Ensure the PLVS plugin is installed.')
+
+        logging.info(f'\n\n{"Photonic LVS":-^80}')
+        start_time = time.time()
+
+        if not gds_layout_path:
+            gds_layout_path = self.gds_path + '_dataprep_calibre.gds'
+
+        if not plvs_runset_template:
+            plvs_runset_template = self.photonic_tech_info.plvs_runset_template
+
+        if not plvs_runset_template:
+            raise ValueError(f'plvs_runset_template not specified in function call, '
+                             f'and no default provided in the photonic tech config yaml')
+
+        plvs = PLVS(self, gds_layout_path, plvs_runset_template)
+        ret_codes, log_files = plvs.run_plvs()
+
+        end_time = time.time()
+        timing_logger.info(f'{end_time - start_time:<13.6g} | Photonic LVS')
+
+        return ret_codes, log_files
 
     def save_content_list(self,
                           content_list: str,

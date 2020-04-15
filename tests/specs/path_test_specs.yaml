@@ -9,7 +9,7 @@ gds_filename: path
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_path'
+layout_package: 'bpg_test_suite.test_path'
 layout_class: 'Path'  # Layout generator class name
 
 layout_params:  # Place parameters to be passed to the generator class under here
@@ -19,7 +19,4 @@ layout_params:  # Place parameters to be passed to the generator class under her
 impl_lib: 'path_lib'
 impl_cell: 'path_cell'
 
-# Vestigial parameters required by BAG class
-sweep_params:
-  intent: [standard]
-root_dir: 'data'
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

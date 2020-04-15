@@ -6,8 +6,8 @@
 project_name: bpg_test_suite
 
 # file containing technology information
-dataprep: 'BPG/tests/specs/dataprep_routine_width_space.yaml'
-layermap: 'BPG/tests/specs/dataprep_layermap_width_space.yaml'
+dataprep: 'bpg_test_suite/specs/dataprep_routine_width_space.yaml'
+layermap: 'bpg_test_suite/specs/dataprep_layermap_width_space.yaml'
 
 # Output Settings
 lsf_filename: test_dataprep_width_space
@@ -16,7 +16,7 @@ gds_filename: test_dataprep_width_space
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_dataprep_width_space'
+layout_package: 'bpg_test_suite.test_dataprep_width_space'
 # Layout generator class name
 layout_class: 'MinWidthSpace'
 
@@ -29,7 +29,4 @@ layout_params:
 impl_lib: 'Top_Level_Lib'
 impl_cell: 'Top_Level_Cell'
 
-# Vestigial parameters required by BAG class
-sweep_params:
-  intent: [standard]
-root_dir: 'data'
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

@@ -1,44 +1,72 @@
 # Installing BPG
-The first step to setting up BPG is installing the source code and all associated dependencies from github.   
 
 ## Prerequisites
-It is highly recommended that you use Anaconda to contain your Python environment setup. This will isolate your 
-system Python installation from your BPG Python installation to minimize unforseen issues. Please install Anaconda 
-with a version >= Python 3.6. This can be found at the [Anaconda Website](https://www.anaconda.com/download)
+We highly recommend you use an [Anaconda](https://www.anaconda.com/distribution/) environment with a Python version 
+greater than 3.6. BPG generally will not function with Python versions less than 3.6, and requires packages with 
+C/C++ dependencies that are most easily installed using Anaconda.
 
-This guide also assumes that you have a github account with working ssh keys. You will not be able to clone the 
-repositories without it.
-
-## Github installation
-The Berkeley Analog Generator, which BPG relies on for core infrastructure, requires a very specific file structure 
-and environmental variables. 
-
-- To immediately download a fully working file structure, clone the Photonics_Dev 
-repository with `git clone git@github.com:pvnbhargava/Photonics_Dev.git`. 
- This repository should contain several submodules which we will setup and install now:
+Once Anaconda is set up, please run the following commands to install packages with C/C++ dependencies:
 ```bash
-cd Photonics_Dev
-git submodule init
-git submodule update
-```
-- Install the included python packages with the pip editable option. This will allow you to pull from git and 
-automatically use any new changes:
-```bash
-pip install -e gdspy
-pip install -e BPG
-pip install -e BAG_framework
-```
-- You will also need to install a few extra BAG dependencies which are missing from its `setup.py`:
-```bash
-conda install shapely
+conda install numpy
 conda install rtree
+conda install shapely
 ```
-- To test and make sure your installation works properly, launch the bag ipython interpreter and run the provided 
-test suite:
+
+BPG generally generates output layouts in the GDSII format. To view these layouts, we recommend you install and use the 
+free open-source software package, [Klayout](https://klayout.de).
+
+## Installation
+WARNING: Installation instructions are currently in flux.
+
+We highly recommend you use an [Anaconda](https://www.anaconda.com/distribution/) environment with a Python version 
+greater than 3.6. BPG generally will not function with Python versions less than 3.6, and requires packages with 
+C/C++ dependencies that are most easily installed using Anaconda.
+
+Once Anaconda is set up, please run the following commands to install packages with C/C++ dependencies:
+```bash
+conda install numpy
+conda install rtree
+conda install shapely
 ```
-sh start_bag.sh
-run -i BPG/run_tests.py
+
+Then clone and install BAG with in any folder with:
+```bash
+git clone git@github.com:ucb-art/BAG_Framework.git
+cd BAG_Framework
+pip install .
 ```
-- You should see something similar to the following output:
+
+Finally clone and install BPG in any folder with:
+```bash
+git clone git@github.com:BerkeleyPhotonicsGenerator/BPG.git
+cd BPG
+pip install .
+```
+
+BPG generally generates output layouts in the GDSII format. To view these layouts, we recommend you install and use the 
+free open-source software package, [Klayout](https://klayout.de).
+
+## Quick Workspace Setup
+BPG requires specific environmental variables and a PDK for your technology in order to run. We provide an example 
+workspace and PDK for you to quickly get started. To set up your workspace run the following:
+1. `bpg setup_workspace`. This copies over the example technology and environment variable setup file
+2. `source sourceme.sh`. This will setup all of the necessary environment variables
+3. Now you can execute any BPG based python script by running `python <INSERT PATH TO PYTHON FILE HERE>`
+
+To get some example generators and learn more about how BPG works, please check out the tutorial section in getting 
+started.
+
+## Testing BPG
+WARNING: This under certain conditions, this may copy the wrong tests.
+
+You may wish to run BPG's test suite to make sure that it functions properly on your system. To do so, first make sure
+that you have the example tech setup by running the instructions in the `Quick Workspace Setup` section, and that you. 
+have `pytest` installed. Then run
+```bash
+bpg setup_test
+pytest bpg_test_suite
+```
+If you do not have pytest installed, do so by running `pip install pytest`, then re-run `pytest bpg_test_suite`. 
+After running the test suite, you should see something similar to this, with a few warnings and messages below:
 
 ![](images/test_pass.png)

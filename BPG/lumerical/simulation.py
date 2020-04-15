@@ -357,6 +357,7 @@ class varFDTDSolver(LumericalSimObj):
             "y0": None,
             "wavelength stop": None,
             "wavelength start": None,
+            "number of test points": 0,
         }
 
     @property

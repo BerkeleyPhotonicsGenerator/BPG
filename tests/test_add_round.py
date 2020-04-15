@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.objects import PhotonicRound
 
 
@@ -55,7 +52,7 @@ class AddRound(BPG.PhotonicTemplateBase):
 
 
 def test_add_round():
-    spec_file = 'BPG/tests/specs/add_round_specs.yaml'
+    spec_file = 'bpg_test_suite/specs/add_round_specs.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

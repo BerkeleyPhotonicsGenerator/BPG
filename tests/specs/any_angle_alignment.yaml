@@ -9,12 +9,12 @@ gds_filename: any_angle_alignment
 
 # Generator Params
 # Module that contains the layout generator class
-layout_package: 'tests.test_anyangle_alignment'
+layout_package: 'bpg_test_suite.test_anyangle_alignment'
 layout_class: 'SBend'  # Layout generator class name
-
 layout_params:
-
 
 # Cadence related parameters
 impl_lib: 'any_angle'
 impl_cell: 'sbend'
+
+bag_config_path: "${BAG_WORK_DIR}/example_tech/bag_config.yaml"

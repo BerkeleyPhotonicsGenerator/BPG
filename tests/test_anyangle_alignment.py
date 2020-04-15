@@ -1,7 +1,4 @@
-try:
-    from .context import BPG
-except:
-    import BPG
+import BPG
 from BPG.objects import PhotonicRound
 import math
 import numpy as np
@@ -128,7 +125,7 @@ class SBend(BPG.PhotonicTemplateBase):
 
 
 def test_rotated_alignment():
-    spec_file = 'BPG/tests/specs/any_angle_alignment.yaml'
+    spec_file = 'bpg_test_suite/specs/any_angle_alignment.yaml'
     plm = BPG.PhotonicLayoutManager(spec_file)
     plm.generate_content()
     plm.generate_gds()

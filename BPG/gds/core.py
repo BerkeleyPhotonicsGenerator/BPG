@@ -8,21 +8,30 @@ from bag.layout.util import BBox
 from BPG.content_list import ContentList
 from BPG.abstract_plugin import AbstractPlugin
 
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Tuple, Optional
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
 
 class GDSPlugin(AbstractPlugin):
-    def __init__(self, grid, gds_layermap, gds_filepath, lib_name):
+    def __init__(self,
+                 grid,
+                 gds_layermap,
+                 gds_filepath,
+                 lib_name,
+                 max_points_per_polygon: int = 199
+                 ):
         self.grid = grid
         self.gds_layermap = gds_layermap
         self.gds_filepath = gds_filepath
         self.lib_name = lib_name    # TODO: fix
+        self.max_points_per_polygon = max_points_per_polygon
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
                             name_append: str = '',
+                            max_points_per_polygon: Optional[int] = None,
+                            write_gds: bool = True,
                             ):
         """
         Exports the physical design to GDS
@@ -33,12 +42,22 @@ class GDSPlugin(AbstractPlugin):
             A list of ContentList objects that represent the layout.
         name_append : str
             A suffix to add to the end of the generated gds filename
+        max_points_per_polygon : Optional[int]
+            Maximum number of points allowed per polygon shape in the gds.
+            Defaults to value set in the init of GDSPlugin if not specified.
+        write_gds : bool
+            Default True.  True to write out the gds file.
+            False to create the gdspy object, but not write out the gds.
+
         """
         logging.info(f'In PhotonicTemplateDB._create_gds')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
+
+        if not max_points_per_polygon:
+            max_points_per_polygon = self.max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
             lay_info = yaml.load(f)
@@ -125,9 +144,8 @@ class GDSPlugin(AbstractPlugin):
             for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
-                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id,
-                                         verbose=False)
-                gds_cell.add(cur_path.fracture(precision=res))
+                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id)
+                gds_cell.add(cur_path.fracture(precision=res, max_points=max_points_per_polygon))
 
             for blockage in content_list.blockage_list:
                 pass
@@ -137,9 +155,8 @@ class GDSPlugin(AbstractPlugin):
 
             for polygon in content_list.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
-                cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id,
-                                         verbose=False)
-                gds_cell.add(cur_poly.fracture(precision=res))
+                cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id)
+                gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
 
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -156,7 +173,7 @@ class GDSPlugin(AbstractPlugin):
                                                     inner_radius=round_obj['rin'],
                                                     initial_angle=round_obj['theta0'] * pi / 180,
                                                     final_angle=round_obj['theta1'] * pi / 180,
-                                                    number_of_points=self.grid.resolution,
+                                                    tolerance=self.grid.resolution,
                                                     layer=lay_id, datatype=purp_id)
                             gds_cell.add(cur_round)
                 else:
@@ -164,14 +181,17 @@ class GDSPlugin(AbstractPlugin):
                                             inner_radius=round_obj['rin'],
                                             initial_angle=round_obj['theta0'] * pi / 180,
                                             final_angle=round_obj['theta1'] * pi / 180,
-                                            number_of_points=self.grid.resolution,
+                                            tolerance=self.grid.resolution,
                                             layer=lay_id, datatype=purp_id)
                     gds_cell.add(cur_round)
 
-        gds_lib.write_gds(out_fname)
+        if write_gds:
+            gds_lib.write_gds(out_fname)
 
         end = time.time()
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
+
+        return gds_lib
 
     def _add_gds_via(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
@@ -249,7 +269,7 @@ class GDSPlugin(AbstractPlugin):
         polygon_list = []
         pin_list = []
 
-        for polyset in top_cell.elements:
+        for polyset in top_cell.polygons:
             for count in range(len(polyset.polygons)):
                 points = polyset.polygons[count]
                 layer = polyset.layers[count]
@@ -290,7 +310,9 @@ class GDSPlugin(AbstractPlugin):
                            polygon_list=polygon_list)
 
     @staticmethod
-    def lpp_reverse_lookup(layermap: dict, gds_layerid: List[int]):
+    def lpp_reverse_lookup(layermap: dict,
+                           gds_layerid: List[int]
+                           ) -> str:
         """
         Given a layermap dictionary, find the layername that matches the provided gds layer id
 
@@ -311,5 +333,3 @@ class GDSPlugin(AbstractPlugin):
                 return layer_name
         else:
             print(f"{gds_layerid} was not found in the layermap!")
-
-
