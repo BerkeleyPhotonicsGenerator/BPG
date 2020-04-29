@@ -75,6 +75,23 @@ class GDSImport(PhotonicTemplateBase):
                     self.add_polygon(layer=lpp,
                                      points=points,
                                      unit_mode=False)
+                    
+        for path in top_cell.paths:
+            polyset = path.to_polygonset()
+            for count in range(len(polyset.polygons)):
+                points = polyset.polygons[count]
+                layer = polyset.layers[count]
+                datatype = polyset.datatypes[count]
+
+                # Reverse lookup layername from gds LPP
+                lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, datatype])
+
+                # Create the polygon from the provided data if the layer exists in the layermap
+                if lpp:
+                    self.add_polygon(layer=lpp,
+                                     points=points,
+                                     unit_mode=False)
+
         for label in top_cell.get_labels(depth=0):
             text = label.text
             layer = label.layer
