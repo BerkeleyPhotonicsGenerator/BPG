@@ -740,6 +740,76 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             )
 
         return ports_out
+        
+    def extract_pins_from_inst(self,
+                               inst: Union[PhotonicInstance, "Instance"],
+                               pins,
+                               pins_renaiming = {}
+                               ) -> None:
+        """
+        Brings pins from lower level of hierarchy to the current hierarchy level
+
+        Parameters
+        ----------
+        inst : PhotonicInstance
+            the instance that contains the ports to be extracted
+        pins  : List of pins to be promoted/extracted
+        """
+
+        if isinstance(pins, str):
+            pins = [pins]
+
+        # if port_renaming is None:
+        #     port_renaming = {}
+        inst_pins = inst.master._layout._pin_list
+
+        pins_to_be_extracted = []
+        for pin_name in pins:
+            flag = False
+            for i in range(len(inst_pins)):
+                if pin_name in inst_pins[i]['net_name']:
+                    pins_to_be_extracted.append(inst_pins[i])
+                    flag=True
+
+            if flag is False:
+                raise ValueError('There is no pin with the name {}'.format(pin_name))
+
+        for pin_to_be_extracted in pins_to_be_extracted:
+            old_bbox = pin_to_be_extracted.bbox
+            inst_angle = inst.angle
+            inst_loc = inst.location
+            if inst.mirrored:
+                if inst.orientation == 'R90' or inst.orientation =='R270':
+                    right = -old_bbox.right
+                    left = -old_bbox.left
+                    top = old_bbox.top
+                    bottom = old_bbox.bottom
+                else:
+                    right = old_bbox.right
+                    left = old_bbox.left
+                    top = -old_bbox.top
+                    bottom = -old_bbox.bottom
+            else:
+                right = old_bbox.right
+                left = old_bbox.left
+                top = old_bbox.top
+                bottom = old_bbox.bottom
+
+            new_bbox=BBox(
+                    top=inst_loc[1] + cos(inst_angle)*top+ sin(inst_angle)*right, # Could be + cos(theta) instead of - cos(theta)
+                    bottom=inst_loc[1] + cos(inst_angle)*bottom + sin(inst_angle)*left,
+                    left=inst_loc[0] + cos(inst_angle)*left - sin(inst_angle)*bottom,
+                    right=inst_loc[0] + cos(inst_angle)*right - sin(inst_angle)*top,
+                    resolution=self.grid.resolution )
+
+            fflag = False
+            for key in pins_renaiming.keys():
+                if key in pin_to_be_extracted['net_name']:
+                    self.add_pin_primitive(net_name=pin_to_be_extracted['net_name']+"_"+pins_renaiming[key], layer=tuple(pin_to_be_extracted['layer']),  bbox=new_bbox)
+                    fflag = True
+
+            if not fflag:
+                    self.add_pin_primitive(net_name=pin_to_be_extracted['net_name'], layer=tuple(pin_to_be_extracted['layer']),bbox=new_bbox)
 
     def _find_metal_pairs(self,
                           bot_layer,
