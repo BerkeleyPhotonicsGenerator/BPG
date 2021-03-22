@@ -372,6 +372,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
     def dataprep_calibre(self,
                          file_in=None,
                          file_out=None,
+                         **kwargs
                          ):
         """
         Performs dataprep on the design
@@ -398,7 +399,8 @@ class PhotonicLayoutManager(PhotonicBagProject):
 
         self.calibre_dataprep_plugin.run_dataprep(file_in=file_in,
                                                   file_out=file_out,
-                                                  label_depth=self.photonic_tech_info.dataprep_label_depth
+                                                  label_depth=self.photonic_tech_info.dataprep_label_depth,
+                                                  **kwargs
                                                   )
 
         end = time.time()
