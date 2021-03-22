@@ -61,7 +61,7 @@ class KLayoutGDSPlugin(AbstractPlugin):
             False to create the gdspy object, but not write out the gds.
 
         """
-        logging.info(f'In PhotonicTemplateDB._create_gds')
+        logging.info(f'In KLayoutGDSPlugin.export_content_list')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
@@ -82,6 +82,7 @@ class KLayoutGDSPlugin(AbstractPlugin):
         logging.info(f'Instantiating gds layout')
 
         start = time.time()
+
         for content_list in content_lists:
             # Create the cell in the gds library and in the cell dict
             gds_cell = gds_lib.create_cell(content_list.cell_name)
@@ -150,9 +151,9 @@ class KLayoutGDSPlugin(AbstractPlugin):
                         xc = x0 + xidx * spx
                         for yidx in range(ny):
                             yc = y0 + yidx * spy
-                            self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, xc, yc)
+                            self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, xc, yc, unit=unit)
                 else:
-                    self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0)
+                    self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0, unit=unit)
 
             # add pins
             for pin in content_list.pin_list:  # type: PinInfo
@@ -245,25 +246,24 @@ class KLayoutGDSPlugin(AbstractPlugin):
             ptsy = np.sin(t) * radius + y0
         else:
             if angles_same:
-                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=False)
+                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
             else:
                 t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
             ptsx = np.cos(t) * radius + x0
             ptsy = np.sin(t) * radius + y0
 
             if angles_same:
-                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=False)
+                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
             else:
                 t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
 
-            ptsx = np.concatenate(ptsx, np.cos(t) * inner_radius + x0)
-            ptsy = np.concatenate(ptsy, np.sin(t) * inner_radius + x0)
+            ptsx = np.concatenate((ptsx, np.cos(t) * inner_radius + x0))
+            ptsy = np.concatenate((ptsy, np.sin(t) * inner_radius + x0))
 
         return [(int(round(px / self.grid.resolution)), int(round(py / self.grid.resolution)))
                 for px, py in zip(ptsx, ptsy)]
 
-    def _add_gds_via(self, gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0):
-        unit = int(round(self.grid.resolution))
+    def _add_gds_via(self, gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0, unit):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
         tlay, tpurp = lay_map[via_lay_info['top_layer']]
         vlay, vpurp = lay_map[via_lay_info['via_layer']]

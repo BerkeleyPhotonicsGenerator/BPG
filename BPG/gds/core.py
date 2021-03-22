@@ -50,7 +50,7 @@ class GDSPlugin(AbstractPlugin):
             False to create the gdspy object, but not write out the gds.
 
         """
-        logging.info(f'In PhotonicTemplateDB._create_gds')
+        logging.info(f'In GDSPlugin.export_content_list')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
