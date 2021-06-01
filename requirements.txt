@@ -38,4 +38,4 @@ ruamel-yaml==0.15.46
 scipy==1.1.0
 Shapely==1.6.4.post2
 six==1.11.0
-urllib3==1.23
+urllib3==1.26.5
