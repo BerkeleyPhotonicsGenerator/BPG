@@ -982,3 +982,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          **kwargs
                                          )
 
+
+
+    def new_template_with_yaml_params(self, 
+                                      path_to_yaml,
+                                      temp_cls,
+                                      **kwargs):
+        """
+        """
+        #
+        with open( path_to_yaml ) as this_yaml_file:
+            this_yaml_file = yaml.load(this_file)
+        temp_cls = copy.deepcopy(this_yaml_file['layout_package'])
+        params = copy.deepcopy(this_yaml_file['layout_params'])
+        return TemplateBase.new_template(self,
+                                         params=params,
+                                         temp_cls=temp_cls,
+                                         **kwargs
+                                         )
