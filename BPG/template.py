@@ -5,6 +5,8 @@ import logging
 import math
 import copy
 import warnings
+import importlib
+import yaml
 
 # bag imports
 import bag.io
@@ -984,17 +986,26 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
 
 
 
-    def new_template_with_yaml_params(self, 
-                                      path_to_yaml,
-                                      temp_cls,
-                                      **kwargs):
+    def new_template_with_spec_file(self, 
+                                    path_to_yaml,
+                                    **kwargs):
         """
         """
         #
-        with open( path_to_yaml ) as this_yaml_file:
-            this_yaml_file = yaml.load(this_file)
-        temp_cls = copy.deepcopy(this_yaml_file['layout_package'])
-        params = copy.deepcopy(this_yaml_file['layout_params'])
+        # Should I care about unsafe load?
+        with open( path_to_yaml ) as yaml_file:
+            yaml_file_load = yaml.load(yaml_file)
+
+        photonic_module = importlib.import_module(yaml_file_load['layout_package'])
+        photonic_class = yaml_file_load['layout_class']
+        temp_cls = getattr(photonic_module, photonic_class)
+
+        #params = copy.deepcopy(yaml_file_load['layout_params'])
+        params = yaml_file_load['layout_params']
+
+        #import pdb
+        #pdb.set_trace()
+
         return TemplateBase.new_template(self,
                                          params=params,
                                          temp_cls=temp_cls,
