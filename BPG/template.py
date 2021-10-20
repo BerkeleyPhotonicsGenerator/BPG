@@ -990,24 +990,44 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                     path_to_yaml,
                                     **kwargs):
         """
+        Create a new template from the spec file
+
+        This method will load the spec file, reads the layout class and parameters, then create a new template with those.
+        It can also update the parameter values if appropriately given as kwargs.
+        The procedure is useful in the context of reusing the large spec file, enabling the device design choices to be kept within a few yaml files and thus hierarchically managed.
+        Written as a simple wrapper method for new_template
+
+        Parameters
+        ----------
+        path_to_yaml : string
+            (absolute or relative) path to 
+        kwargs : dict
+            a dictionary of new parameter values
+
+        Returns
+        -------
+        master : PhotonicTemplateBase
+            Newly created master from the given spec file
         """
-        #
-        # Should I care about unsafe load?
+        # yaml-written spec file load
         with open( path_to_yaml ) as yaml_file:
             yaml_file_load = yaml.load(yaml_file)
 
+        # auto type-in the template class
         photonic_module = importlib.import_module(yaml_file_load['layout_package'])
         photonic_class = yaml_file_load['layout_class']
         temp_cls = getattr(photonic_module, photonic_class)
 
-        #params = copy.deepcopy(yaml_file_load['layout_params'])
-        params = yaml_file_load['layout_params']
+        # Create a new parameter dictionary based on the provided changes
+        new_params = copy.deepcopy(yaml_file_load['layout_params'])
+        for key, val in kwargs.items():
+            if key in new_params:
+                new_params[key] = val
 
         #import pdb
         #pdb.set_trace()
-
         return TemplateBase.new_template(self,
-                                         params=params,
+                                         params=new_params,
                                          temp_cls=temp_cls,
                                          **kwargs
                                          )
