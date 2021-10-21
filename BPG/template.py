@@ -1000,7 +1000,7 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
         Parameters
         ----------
         path_to_yaml : string
-            (absolute or relative) path to 
+            (absolute or relative from run directory) path to yaml spec file
         kwargs : dict
             a dictionary of new parameter values
 
@@ -1024,8 +1024,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             if key in new_params:
                 new_params[key] = val
 
-        #import pdb
-        #pdb.set_trace()
+        # TODO: Handling exceptions 
+        # 1. If module, class not found, show what file is being broken
+        # 2. when kwargs is not empty but only have wrong keys, raise Error
+        # Not necessary, most are automatically handled by new_template method
+
         return TemplateBase.new_template(self,
                                          params=new_params,
                                          temp_cls=temp_cls,
