@@ -799,6 +799,11 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     left = -old_bbox.left
                     top = old_bbox.top
                     bottom = old_bbox.bottom
+                elif inst.orientation == 'MXR90':
+                    right = old_bbox.bottom
+                    left = old_bbox.top
+                    top = old_bbox.right
+                    bottom = old_bbox.left
                 else:
                     right = old_bbox.right
                     left = old_bbox.left
@@ -810,14 +815,21 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                 top = old_bbox.top
                 bottom = old_bbox.bottom
 
-            new_bbox = BBox(
-                top=inst_loc[1] + np.cos(inst_angle) * top + np.sin(inst_angle) * right,
+            #new_bbox = BBox(
+                #top=inst_loc[1] + np.cos(inst_angle) * top - np.sin(inst_angle) * right,
                 # Could be + cos(theta) instead of - cos(theta)
-                bottom=inst_loc[1] + np.cos(inst_angle) * bottom + np.sin(inst_angle) * left,
-                left=inst_loc[0] + np.cos(inst_angle) * left - np.sin(inst_angle) * bottom,
-                right=inst_loc[0] + np.cos(inst_angle) * right - np.sin(inst_angle) * top,
-                resolution=self.grid.resolution
-            )
+                #bottom=inst_loc[1] + np.cos(inst_angle) * bottom - np.sin(inst_angle) * left,
+               # left=inst_loc[0] + np.cos(inst_angle) * left + np.sin(inst_angle) * bottom,
+              #  right=inst_loc[0] + np.cos(inst_angle) * right + np.sin(inst_angle) * top,
+             #   resolution=self.grid.resolution
+            #)
+            
+            new_bbox = BBox(
+            top = inst_loc[1]+top, 
+            left=inst_loc[0]+left, 
+            right=inst_loc[0]+right, 
+            bottom=inst_loc[1]+bottom, 
+            resolution=self.grid.resolution)
 
             # Called if pin_renaming is None or a dict
             if isinstance(pin_renaming, dict):
