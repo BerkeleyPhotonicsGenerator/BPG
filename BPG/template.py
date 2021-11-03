@@ -810,10 +810,27 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     top = -old_bbox.top
                     bottom = -old_bbox.bottom
             else:
-                right = old_bbox.right
-                left = old_bbox.left
-                top = old_bbox.top
-                bottom = old_bbox.bottom
+                if inst.orientation == 'R90':
+                    right = -old_bbox.top
+                    left = -old_bbox.bottom
+                    top = old_bbox.left
+                    bottom = old_bbox.right
+                elif inst.orientation == 'R270':
+                    right = old_bbox.top
+                    left = old_bbox.bottom
+                    top = -old_bbox.left
+                    bottom = -old_bbox.right
+                elif inst.orientation == 'R180':
+                    right = -old_bbox.left
+                    left = -old_bbox.right
+                    top = -old_bbox.bottom
+                    bottom = -old_bbox.top
+                    
+                else:
+                    right = old_bbox.right
+                    left = old_bbox.left
+                    top = old_bbox.top
+                    bottom = old_bbox.bottom
 
             #new_bbox = BBox(
                 #top=inst_loc[1] + np.cos(inst_angle) * top - np.sin(inst_angle) * right,
