@@ -208,6 +208,7 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         # Generate templates from all of the sweep points
         for dsn in self.design_list:
             self.template_list = []
+            self.cell_name_list = []
             self.generate_template(temp_cls=dsn[0], params=dsn[1], cell_name=batch_name)
             self.generate_content(save_content=False)
             self.generate_gds()
