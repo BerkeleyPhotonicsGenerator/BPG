@@ -168,9 +168,11 @@ class PhotonicLayoutManager(PhotonicBagProject):
         start_time = time.time()
         self.template_list.append(self.template_plugin.new_template(params=params,
                                                                     temp_cls=temp_cls,
+                                                                    temp_name=cell_name,  # TODO
                                                                     debug=False))
         if cell_name in self.cell_name_list:
             cell_name = _get_unique_name(cell_name, self.cell_name_list)
+
         self.cell_name_list.append(cell_name)
         end_time = time.time()
 
@@ -422,7 +424,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         inpath = self.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
         with open(inpath, 'r') as f:
-            lumerical_map = yaml.load(f)
+            lumerical_map = yaml.load(f, Loader=yaml.UnsafeLoader)
 
         # 2) Extract the custom materials under the materials key
         mat_map = lumerical_map['materials']

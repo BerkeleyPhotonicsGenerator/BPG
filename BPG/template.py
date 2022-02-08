@@ -18,7 +18,7 @@ from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, 
     PhotonicPath
 
 # Typing imports
-from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable
+from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable, Union
 from BPG.bpg_custom_types import *
 
 if TYPE_CHECKING:
@@ -740,6 +740,138 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             )
 
         return ports_out
+
+    def extract_pins_from_inst(self,
+                               inst: Union["PhotonicInstance", "Instance"],
+                               pin_names: Optional[Union[str, List[str]]] = None,
+                               pin_renaming: Optional[Union[str, List[str], Dict[str, str]]] = None,
+                               ) -> None:
+        """
+        Brings pins from lower level of hierarchy to the current hierarchy level
+
+        Parameters
+        ----------
+        inst : PhotonicInstance
+            the instance that contains the pins to be extracted
+        pin_names : Optional[Union[str, List[str]]
+            the pin name or list of pin names to re-export. If not supplied, all pins of the inst will be extracted
+        pin_renaming : Optional[Dict[str, str]]
+            a dictionary containing key-value pairs mapping inst's pin names (key)
+            to the new desired pin names (value).
+            If not supplied, extracted pin will be given their original names
+        """
+
+        all_inst_pin_labels = [pin.label for pin in inst.master._layout._pin_list]
+        if pin_names is None:
+            pin_names = all_inst_pin_labels
+
+        if isinstance(pin_names, str):
+            pin_names = [pin_names]
+
+        if pin_renaming is None:
+            pin_renaming = {}
+
+        if isinstance(pin_renaming, str):
+            pin_renaming = [pin_renaming]
+
+        if isinstance(pin_renaming, list):
+            if len(pin_renaming) != len(pin_names):
+                raise ValueError(f'If pin_renaming is a list, must be same length as pin_names')
+
+        inst_pins = inst.master._layout._pin_list
+
+        pins_to_be_extracted = []
+        for pin_name in pin_names:
+            if pin_name not in all_inst_pin_labels:
+                raise ValueError('There is no pin with the name {}'.format(pin_name))
+            # Find the pin
+            for pin in inst_pins:
+                if pin_name == pin['label']:
+                    pins_to_be_extracted.append(pin)
+
+        for ind, pin in enumerate(pins_to_be_extracted):
+            old_bbox = pin.bbox
+            inst_angle = inst.angle
+            inst_loc = inst.location
+            if inst.mirrored:
+                if inst.orientation == 'R90' or inst.orientation == 'R270':
+                    right = -old_bbox.right
+                    left = -old_bbox.left
+                    top = old_bbox.top
+                    bottom = old_bbox.bottom
+                elif inst.orientation == 'MXR90':
+                    right = old_bbox.bottom
+                    left = old_bbox.top
+                    top = old_bbox.right
+                    bottom = old_bbox.left
+                else:
+                    right = old_bbox.right
+                    left = old_bbox.left
+                    top = -old_bbox.top
+                    bottom = -old_bbox.bottom
+            else:
+                if inst.orientation == 'R90':
+                    right = -old_bbox.top
+                    left = -old_bbox.bottom
+                    top = old_bbox.left
+                    bottom = old_bbox.right
+                elif inst.orientation == 'R270':
+                    right = old_bbox.top
+                    left = old_bbox.bottom
+                    top = -old_bbox.left
+                    bottom = -old_bbox.right
+                elif inst.orientation == 'R180':
+                    right = -old_bbox.left
+                    left = -old_bbox.right
+                    top = -old_bbox.bottom
+                    bottom = -old_bbox.top
+                    
+                else:
+                    right = old_bbox.right
+                    left = old_bbox.left
+                    top = old_bbox.top
+                    bottom = old_bbox.bottom
+
+            #new_bbox = BBox(
+                #top=inst_loc[1] + np.cos(inst_angle) * top - np.sin(inst_angle) * right,
+                # Could be + cos(theta) instead of - cos(theta)
+                #bottom=inst_loc[1] + np.cos(inst_angle) * bottom - np.sin(inst_angle) * left,
+               # left=inst_loc[0] + np.cos(inst_angle) * left + np.sin(inst_angle) * bottom,
+              #  right=inst_loc[0] + np.cos(inst_angle) * right + np.sin(inst_angle) * top,
+             #   resolution=self.grid.resolution
+            #)
+            
+            new_bbox = BBox(
+            top = inst_loc[1]+top, 
+            left=inst_loc[0]+left, 
+            right=inst_loc[0]+right, 
+            bottom=inst_loc[1]+bottom, 
+            resolution=self.grid.resolution)
+
+            # Called if pin_renaming is None or a dict
+            if isinstance(pin_renaming, dict):
+                if pin.net_name in pin_renaming.keys():
+                    new_name = pin_renaming[pin.net_name]
+                else:
+                    new_name = pin.net_name
+            # Called if pin_renaming is a list
+            else:
+                new_name = pin_renaming[ind]
+
+            # Hack because BAG seems to mess this up
+            layer_original = pin.layer
+            if isinstance(layer_original, str):
+                layer = layer_original
+            elif isinstance(layer_original, tuple):
+                layer = layer_original
+            elif isinstance(layer_original, list):
+                layer = (layer_original[0], layer_original[1])
+            else:
+                raise ValueError(f'Unexpected type for layer on pin: {pin}')
+
+            self.add_pin_primitive(net_name=new_name,
+                                   layer=layer,
+                                   bbox=new_bbox)
 
     def _find_metal_pairs(self,
                           bot_layer,

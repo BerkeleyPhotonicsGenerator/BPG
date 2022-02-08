@@ -60,7 +60,7 @@ class GDSPlugin(AbstractPlugin):
             max_points_per_polygon = self.max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.load(f, Loader=yaml.UnsafeLoader)
             lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
@@ -250,7 +250,7 @@ class GDSPlugin(AbstractPlugin):
         """
         # Import information from the layermap
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.load(f, Loader=yaml.UnsafeLoader)
             lay_map = lay_info['layer_map']
 
         # Import the GDS from the file
