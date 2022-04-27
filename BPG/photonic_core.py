@@ -135,8 +135,13 @@ class PhotonicBagProject(BagProject):
         else:
             default_path = Path(BPG.run_settings['database']['default_lib_path'])
             self.project_dir = default_path / BPG.run_settings['project_name']
+
+        if 'gds_output_subdir' in self.photonic_tech_info.photonic_tech_params:
+            self.data_dir = self.project_dir / self.photonic_tech_info.photonic_tech_params['gds_output_subdir']
+        else:
+            self.data_dir = self.project_dir
+
         self.scripts_dir = self.project_dir / 'scripts'
-        self.data_dir = self.project_dir / 'data'
         self.content_dir = self.project_dir / 'content'
 
         # If users provide paths to add provide them here
@@ -149,7 +154,7 @@ class PhotonicBagProject(BagProject):
         # Make the project directories if they do not exists
         self.project_dir.mkdir(exist_ok=True, parents=True)
         self.scripts_dir.mkdir(exist_ok=True)
-        self.data_dir.mkdir(exist_ok=True)
+        self.data_dir.mkdir(exist_ok=True, parents=True)
         self.content_dir.mkdir(exist_ok=True)
 
         # Enable logging for BPG
@@ -163,8 +168,9 @@ class PhotonicBagProject(BagProject):
                 self.log_path = log_path.parent
                 self.log_filename = log_path.name
         else:
-            self.log_path = self.project_dir
+            self.log_path = self.project_dir / 'logs'
             self.log_filename = 'output.log'
+        self.log_path.mkdir(exist_ok=True)
         setup_logger(log_path=str(self.log_path), log_filename=str(self.log_filename))
 
         logging.info(f'PhotonicCoreLayout initialized from spec file: {spec_file}')
