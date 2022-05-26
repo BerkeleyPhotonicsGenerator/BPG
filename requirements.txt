@@ -30,7 +30,7 @@ pyparsing==2.3.0
 PySocks==1.6.8
 pytest==4.0.1
 python-dateutil==2.7.5
-PyYAML==3.13
+PyYAML==5.4
 pyzmq==17.1.2
 requests==2.20.0
 Rtree==0.8.3
