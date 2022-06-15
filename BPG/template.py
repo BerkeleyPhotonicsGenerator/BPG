@@ -269,7 +269,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                           unit_mode: bool = False,
                           port: Optional[PhotonicPort] = None,
                           overwrite: bool = False,
-                          show: bool = True
+                          show: bool = True,
+                          info: dict = None,
                           ) -> PhotonicPort:
         """
         Add a photonic port to the current hierarchy. A PhotonicPort
@@ -304,6 +305,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
             level of the design hierarchy.
         show :
             True to draw the port indicator shape
+        info : dict
+            Dictionary of additional information to associate with the PhotonicPort
 
         Returns
         -------
@@ -354,7 +357,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                 width=width,
                                 layer=layer,
                                 resolution=resolution,
-                                unit_mode=unit_mode)
+                                unit_mode=unit_mode,
+                                info=info)
 
         # Add port to port list. If name already is taken, remap port if overwrite is true
         if port.name not in self._photonic_ports.keys() or overwrite:
@@ -735,7 +739,8 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                     width=old_port.width_unit,
                     layer=old_port.layer,
                     unit_mode=True,
-                    show=show
+                    show=show,
+                    info=old_port.info,
                 )
             )
 
