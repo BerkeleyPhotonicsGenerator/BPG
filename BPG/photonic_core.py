@@ -129,6 +129,9 @@ class PhotonicBagProject(BagProject):
             )
             self.photonic_tech_info.load_tech_files()
 
+        if hasattr(self.photonic_tech_info, 'finalize_template'):
+            self.tech_info.finalize_template = self.photonic_tech_info.finalize_template
+
         # Setup relevant output files and directories
         if 'project_dir' in BPG.run_settings:
             self.project_dir = Path(BPG.run_settings['project_dir']).expanduser()
