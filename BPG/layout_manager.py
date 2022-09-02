@@ -18,6 +18,7 @@ from BPG.photonic_core import PhotonicBagProject
 from .db import PhotonicTemplateDB
 from .lumerical.code_generator import LumericalMaterialGenerator
 from .gds.core import GDSPlugin
+from .gds.core_klayout import KLayoutGDSPlugin
 from .lumerical.core import LumericalPlugin
 
 from typing import TYPE_CHECKING, List, Optional, Dict, Any
@@ -120,10 +121,18 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                   photonic_tech_info=self.photonic_tech_info)
         self.template_plugin._prj = self
         print(f'GDS layermap is: {self.photonic_tech_info.layermap_path}')
-        self.gds_plugin = GDSPlugin(grid=routing_grid,
-                                    gds_layermap=self.photonic_tech_info.layermap_path,
-                                    gds_filepath=self.gds_path,
-                                    lib_name=self.impl_lib)
+        if BPG.run_settings['bpg_config']['bpg_gds_backend'] == 'gdspy':
+            self.gds_plugin = GDSPlugin(grid=routing_grid,
+                                        gds_layermap=self.photonic_tech_info.layermap_path,
+                                        gds_filepath=self.gds_path,
+                                        lib_name=self.impl_lib)
+        elif BPG.run_settings['bpg_config']['bpg_gds_backend'] == 'klayout':
+            self.gds_plugin = KLayoutGDSPlugin(grid=routing_grid,
+                                               gds_layermap=self.photonic_tech_info.layermap_path,
+                                               gds_filepath=self.gds_path,
+                                               lib_name=self.impl_lib)
+        else:
+            raise ValueError(f'Unsupported BPG configuration:  bpg_gds_backend:    {BPG.run_settings["bpg_gds_backend"]}')
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
                                           )

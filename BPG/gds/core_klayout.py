@@ -1,8 +1,8 @@
 import time
 import logging
 import yaml
-import gdspy
-from math import pi
+import pya
+import numpy as np
 
 from bag.layout.util import BBox
 from BPG.content_list import ContentList
@@ -13,7 +13,18 @@ if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
 
-class GDSPlugin(AbstractPlugin):
+TRANSFORM_TABLE = {'R0': pya.Trans.R0,
+                   'R90': pya.Trans.R90,
+                   'R180': pya.Trans.R180,
+                   'R270': pya.Trans.R270,
+                   'MX': pya.Trans.M0,
+                   'MY': pya.Trans.M90,
+                   'MXR90': pya.Trans.M45,
+                   'MYR90': pya.Trans.M135,
+                   }
+
+
+class KLayoutGDSPlugin(AbstractPlugin):
     def __init__(self,
                  grid,
                  gds_layermap,
@@ -24,7 +35,7 @@ class GDSPlugin(AbstractPlugin):
         self.grid = grid
         self.gds_layermap = gds_layermap
         self.gds_filepath = gds_filepath
-        self.lib_name = lib_name    # TODO: fix
+        self.lib_name = lib_name
         self.max_points_per_polygon = max_points_per_polygon
 
     def export_content_list(self,
@@ -50,11 +61,12 @@ class GDSPlugin(AbstractPlugin):
             False to create the gdspy object, but not write out the gds.
 
         """
-        logging.info(f'In GDSPlugin.export_content_list')
+        logging.info(f'In KLayoutGDSPlugin.export_content_list')
 
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
+        unit = 1 / res
 
         if not max_points_per_polygon:
             max_points_per_polygon = self.max_points_per_polygon
@@ -64,16 +76,17 @@ class GDSPlugin(AbstractPlugin):
             lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
-        # TODO: fix
         out_fname = self.gds_filepath + f'{name_append}.gds'
-        gds_lib = gdspy.GdsLibrary(name=self.lib_name, unit=lay_unit, precision=res * lay_unit)
-        cell_dict = gds_lib.cell_dict
+        gds_lib = pya.Layout()
+        cell_dict = dict()
         logging.info(f'Instantiating gds layout')
 
         start = time.time()
+
         for content_list in content_lists:
-            gds_cell = gdspy.Cell(content_list.cell_name, exclude_from_current=True)
-            gds_lib.add(gds_cell)
+            # Create the cell in the gds library and in the cell dict
+            gds_cell = gds_lib.create_cell(content_list.cell_name)
+            cell_dict[content_list.cell_name] = gds_cell.cell_index()
 
             # add instances
             for inst_info in content_list.inst_list:  # type: InstanceInfo
@@ -83,14 +96,25 @@ class GDSPlugin(AbstractPlugin):
                 num_cols = inst_info.num_cols
                 angle, reflect = inst_info.angle_reflect
                 if num_rows > 1 or num_cols > 1:
-                    cur_inst = gdspy.CellArray(cell_dict[inst_info.cell], num_cols, num_rows,
-                                               (inst_info.sp_cols, inst_info.sp_rows),
-                                               origin=inst_info.loc, rotation=angle,
-                                               x_reflection=reflect)
+                    gds_cell.insert(
+                        pya.CellInstArray(cell_dict[inst_info.cell],
+                                          pya.Trans(TRANSFORM_TABLE[inst_info.orient],
+                                                    inst_info.loc[0] * unit,
+                                                    inst_info.loc[1] * unit),
+                                          pya.Vector(unit, 0),
+                                          pya.Vector(0, unit),
+                                          inst_info.sp_cols,
+                                          inst_info.sp_rows,
+                                          )
+                    )
                 else:
-                    cur_inst = gdspy.CellReference(cell_dict[inst_info.cell], origin=inst_info.loc,
-                                                   rotation=angle, x_reflection=reflect)
-                gds_cell.add(cur_inst)
+                    gds_cell.insert(
+                        pya.CellInstArray(cell_dict[inst_info.cell],
+                                          pya.Trans(TRANSFORM_TABLE[inst_info.orient],
+                                                    inst_info.loc[0] * unit,
+                                                    inst_info.loc[1] * unit),
+                                          )
+                    )
 
             # add rectangles
             for rect in content_list.rect_list:
@@ -104,12 +128,16 @@ class GDSPlugin(AbstractPlugin):
                         dx = xidx * spx
                         for yidx in range(ny):
                             dy = yidx * spy
-                            cur_rect = gdspy.Rectangle((x0 + dx, y0 + dy), (x1 + dx, y1 + dy),
-                                                       layer=lay_id, datatype=purp_id)
-                            gds_cell.add(cur_rect)
+
+                            gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                                pya.Box((x0 + dx) * unit, (y0 + dy) * unit,
+                                        (x1 + dx) * unit, (y1 + dy) * unit)
+                            )
                 else:
-                    cur_rect = gdspy.Rectangle((x0, y0), (x1, y1), layer=lay_id, datatype=purp_id)
-                    gds_cell.add(cur_rect)
+                    gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                        pya.Box(x0 * unit, y0 * unit,
+                                x1 * unit, y1 * unit)
+                    )
 
             # add vias
             for via in content_list.via_list:  # type: ViaInfo
@@ -123,9 +151,9 @@ class GDSPlugin(AbstractPlugin):
                         xc = x0 + xidx * spx
                         for yidx in range(ny):
                             yc = y0 + yidx * spy
-                            self._add_gds_via(gds_cell, via, lay_map, via_lay_info, xc, yc)
+                            self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, xc, yc, unit=unit)
                 else:
-                    self._add_gds_via(gds_cell, via, lay_map, via_lay_info, x0, y0)
+                    self._add_gds_via(gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0, unit=unit)
 
             # add pins
             for pin in content_list.pin_list:  # type: PinInfo
@@ -133,19 +161,21 @@ class GDSPlugin(AbstractPlugin):
                 bbox = pin.bbox
                 label = pin.label
                 if pin.make_rect:
-                    cur_rect = gdspy.Rectangle((bbox.left, bbox.bottom), (bbox.right, bbox.top),
-                                               layer=lay_id, datatype=purp_id)
-                    gds_cell.add(cur_rect)
-                angle = 90 if bbox.height_unit > bbox.width_unit else 0
-                cur_lbl = gdspy.Label(label, (bbox.xc, bbox.yc), rotation=angle,
-                                      layer=lay_id, texttype=purp_id)
-                gds_cell.add(cur_lbl)
+                    gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                        pya.Box(bbox.left_unit, bbox.bottom_unit,
+                                bbox.right_unit, bbox.top_unit)
+                    )
+                angle = pya.Trans.R90 if bbox.height_unit > bbox.width_unit else pya.Trans.R0
+                gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                    pya.Text(label, pya.Trans(angle, bbox.xc_unit, bbox.yc_unit))
+                )
 
             for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
-                cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id)
-                gds_cell.add(cur_path.fracture(precision=res, max_points=max_points_per_polygon))
+                gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                    pya.Polygon([pya.Point(pt[0] * unit, pt[1] * unit) for pt in path['polygon_points']])
+                )
 
             for blockage in content_list.blockage_list:
                 pass
@@ -155,8 +185,9 @@ class GDSPlugin(AbstractPlugin):
 
             for polygon in content_list.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
-                cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id)
-                gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
+                gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                    pya.Polygon([pya.Point(pt[0] * unit, pt[1] * unit) for pt in polygon['points']])
+                )
 
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
@@ -169,31 +200,70 @@ class GDSPlugin(AbstractPlugin):
                         dx = xidx * spx
                         for yidx in range(ny):
                             dy = yidx * spy
-                            cur_round = gdspy.Round((x0 + dx, y0 + dy), radius=round_obj['rout'],
-                                                    inner_radius=round_obj['rin'],
-                                                    initial_angle=round_obj['theta0'] * pi / 180,
-                                                    final_angle=round_obj['theta1'] * pi / 180,
-                                                    tolerance=self.grid.resolution,
-                                                    layer=lay_id, datatype=purp_id)
-                            gds_cell.add(cur_round)
+
+                            gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                                pya.Polygon([pya.Point(pt[0], pt[1])
+                                             for pt in self._round_to_polygon_unit(x0+dx, y0+dy,
+                                                                                   round_obj['rout'],
+                                                                                   round_obj['rin'],
+                                                                                   round_obj['theta0'],
+                                                                                   round_obj['theta1'],
+                                                                                   self.grid.resolution,
+                                                                                   )])
+                            )
                 else:
-                    cur_round = gdspy.Round((x0, y0), radius=round_obj['rout'],
-                                            inner_radius=round_obj['rin'],
-                                            initial_angle=round_obj['theta0'] * pi / 180,
-                                            final_angle=round_obj['theta1'] * pi / 180,
-                                            tolerance=self.grid.resolution,
-                                            layer=lay_id, datatype=purp_id)
-                    gds_cell.add(cur_round)
+                    gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
+                        pya.Polygon([pya.Point(pt[0], pt[1])
+                                     for pt in self._round_to_polygon_unit(x0, y0,
+                                                                           round_obj['rout'],
+                                                                           round_obj['rin'],
+                                                                           round_obj['theta0'],
+                                                                           round_obj['theta1'],
+                                                                           self.grid.resolution,
+                                                                           )])
+                    )
 
         if write_gds:
-            gds_lib.write_gds(out_fname)
+            gds_lib.write(out_fname)
 
         end = time.time()
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
 
         return gds_lib
 
-    def _add_gds_via(self, gds_cell, via, lay_map, via_lay_info, x0, y0):
+    def _round_to_polygon_unit(self, x0, y0, radius, inner_radius, initial_angle, final_angle, tolerance):
+        angles_same = np.isclose(np.mod(initial_angle, 360.0), np.mod(final_angle, 360.0))
+
+        ang_rad = 2 * np.pi if angles_same else abs(np.deg2rad(final_angle - initial_angle))
+        num_pts = max(3, 1 + int(0.5 * ang_rad / np.arccos(1 - tolerance / radius) + 0.5))
+
+        if inner_radius <= 0:
+            if angles_same:
+                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=False)
+            else:
+                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
+            ptsx = np.cos(t) * radius + x0
+            ptsy = np.sin(t) * radius + y0
+        else:
+            if angles_same:
+                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
+            else:
+                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
+            ptsx = np.cos(t) * radius + x0
+            ptsy = np.sin(t) * radius + y0
+
+            if angles_same:
+                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
+            else:
+                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
+
+            ptsx = np.concatenate((ptsx, np.cos(t) * inner_radius + x0))
+            ptsy = np.concatenate((ptsy, np.sin(t) * inner_radius + x0))
+
+        return [(int(round(px / self.grid.resolution)), int(round(py / self.grid.resolution)))
+                for px, py in zip(ptsx, ptsy)]
+
+    def _add_gds_via(self, gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0, unit):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
         tlay, tpurp = lay_map[via_lay_info['top_layer']]
         vlay, vpurp = lay_map[via_lay_info['via_layer']]
@@ -218,21 +288,26 @@ class GDSPlugin(AbstractPlugin):
 
         bl, br, bt, bb = via.enc1
         tl, tr, tt, tb = via.enc2
-        bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
-        top_p0, top_p1 = (x0 - tl, y0 - tb), (x0 + w_arr + tr, y0 + h_arr + tt)
+        # bot_p0, bot_p1 = (x0 - bl, y0 - bb), (x0 + w_arr + br, y0 + h_arr + bt)
+        # top_p0, top_p1 = (x0 - tl, y0 - tb), (x0 + w_arr + tr, y0 + h_arr + tt)
 
-        cur_rect = gdspy.Rectangle(bot_p0, bot_p1, layer=blay, datatype=bpurp)
-        gds_cell.add(cur_rect)
-        cur_rect = gdspy.Rectangle(top_p0, top_p1, layer=tlay, datatype=tpurp)
-        gds_cell.add(cur_rect)
+        gds_cell.shapes(gds_lib.layer(blay, bpurp)).insert(
+            pya.Box((x0 - bl) * unit, (y0 - bb) * unit,
+                    (x0 + w_arr + br) * unit, (y0 + h_arr + bt) * unit)
+        )
+        gds_cell.shapes(gds_lib.layer(tlay, tpurp)).insert(
+            pya.Box((x0 - tl) * unit, (y0 - tb) * unit,
+                    (x0 + w_arr + tr) * unit, (y0 + h_arr + tt) * unit)
+        )
 
         for xidx in range(num_cols):
             dx = xidx * (cw + sp_cols)
             for yidx in range(num_rows):
                 dy = yidx * (ch + sp_rows)
-                cur_rect = gdspy.Rectangle((x0 + dx, y0 + dy), (x0 + cw + dx, y0 + ch + dy),
-                                           layer=vlay, datatype=vpurp)
-                gds_cell.add(cur_rect)
+                gds_cell.shapes(gds_lib.layer(vlay, vpurp)).insert(
+                    pya.Box((x0 + dx) * unit, (y0 + dy) * unit,
+                            (x0 + cw + dx) * unit, (y0 + ch + dy) * unit)
+                )
 
     def import_content_list(self,
                             gds_filepath: str
