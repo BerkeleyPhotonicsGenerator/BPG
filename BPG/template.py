@@ -18,7 +18,7 @@ from BPG.objects import PhotonicRect, PhotonicPolygon, PhotonicAdvancedPolygon, 
     PhotonicPath
 
 # Typing imports
-from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable
+from typing import TYPE_CHECKING, Dict, Any, List, Set, Optional, Tuple, Iterable, TypeVar
 from BPG.bpg_custom_types import *
 
 if TYPE_CHECKING:
@@ -26,11 +26,14 @@ if TYPE_CHECKING:
     from bag.layout.objects import Instance
     from BPG.photonic_core import PhotonicTechInfo
     from BPG.db import PhotonicTemplateDB
+    from bag.layout.template import TemplateDB
+
+TemplateDB_T = TypeVar('TemplateDB_T', bound="TemplateDB")
 
 
 class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
     def __init__(self,
-                 temp_db: "PhotonicTemplateDB",
+                 temp_db: "TemplateDB_T",
                  lib_name: str,
                  params: Dict[str, Any],
                  used_names: Set[str],

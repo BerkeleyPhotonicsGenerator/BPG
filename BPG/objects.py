@@ -2,17 +2,15 @@
 
 """This module defines various layout objects one can add and manipulate in a template.
 """
-import gdspy
 import numpy as np
-import sys
-import math
+# import sys
 import logging
 from copy import deepcopy
 
 from bag.layout.objects import Arrayable, Rect, Path, PathCollection, TLineBus, Polygon, Blockage, Boundary, \
     ViaInfo, Via, PinInfo, Instance, InstanceInfo, Figure
 from bag.layout.routing import RoutingGrid
-from bag.layout.template import TemplateBase
+# from bag.layout.template import TemplateBase
 import bag.io
 from bag.layout.util import transform_point, BBox, transform_table
 
@@ -679,7 +677,7 @@ class PhotonicRound(Arrayable):
     def num_of_sparse_point_round(radius: float,
                                   res_grid_size: float,
                                   ) -> int:
-        return int(math.ceil(math.pi / math.sqrt(res_grid_size / radius)))
+        return int(np.ceil(np.pi / np.sqrt(res_grid_size / radius)))
 
     @classmethod
     def polygon_pointlist_export(cls,
@@ -694,29 +692,35 @@ class PhotonicRound(Arrayable):
                                  spy: dim_type = 0.0,
                                  resolution: float = 0.001,
                                  ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-        # Get the base polygons
-        round_polygons = gdspy.Round(center=center,
-                                     layer=0,
-                                     radius=rout,
-                                     inner_radius=rin,
-                                     initial_angle=theta0 * np.pi / 180,
-                                     final_angle=theta1 * np.pi / 180,
-                                     number_of_points=cls.num_of_sparse_point_round(rout, resolution),
-                                     max_points=sys.maxsize,
-                                     datatype=0).polygons
+
+        if rin > 0:
+            error_radius = rin
+        else:
+            error_radius = rout
+        # Ensures maximum error from ideal circle is no larger than grid resolution
+        pt_spacing = int(np.ceil(2*np.sqrt(2*error_radius*resolution)))
+
+        theta0_rad = np.deg2rad(theta0)
+        theta1_rad = np.deg2rad(theta1)
+
+        if rin > 0:
+            phi1 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rin / pt_spacing))))
+            phi2 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing))))
+
+            X = np.concatenate([np.array(rin * np.cos(phi1)), np.flip(np.array(rout * np.cos(phi2)), 0)])
+            Y = np.concatenate([np.array(rin * np.sin(phi1)), np.flip(np.array(rout * np.sin(phi2)), 0)])
+        else:
+
+            phi2 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing))))
+
+            X = np.concatenate([np.array([0]), np.flip(np.array(rout * np.cos(phi2)), 0)])
+            Y = np.concatenate([np.array([0]), np.flip(np.array(rout * np.sin(phi2)), 0)])
 
         output_list_p: List[np.ndarray] = []
         output_list_n: List[np.ndarray] = []
         for x_count in range(nx):
             for y_count in range(ny):
-                for polygon in round_polygons:
-                    polygon_points = polygon
-                    polygon_points[:, 0] += x_count * spx
-                    polygon_points[:, 1] += y_count * spy
-                    polygon_points = np.vstack([polygon_points, polygon_points[0]])
-
-                    output_list_p.append(polygon_points.copy())
-
+                output_list_p.append(np.stack([X + x_count * spx, Y + y_count * spy]))
         return output_list_p, output_list_n
 
     def export_to_polygon(self):
