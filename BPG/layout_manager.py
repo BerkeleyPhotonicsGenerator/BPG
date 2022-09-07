@@ -17,8 +17,14 @@ from BPG.photonic_core import PhotonicBagProject
 # Plugin imports
 from .db import PhotonicTemplateDB
 from .lumerical.code_generator import LumericalMaterialGenerator
-from .gds.core import GDSPlugin
-from .gds.core_klayout import KLayoutGDSPlugin
+try:
+    from .gds.core import GDSPlugin
+except:
+    GDSPlugin = None
+try:
+    from .gds.core_klayout import KLayoutGDSPlugin
+except:
+    KLayoutGDSPlugin = None
 from .lumerical.core import LumericalPlugin
 
 from typing import TYPE_CHECKING, List, Optional, Dict, Any
@@ -132,7 +138,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
                                                gds_filepath=self.gds_path,
                                                lib_name=self.impl_lib)
         else:
-            raise ValueError(f'Unsupported BPG configuration:  bpg_gds_backend:    {BPG.run_settings["bpg_gds_backend"]}')
+            raise ValueError(f'Unsupported BPG configuration:  bpg_gds_backend:  {BPG.run_settings["bpg_gds_backend"]}')
 
         self.lsf_plugin = LumericalPlugin(lsf_export_config=self.photonic_tech_info.lsf_export_path,
                                           )
@@ -431,7 +437,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         inpath = self.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
         with open(inpath, 'r') as f:
-            lumerical_map = yaml.load(f)
+            lumerical_map = yaml.full_load(f)
 
         # 2) Extract the custom materials under the materials key
         mat_map = lumerical_map['materials']

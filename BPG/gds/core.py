@@ -2,13 +2,12 @@ import time
 import logging
 import yaml
 import gdspy
-from math import pi
 
-from bag.layout.util import BBox
 from BPG.content_list import ContentList
 from BPG.abstract_plugin import AbstractPlugin
+from BPG.objects import PhotonicRound
 
-from typing import TYPE_CHECKING, List, Tuple, Optional
+from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
@@ -24,8 +23,13 @@ class GDSPlugin(AbstractPlugin):
         self.grid = grid
         self.gds_layermap = gds_layermap
         self.gds_filepath = gds_filepath
-        self.lib_name = lib_name    # TODO: fix
+        self.lib_name = lib_name
         self.max_points_per_polygon = max_points_per_polygon
+
+        with open(self.gds_layermap, 'r') as f:
+            lay_info = yaml.full_load(f)
+            lay_map = lay_info['layer_map']
+        self.lay_map = lay_map
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
@@ -60,7 +64,7 @@ class GDSPlugin(AbstractPlugin):
             max_points_per_polygon = self.max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.full_load(f)
             lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
@@ -161,29 +165,22 @@ class GDSPlugin(AbstractPlugin):
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
                 lay_id, purp_id = lay_map[tuple(round_obj['layer'])]
-                x0, y0 = round_obj['center']
 
-                if nx > 1 or ny > 1:
-                    spx, spy = round_obj['arr_spx'], round_obj['arr_spy']
-                    for xidx in range(nx):
-                        dx = xidx * spx
-                        for yidx in range(ny):
-                            dy = yidx * spy
-                            cur_round = gdspy.Round((x0 + dx, y0 + dy), radius=round_obj['rout'],
-                                                    inner_radius=round_obj['rin'],
-                                                    initial_angle=round_obj['theta0'] * pi / 180,
-                                                    final_angle=round_obj['theta1'] * pi / 180,
-                                                    tolerance=self.grid.resolution,
-                                                    layer=lay_id, datatype=purp_id)
-                            gds_cell.add(cur_round)
-                else:
-                    cur_round = gdspy.Round((x0, y0), radius=round_obj['rout'],
-                                            inner_radius=round_obj['rin'],
-                                            initial_angle=round_obj['theta0'] * pi / 180,
-                                            final_angle=round_obj['theta1'] * pi / 180,
-                                            tolerance=self.grid.resolution,
-                                            layer=lay_id, datatype=purp_id)
-                    gds_cell.add(cur_round)
+                list_of_polygon_points, _ = PhotonicRound.polygon_pointlist_export(
+                    rout=round_obj['rout'],
+                    rin=round_obj['rin'],
+                    theta0=round_obj['theta0'],
+                    theta1=round_obj['theta1'],
+                    center=round_obj['center'],
+                    nx=nx,
+                    ny=ny,
+                    spx=round_obj.get('arr_spx', 0),
+                    spy=round_obj.get('arr_spy', 0),
+                    resolution=self.grid.resolution
+                )
+                for poly_points in list_of_polygon_points:
+                    cur_poly = gdspy.Polygon(poly_points, layer=lay_id, datatype=purp_id)
+                    gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
 
         if write_gds:
             gds_lib.write_gds(out_fname)
@@ -248,88 +245,14 @@ class GDSPlugin(AbstractPlugin):
         gds_filepath : str
             Path to the gds to be imported
         """
-        # Import information from the layermap
+
+        from BPG.gds.io import GDSImport
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.full_load(f)
             lay_map = lay_info['layer_map']
 
-        # Import the GDS from the file
-        gds_lib = gdspy.GdsLibrary()
-        gds_lib.read_gds(infile=gds_filepath)
-
-        # Get the top cell in the GDS and flatten its contents
-        # TODO: Currently we do not support importing GDS with multiple top cells
-        top_cell = gds_lib.top_level()
-        if len(top_cell) != 1:
-            raise ValueError("Cannot import a GDS with multiple top level cells")
-        top_cell = top_cell[0]
-        top_cell.flatten()
-
-        # Lists of components we will import from the GDS
-        polygon_list = []
-        pin_list = []
-
-        for polyset in top_cell.polygons:
-            for count in range(len(polyset.polygons)):
-                points = polyset.polygons[count]
-                layer = polyset.layers[count]
-                datatype = polyset.datatypes[count]
-
-                # Reverse lookup layername from gds LPP
-                lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, datatype])
-
-                # Create the polygon from the provided data if the layer exists in the layermap
-                if lpp:
-                    content = dict(layer=lpp,
-                                   points=points)
-                    polygon_list.append(content)
-        for label in top_cell.get_labels(depth=0):
-            text = label.text
-            layer = label.layer
-            texttype = label.texttype
-            position = label.position
-            bbox = BBox(left=position[0] - self.grid.resolution,
-                        bottom=position[1] - self.grid.resolution,
-                        right=position[0] + self.grid.resolution,
-                        top=position[1] + self.grid.resolution,
-                        resolution=self.grid.resolution)
-
-            # Reverse lookup layername from gds LPP
-            lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, texttype])
-
-            # Create the label from the provided data if the layer exists in the layermap
-            # TODO: Find the best way to generate a label in the content list
-            if lpp:
-                pass
-                # self.add_label(label=text,
-                #                layer=lpp,
-                #                bbox=bbox)
-
-        # After all of the components have been converted, dump into content list
-        return ContentList(cell_name=top_cell.name,
-                           polygon_list=polygon_list)
-
-    @staticmethod
-    def lpp_reverse_lookup(layermap: dict,
-                           gds_layerid: List[int]
-                           ) -> str:
-        """
-        Given a layermap dictionary, find the layername that matches the provided gds layer id
-
-        Parameters
-        ----------
-        layermap : dict
-            mapping from layer name to gds layer id
-        gds_layerid : Tuple[int, int]
-            gds layer id to find the layer name for
-
-        Returns
-        -------
-        layername : str
-            first layername that matches the provided gds layer id
-        """
-        for layer_name, layer_id in layermap.items():
-            if layer_id == gds_layerid:
-                return layer_name
-        else:
-            print(f"{gds_layerid} was not found in the layermap!")
+        return GDSImport.import_content_from_gds_gdspy(gds_filepath,
+                                                       reverse_lookup=GDSImport.create_reverse_lookup(lay_map),
+                                                       lay_map=lay_map,
+                                                       layout_cls=None,
+                                                       res=self.grid.resolution)

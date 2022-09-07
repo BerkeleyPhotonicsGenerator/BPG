@@ -693,34 +693,36 @@ class PhotonicRound(Arrayable):
                                  resolution: float = 0.001,
                                  ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
 
-        if rin > 0:
-            error_radius = rin
-        else:
-            error_radius = rout
-        # Ensures maximum error from ideal circle is no larger than grid resolution
-        pt_spacing = int(np.ceil(2*np.sqrt(2*error_radius*resolution)))
-
         theta0_rad = np.deg2rad(theta0)
         theta1_rad = np.deg2rad(theta1)
-
         if rin > 0:
-            phi1 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rin / pt_spacing))))
-            phi2 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing))))
+            # Ensures maximum error from ideal circle is no larger than grid resolution
+            pt_spacing_in = 2 * np.sqrt(2 * rin * resolution)
+            pt_spacing_out = 2 * np.sqrt(2 * rout * resolution)
+
+            phi1 = np.linspace(theta0_rad, theta1_rad,
+                               max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rin / pt_spacing_in))))
+            phi2 = np.linspace(theta0_rad, theta1_rad,
+                               max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing_out))))
 
             X = np.concatenate([np.array(rin * np.cos(phi1)), np.flip(np.array(rout * np.cos(phi2)), 0)])
             Y = np.concatenate([np.array(rin * np.sin(phi1)), np.flip(np.array(rout * np.sin(phi2)), 0)])
         else:
-
-            phi2 = np.linspace(theta0_rad, theta1_rad, max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing))))
+            pt_spacing = 2 * np.sqrt(2 * rout * resolution)
+            phi2 = np.linspace(theta0_rad, theta1_rad,
+                               max(3, 1 + int(np.ceil(abs(theta1_rad - theta0_rad) * rout / pt_spacing))))
 
             X = np.concatenate([np.array([0]), np.flip(np.array(rout * np.cos(phi2)), 0)])
             Y = np.concatenate([np.array([0]), np.flip(np.array(rout * np.sin(phi2)), 0)])
+
+        X = X + center[0]
+        Y = Y + center[1]
 
         output_list_p: List[np.ndarray] = []
         output_list_n: List[np.ndarray] = []
         for x_count in range(nx):
             for y_count in range(ny):
-                output_list_p.append(np.stack([X + x_count * spx, Y + y_count * spy]))
+                output_list_p.append(np.stack([X + x_count * spx, Y + y_count * spy], 1))
         return output_list_p, output_list_n
 
     def export_to_polygon(self):
@@ -742,7 +744,6 @@ class PhotonicRound(Arrayable):
                                                              spy=self.spy,
                                                              resolution=self.resolution,
                                                              )
-
         poly_list = []
         for points in list_p:
             poly = PhotonicPolygon(resolution=self.resolution,
@@ -751,6 +752,7 @@ class PhotonicRound(Arrayable):
                                    unit_mode=False,
                                    )
             poly_list.append(poly)
+
         return poly_list
 
 

@@ -2,25 +2,24 @@ import time
 import logging
 import yaml
 import pya
-import numpy as np
 
-from bag.layout.util import BBox
 from BPG.content_list import ContentList
 from BPG.abstract_plugin import AbstractPlugin
+from BPG.objects import PhotonicRound
 
-from typing import TYPE_CHECKING, List, Tuple, Optional
+from typing import TYPE_CHECKING, List, Optional
 if TYPE_CHECKING:
     from bag.layout.objects import ViaInfo, PinInfo, InstanceInfo
 
 
-TRANSFORM_TABLE = {'R0': pya.Trans.R0,
-                   'R90': pya.Trans.R90,
-                   'R180': pya.Trans.R180,
-                   'R270': pya.Trans.R270,
-                   'MX': pya.Trans.M0,
-                   'MY': pya.Trans.M90,
-                   'MXR90': pya.Trans.M45,
-                   'MYR90': pya.Trans.M135,
+TRANSFORM_TABLE = {'R0': pya.DTrans.R0,
+                   'R90': pya.DTrans.R90,
+                   'R180': pya.DTrans.R180,
+                   'R270': pya.DTrans.R270,
+                   'MX': pya.DTrans.M0,
+                   'MY': pya.DTrans.M90,
+                   'MXR90': pya.DTrans.M45,
+                   'MYR90': pya.DTrans.M135,
                    }
 
 
@@ -66,13 +65,13 @@ class KLayoutGDSPlugin(AbstractPlugin):
         tech_info = self.grid.tech_info
         lay_unit = tech_info.layout_unit
         res = tech_info.resolution
-        unit = 1 / res
+        unit = int(round(1 / res))
 
         if not max_points_per_polygon:
             max_points_per_polygon = self.max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.full_load(f)
             lay_map = lay_info['layer_map']
             via_info = lay_info['via_info']
 
@@ -97,23 +96,23 @@ class KLayoutGDSPlugin(AbstractPlugin):
                 angle, reflect = inst_info.angle_reflect
                 if num_rows > 1 or num_cols > 1:
                     gds_cell.insert(
-                        pya.CellInstArray(cell_dict[inst_info.cell],
-                                          pya.Trans(TRANSFORM_TABLE[inst_info.orient],
-                                                    inst_info.loc[0] * unit,
-                                                    inst_info.loc[1] * unit),
-                                          pya.Vector(unit, 0),
-                                          pya.Vector(0, unit),
-                                          inst_info.sp_cols,
-                                          inst_info.sp_rows,
-                                          )
+                        pya.DCellInstArray(cell_dict[inst_info.cell],
+                                           pya.DTrans(TRANSFORM_TABLE[inst_info.orient],
+                                                      inst_info.loc[0],
+                                                      inst_info.loc[1]),
+                                           pya.DVector(inst_info.sp_cols, 0),
+                                           pya.DVector(0, inst_info.sp_rows),
+                                           num_cols,
+                                           num_rows,
+                                           )
                     )
                 else:
                     gds_cell.insert(
-                        pya.CellInstArray(cell_dict[inst_info.cell],
-                                          pya.Trans(TRANSFORM_TABLE[inst_info.orient],
-                                                    inst_info.loc[0] * unit,
-                                                    inst_info.loc[1] * unit),
-                                          )
+                        pya.DCellInstArray(cell_dict[inst_info.cell],
+                                           pya.DTrans(TRANSFORM_TABLE[inst_info.orient],
+                                                      inst_info.loc[0],
+                                                      inst_info.loc[1]),
+                                           )
                     )
 
             # add rectangles
@@ -130,13 +129,13 @@ class KLayoutGDSPlugin(AbstractPlugin):
                             dy = yidx * spy
 
                             gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                                pya.Box((x0 + dx) * unit, (y0 + dy) * unit,
-                                        (x1 + dx) * unit, (y1 + dy) * unit)
+                                pya.DBox((x0 + dx), (y0 + dy),
+                                         (x1 + dx), (y1 + dy))
                             )
                 else:
                     gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                        pya.Box(x0 * unit, y0 * unit,
-                                x1 * unit, y1 * unit)
+                        pya.DBox(x0, y0,
+                                 x1, y1)
                     )
 
             # add vias
@@ -162,19 +161,19 @@ class KLayoutGDSPlugin(AbstractPlugin):
                 label = pin.label
                 if pin.make_rect:
                     gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                        pya.Box(bbox.left_unit, bbox.bottom_unit,
-                                bbox.right_unit, bbox.top_unit)
+                        pya.DBox(bbox.left, bbox.bottom,
+                                 bbox.right, bbox.top)
                     )
-                angle = pya.Trans.R90 if bbox.height_unit > bbox.width_unit else pya.Trans.R0
+                angle = pya.DTrans.R90 if bbox.height_unit > bbox.width_unit else pya.DTrans.R0
                 gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                    pya.Text(label, pya.Trans(angle, bbox.xc_unit, bbox.yc_unit))
+                    pya.DText(label, pya.DTrans(angle, bbox.xc, bbox.yc))
                 )
 
             for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
                 lay_id, purp_id = lay_map[path['layer']]
                 gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                    pya.Polygon([pya.Point(pt[0] * unit, pt[1] * unit) for pt in path['polygon_points']])
+                    pya.DPolygon([pya.DPoint(pt[0], pt[1]) for pt in path['polygon_points']])
                 )
 
             for blockage in content_list.blockage_list:
@@ -186,41 +185,28 @@ class KLayoutGDSPlugin(AbstractPlugin):
             for polygon in content_list.polygon_list:
                 lay_id, purp_id = lay_map[polygon['layer']]
                 gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                    pya.Polygon([pya.Point(pt[0] * unit, pt[1] * unit) for pt in polygon['points']])
+                    pya.DPolygon([pya.DPoint(pt[0], pt[1]) for pt in polygon['points']])
                 )
 
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
                 lay_id, purp_id = lay_map[tuple(round_obj['layer'])]
-                x0, y0 = round_obj['center']
 
-                if nx > 1 or ny > 1:
-                    spx, spy = round_obj['arr_spx'], round_obj['arr_spy']
-                    for xidx in range(nx):
-                        dx = xidx * spx
-                        for yidx in range(ny):
-                            dy = yidx * spy
-
-                            gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                                pya.Polygon([pya.Point(pt[0], pt[1])
-                                             for pt in self._round_to_polygon_unit(x0+dx, y0+dy,
-                                                                                   round_obj['rout'],
-                                                                                   round_obj['rin'],
-                                                                                   round_obj['theta0'],
-                                                                                   round_obj['theta1'],
-                                                                                   self.grid.resolution,
-                                                                                   )])
-                            )
-                else:
+                list_of_polygon_points, _ = PhotonicRound.polygon_pointlist_export(
+                    rout=round_obj['rout'],
+                    rin=round_obj['rin'],
+                    theta0=round_obj['theta0'],
+                    theta1=round_obj['theta1'],
+                    center=round_obj['center'],
+                    nx=nx,
+                    ny=ny,
+                    spx=round_obj.get('arr_spx', 0),
+                    spy=round_obj.get('arr_spy', 0),
+                    resolution=self.grid.resolution
+                )
+                for poly_points in list_of_polygon_points:
                     gds_cell.shapes(gds_lib.layer(lay_id, purp_id)).insert(
-                        pya.Polygon([pya.Point(pt[0], pt[1])
-                                     for pt in self._round_to_polygon_unit(x0, y0,
-                                                                           round_obj['rout'],
-                                                                           round_obj['rin'],
-                                                                           round_obj['theta0'],
-                                                                           round_obj['theta1'],
-                                                                           self.grid.resolution,
-                                                                           )])
+                        pya.DPolygon([pya.DPoint(pt[0], pt[1]) for pt in poly_points])
                     )
 
         if write_gds:
@@ -230,38 +216,6 @@ class KLayoutGDSPlugin(AbstractPlugin):
         logging.info(f'Layout gds instantiation took {end - start:.4g}s')
 
         return gds_lib
-
-    def _round_to_polygon_unit(self, x0, y0, radius, inner_radius, initial_angle, final_angle, tolerance):
-        angles_same = np.isclose(np.mod(initial_angle, 360.0), np.mod(final_angle, 360.0))
-
-        ang_rad = 2 * np.pi if angles_same else abs(np.deg2rad(final_angle - initial_angle))
-        num_pts = max(3, 1 + int(0.5 * ang_rad / np.arccos(1 - tolerance / radius) + 0.5))
-
-        if inner_radius <= 0:
-            if angles_same:
-                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=False)
-            else:
-                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
-            ptsx = np.cos(t) * radius + x0
-            ptsy = np.sin(t) * radius + y0
-        else:
-            if angles_same:
-                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
-            else:
-                t = np.linspace(np.deg2rad(initial_angle), np.deg2rad(final_angle), num_pts, endpoint=True)
-            ptsx = np.cos(t) * radius + x0
-            ptsy = np.sin(t) * radius + y0
-
-            if angles_same:
-                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
-            else:
-                t = np.linspace(np.deg2rad(final_angle), np.deg2rad(initial_angle), num_pts, endpoint=True)
-
-            ptsx = np.concatenate((ptsx, np.cos(t) * inner_radius + x0))
-            ptsy = np.concatenate((ptsy, np.sin(t) * inner_radius + x0))
-
-        return [(int(round(px / self.grid.resolution)), int(round(py / self.grid.resolution)))
-                for px, py in zip(ptsx, ptsy)]
 
     def _add_gds_via(self, gds_lib, gds_cell, via, lay_map, via_lay_info, x0, y0, unit):
         blay, bpurp = lay_map[via_lay_info['bot_layer']]
@@ -292,12 +246,12 @@ class KLayoutGDSPlugin(AbstractPlugin):
         # top_p0, top_p1 = (x0 - tl, y0 - tb), (x0 + w_arr + tr, y0 + h_arr + tt)
 
         gds_cell.shapes(gds_lib.layer(blay, bpurp)).insert(
-            pya.Box((x0 - bl) * unit, (y0 - bb) * unit,
-                    (x0 + w_arr + br) * unit, (y0 + h_arr + bt) * unit)
+            pya.DBox((x0 - bl), (y0 - bb),
+                     (x0 + w_arr + br), (y0 + h_arr + bt))
         )
         gds_cell.shapes(gds_lib.layer(tlay, tpurp)).insert(
-            pya.Box((x0 - tl) * unit, (y0 - tb) * unit,
-                    (x0 + w_arr + tr) * unit, (y0 + h_arr + tt) * unit)
+            pya.DBox((x0 - tl), (y0 - tb),
+                     (x0 + w_arr + tr), (y0 + h_arr + tt))
         )
 
         for xidx in range(num_cols):
@@ -305,8 +259,8 @@ class KLayoutGDSPlugin(AbstractPlugin):
             for yidx in range(num_rows):
                 dy = yidx * (ch + sp_rows)
                 gds_cell.shapes(gds_lib.layer(vlay, vpurp)).insert(
-                    pya.Box((x0 + dx) * unit, (y0 + dy) * unit,
-                            (x0 + cw + dx) * unit, (y0 + ch + dy) * unit)
+                    pya.DBox(x0 + dx, y0 + dy,
+                             x0 + cw + dx, y0 + ch + dy)
                 )
 
     def import_content_list(self,
@@ -315,96 +269,18 @@ class KLayoutGDSPlugin(AbstractPlugin):
         """
         Import a GDS and convert it to content list format.
 
-        gdspy turns all input shapes into polygons, so we only need to care about importing into
-        the polygon list. Currently we only import labels at the top level of the hierarchy
-
         Parameters
         ----------
         gds_filepath : str
             Path to the gds to be imported
         """
-        # Import information from the layermap
+        from BPG.gds.io import GDSImport
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.full_load(f)
             lay_map = lay_info['layer_map']
 
-        # Import the GDS from the file
-        gds_lib = gdspy.GdsLibrary()
-        gds_lib.read_gds(infile=gds_filepath)
-
-        # Get the top cell in the GDS and flatten its contents
-        # TODO: Currently we do not support importing GDS with multiple top cells
-        top_cell = gds_lib.top_level()
-        if len(top_cell) != 1:
-            raise ValueError("Cannot import a GDS with multiple top level cells")
-        top_cell = top_cell[0]
-        top_cell.flatten()
-
-        # Lists of components we will import from the GDS
-        polygon_list = []
-        pin_list = []
-
-        for polyset in top_cell.polygons:
-            for count in range(len(polyset.polygons)):
-                points = polyset.polygons[count]
-                layer = polyset.layers[count]
-                datatype = polyset.datatypes[count]
-
-                # Reverse lookup layername from gds LPP
-                lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, datatype])
-
-                # Create the polygon from the provided data if the layer exists in the layermap
-                if lpp:
-                    content = dict(layer=lpp,
-                                   points=points)
-                    polygon_list.append(content)
-        for label in top_cell.get_labels(depth=0):
-            text = label.text
-            layer = label.layer
-            texttype = label.texttype
-            position = label.position
-            bbox = BBox(left=position[0] - self.grid.resolution,
-                        bottom=position[1] - self.grid.resolution,
-                        right=position[0] + self.grid.resolution,
-                        top=position[1] + self.grid.resolution,
-                        resolution=self.grid.resolution)
-
-            # Reverse lookup layername from gds LPP
-            lpp = self.lpp_reverse_lookup(lay_map, gds_layerid=[layer, texttype])
-
-            # Create the label from the provided data if the layer exists in the layermap
-            # TODO: Find the best way to generate a label in the content list
-            if lpp:
-                pass
-                # self.add_label(label=text,
-                #                layer=lpp,
-                #                bbox=bbox)
-
-        # After all of the components have been converted, dump into content list
-        return ContentList(cell_name=top_cell.name,
-                           polygon_list=polygon_list)
-
-    @staticmethod
-    def lpp_reverse_lookup(layermap: dict,
-                           gds_layerid: List[int]
-                           ) -> str:
-        """
-        Given a layermap dictionary, find the layername that matches the provided gds layer id
-
-        Parameters
-        ----------
-        layermap : dict
-            mapping from layer name to gds layer id
-        gds_layerid : Tuple[int, int]
-            gds layer id to find the layer name for
-
-        Returns
-        -------
-        layername : str
-            first layername that matches the provided gds layer id
-        """
-        for layer_name, layer_id in layermap.items():
-            if layer_id == gds_layerid:
-                return layer_name
-        else:
-            print(f"{gds_layerid} was not found in the layermap!")
+        return GDSImport.import_content_from_gds_klayout(gds_filepath,
+                                                         reverse_lookup=GDSImport.create_reverse_lookup(lay_map),
+                                                         lay_map=lay_map,
+                                                         layout_cls=None,
+                                                         res=self.grid.resolution)
