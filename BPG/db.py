@@ -273,7 +273,7 @@ class PhotonicTemplateDB(TemplateDB):
             master_content = ContentList.from_bag_tuple_format(master_content)
 
         with open(self._gds_lay_file, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
             via_info = lay_info['via_info']
 
         # Convert vias into polygons on the via and enclosure layers

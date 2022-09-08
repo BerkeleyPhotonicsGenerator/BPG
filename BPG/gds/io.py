@@ -1,4 +1,3 @@
-import yaml
 import warnings
 
 
@@ -27,12 +26,7 @@ class GDSImport(PhotonicTemplateBase):
     """
     def __init__(self, temp_db, lib_name, params, used_names, **kwargs):
         PhotonicTemplateBase.__init__(self, temp_db, lib_name, params, used_names, **kwargs)
-        self.gds_layermap = self.template_db.photonic_tech_info.layermap_path
-        # Import information from the layermap
-        with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.full_load(f)
-            lay_map = lay_info['layer_map']
-        self.lay_map = lay_map
+        self.lay_map = self.template_db.photonic_tech_info.layer_map
 
         self.reverse_lookup = self.create_reverse_lookup(self.lay_map)
 

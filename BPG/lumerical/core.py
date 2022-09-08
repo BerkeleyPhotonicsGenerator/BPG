@@ -45,7 +45,7 @@ class LumericalPlugin(AbstractPlugin):
         start = time.time()
         # 1) Import tech information for the layermap and lumerical properties
         with open(self.lsf_export_config, 'r') as f:
-            lay_info = yaml.full_load(f)
+            lay_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
             prop_map = lay_info['lumerical_prop_map']
 
         # 2) For each element in the content list, convert it into lsf code and append to running file

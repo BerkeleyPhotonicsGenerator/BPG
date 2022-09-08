@@ -27,9 +27,9 @@ class GDSPlugin(AbstractPlugin):
         self.max_points_per_polygon = max_points_per_polygon
 
         with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.full_load(f)
-            lay_map = lay_info['layer_map']
-        self.lay_map = lay_map
+            lay_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
+            self.lay_map = lay_info['layer_map']
+            self.via_info = lay_info['via_info']
 
     def export_content_list(self,
                             content_lists: List["ContentList"],
@@ -63,11 +63,6 @@ class GDSPlugin(AbstractPlugin):
         if not max_points_per_polygon:
             max_points_per_polygon = self.max_points_per_polygon
 
-        with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.full_load(f)
-            lay_map = lay_info['layer_map']
-            via_info = lay_info['via_info']
-
         # TODO: fix
         out_fname = self.gds_filepath + f'{name_append}.gds'
         gds_lib = gdspy.GdsLibrary(name=self.lib_name, unit=lay_unit, precision=res * lay_unit)
@@ -100,7 +95,7 @@ class GDSPlugin(AbstractPlugin):
             for rect in content_list.rect_list:
                 nx, ny = rect.get('arr_nx', 1), rect.get('arr_ny', 1)
                 (x0, y0), (x1, y1) = rect['bbox']
-                lay_id, purp_id = lay_map[tuple(rect['layer'])]
+                lay_id, purp_id = self.lay_map[tuple(rect['layer'])]
 
                 if nx > 1 or ny > 1:
                     spx, spy = rect['arr_spx'], rect['arr_spy']
@@ -117,7 +112,7 @@ class GDSPlugin(AbstractPlugin):
 
             # add vias
             for via in content_list.via_list:  # type: ViaInfo
-                via_lay_info = via_info[via.id]
+                via_lay_info = self.via_info[via.id]
 
                 nx, ny = via.arr_nx, via.arr_ny
                 x0, y0 = via.loc
@@ -127,13 +122,13 @@ class GDSPlugin(AbstractPlugin):
                         xc = x0 + xidx * spx
                         for yidx in range(ny):
                             yc = y0 + yidx * spy
-                            self._add_gds_via(gds_cell, via, lay_map, via_lay_info, xc, yc)
+                            self._add_gds_via(gds_cell, via, self.lay_map, via_lay_info, xc, yc)
                 else:
-                    self._add_gds_via(gds_cell, via, lay_map, via_lay_info, x0, y0)
+                    self._add_gds_via(gds_cell, via, self.lay_map, via_lay_info, x0, y0)
 
             # add pins
             for pin in content_list.pin_list:  # type: PinInfo
-                lay_id, purp_id = lay_map[pin.layer]
+                lay_id, purp_id = self.lay_map[pin.layer]
                 bbox = pin.bbox
                 label = pin.label
                 if pin.make_rect:
@@ -147,7 +142,7 @@ class GDSPlugin(AbstractPlugin):
 
             for path in content_list.path_list:
                 # Photonic paths should be treated like polygons
-                lay_id, purp_id = lay_map[path['layer']]
+                lay_id, purp_id = self.lay_map[path['layer']]
                 cur_path = gdspy.Polygon(path['polygon_points'], layer=lay_id, datatype=purp_id)
                 gds_cell.add(cur_path.fracture(precision=res, max_points=max_points_per_polygon))
 
@@ -158,13 +153,13 @@ class GDSPlugin(AbstractPlugin):
                 pass
 
             for polygon in content_list.polygon_list:
-                lay_id, purp_id = lay_map[polygon['layer']]
+                lay_id, purp_id = self.lay_map[polygon['layer']]
                 cur_poly = gdspy.Polygon(polygon['points'], layer=lay_id, datatype=purp_id)
                 gds_cell.add(cur_poly.fracture(precision=res, max_points=max_points_per_polygon))
 
             for round_obj in content_list.round_list:
                 nx, ny = round_obj.get('arr_nx', 1), round_obj.get('arr_ny', 1)
-                lay_id, purp_id = lay_map[tuple(round_obj['layer'])]
+                lay_id, purp_id = self.lay_map[tuple(round_obj['layer'])]
 
                 list_of_polygon_points, _ = PhotonicRound.polygon_pointlist_export(
                     rout=round_obj['rout'],
@@ -247,12 +242,9 @@ class GDSPlugin(AbstractPlugin):
         """
 
         from BPG.gds.io import GDSImport
-        with open(self.gds_layermap, 'r') as f:
-            lay_info = yaml.full_load(f)
-            lay_map = lay_info['layer_map']
 
         return GDSImport.import_content_from_gds_gdspy(gds_filepath,
-                                                       reverse_lookup=GDSImport.create_reverse_lookup(lay_map),
-                                                       lay_map=lay_map,
+                                                       reverse_lookup=GDSImport.create_reverse_lookup(self.lay_map),
+                                                       lay_map=self.lay_map,
                                                        layout_cls=None,
                                                        res=self.grid.resolution)

@@ -437,7 +437,7 @@ class PhotonicLayoutManager(PhotonicBagProject):
         inpath = self.photonic_tech_info.lsf_export_path
         outpath = self.scripts_dir / 'materials.lsf'
         with open(inpath, 'r') as f:
-            lumerical_map = yaml.full_load(f)
+            lumerical_map = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
         # 2) Extract the custom materials under the materials key
         mat_map = lumerical_map['materials']
