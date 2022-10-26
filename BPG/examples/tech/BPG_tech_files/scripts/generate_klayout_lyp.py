@@ -121,7 +121,7 @@ if __name__ == '__main__':
     outfile = '../layerprops.lyp'
 
     with open(src_file, 'r') as f:
-        src_info = yaml.load(f)
+        src_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
     layer_map = src_info['layer_map']
     layer_info = parse_gds_map(layer_map)

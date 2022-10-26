@@ -18,7 +18,7 @@ def test_example_lumerical_map():
     outpath = str(outpath / 'materials.lsf')
 
     with open(filepath, 'r') as f:
-        lumerical_map = yaml.load(f)
+        lumerical_map = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
     # 2) Extract the custom materials under the materials key
     mat_map = lumerical_map['materials']

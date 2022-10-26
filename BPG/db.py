@@ -2,7 +2,7 @@ import yaml
 import time
 import logging
 from collections import OrderedDict
-from memory_profiler import memory_usage
+# from memory_profiler import memory_usage
 
 # BAG Imports
 from bag.layout.template import TemplateDB
@@ -324,6 +324,7 @@ class PhotonicTemplateDB(TemplateDB):
         logging.debug(f'PhotonicTemplateDB._flatten_instantiate_master_helper finished on '
                       f'{hierarchy_name}: \n'
                       f'\t\t\t\t\t\t\t\t\t\tflattening took {end - start:.4g}s.\n'
-                      f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB')
+                      # f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB'
+                      )
 
         return master_content

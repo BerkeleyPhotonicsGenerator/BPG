@@ -1,5 +1,4 @@
 
-import sys
 from bag.interface.skill import *
 
 
@@ -31,7 +30,7 @@ class PhotonicSkillInterface(SkillInterface):
         required_params = ['GlobalGridSize', 'GlobalRoughGridSize', 'GlobalNumVertices', 'GlobalSubPolygonXPitch']
 
         with open(dataprep_procedure_path, 'r') as f:
-            dataprep_routine_specs = yaml.load(f)
+            dataprep_routine_specs = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
         # Check that required dataprep parameters exist
         for param in required_params:
@@ -47,7 +46,7 @@ class PhotonicSkillInterface(SkillInterface):
         # Write out the dataprep layout parameters
         outlines.append("\n\n\n")
         with open(dataprep_parameters_path, 'r') as f:
-            dataprep_params = yaml.load(f)
+            dataprep_params = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
         outlines.extend(self._dataprep_params_dict_to_skill_function(dataprep_params))
         outlines.append("\n\n\n")
