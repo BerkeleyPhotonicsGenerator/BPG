@@ -420,3 +420,33 @@ class PhotonicTechInfoExample(PhotonicTechInfo):
         """
 
         return self.via_max_width_unit(layer) * self._resolution
+
+    def get_default_wg_params(self,
+                              layer: Union[str, Tuple[str, str]],
+                              ) -> dict:
+        """
+        Returns the default waveguide routing parameters for the technology based on the routing layer.
+
+        Parameters
+        ----------
+        layer :
+            The routing layer being used
+
+        Returns
+        -------
+        Dictionary containing 'width', 'radius', 'bend_type', and potentially 'AngleTurnEuler'
+            entries.
+        """
+
+        return {
+            'width': 0.5,
+            'radius': 10,
+            'bend_type': 'trajECE',
+            'AngleTurnEuler': 15/180*3.14  # Rad angle to turn Euler bend
+        }
+
+    def get_edge_length(self,
+                        layer,
+                        ):
+
+        return 0.15

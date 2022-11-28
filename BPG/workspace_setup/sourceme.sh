@@ -8,3 +8,12 @@ export BAG_CONFIG_PATH=${BAG_WORK_DIR}/example_tech/bag_config.yaml
 export BAG_FRAMEWORK=${BAG_WORK_DIR}/BAG_Framework
 export BAG_TECH_CONFIG_DIR=${BAG_WORK_DIR}/example_tech/BAG_tech_files
 export BAG_TEMP_DIR=${BAG_WORK_DIR}/tmp
+
+if [ -z "$PYTHONPATH" ]
+then
+  export PYTHONPATH=${BAG_WORK_DIR}:${BAG_WORK_DIR}/BAG_Framework:${BAG_WORK_DIR}/BPG
+else
+  export PYTHONPATH=${BAG_WORK_DIR}:${BAG_WORK_DIR}/BAG_Framework:${BAG_WORK_DIR}/BPG:$PYTHONPATH
+fi
+
+set +x
