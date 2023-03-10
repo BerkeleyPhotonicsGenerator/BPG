@@ -5,6 +5,8 @@ import logging
 import math
 import copy
 import warnings
+import importlib
+import yaml
 
 # bag imports
 import bag.io
@@ -990,3 +992,53 @@ class PhotonicTemplateBase(TemplateBase, metaclass=abc.ABCMeta):
                                          **kwargs
                                          )
 
+
+
+    def new_template_with_spec_file(self, 
+                                    path_to_yaml,
+                                    **kwargs):
+        """
+        Create a new template from the spec file
+
+        This method will load the spec file, reads the layout class and parameters, then create a new template with those.
+        It can also update the parameter values if appropriately given as kwargs.
+        The procedure is useful in the context of reusing the large spec file, enabling the device design choices to be kept within a few yaml files and thus hierarchically managed.
+        Written as a simple wrapper method for new_template
+
+        Parameters
+        ----------
+        path_to_yaml : string
+            (absolute or relative from run directory) path to yaml spec file
+        kwargs : dict
+            a dictionary of new parameter values
+
+        Returns
+        -------
+        master : PhotonicTemplateBase
+            Newly created master from the given spec file
+        """
+        # yaml-written spec file load
+        with open( path_to_yaml ) as yaml_file:
+            yaml_file_load = yaml.load(yaml_file)
+
+        # auto type-in the template class
+        photonic_module = importlib.import_module(yaml_file_load['layout_package'])
+        photonic_class = yaml_file_load['layout_class']
+        temp_cls = getattr(photonic_module, photonic_class)
+
+        # Create a new parameter dictionary based on the provided changes
+        new_params = copy.deepcopy(yaml_file_load['layout_params'])
+        for key, val in kwargs.items():
+            if key in new_params:
+                new_params[key] = val
+
+        # TODO: Handling exceptions 
+        # 1. If module, class not found, show what file is being broken
+        # 2. when kwargs is not empty but only have wrong keys, raise Error
+        # Not necessary, most are automatically handled by new_template method
+
+        return TemplateBase.new_template(self,
+                                         params=new_params,
+                                         temp_cls=temp_cls,
+                                         **kwargs
+                                         )
