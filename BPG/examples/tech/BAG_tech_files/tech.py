@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 _yaml_file = pkg_resources.resource_filename(__name__, os.path.join('tech_params.yaml'))
 
 with open(_yaml_file, 'r') as f:
-    config = yaml.load(f)
+    config = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
 
 class TechInfoGeneric(TechInfoConfig):

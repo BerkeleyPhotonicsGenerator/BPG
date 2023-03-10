@@ -2,7 +2,7 @@ import yaml
 import time
 import logging
 from collections import OrderedDict
-from memory_profiler import memory_usage
+# from memory_profiler import memory_usage
 
 # BAG Imports
 from bag.layout.template import TemplateDB
@@ -273,7 +273,7 @@ class PhotonicTemplateDB(TemplateDB):
             master_content = ContentList.from_bag_tuple_format(master_content)
 
         with open(self._gds_lay_file, 'r') as f:
-            lay_info = yaml.load(f)
+            lay_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
             via_info = lay_info['via_info']
 
         # Convert vias into polygons on the via and enclosure layers
@@ -324,6 +324,7 @@ class PhotonicTemplateDB(TemplateDB):
         logging.debug(f'PhotonicTemplateDB._flatten_instantiate_master_helper finished on '
                       f'{hierarchy_name}: \n'
                       f'\t\t\t\t\t\t\t\t\t\tflattening took {end - start:.4g}s.\n'
-                      f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB')
+                      # f'\t\t\t\t\t\t\t\t\t\tCurrent memory usage: {memory_usage(-1)} MiB'
+                      )
 
         return master_content

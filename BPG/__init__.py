@@ -1,7 +1,8 @@
 import os
 import sys
 from copy import deepcopy
-from collections import UserDict, Mapping
+from collections import UserDict
+from collections.abc import Mapping
 from .template import PhotonicTemplateBase  # Expose PhotonicTemplateBase so that all generators can subclass it
 from .layout_manager import PhotonicLayoutManager  # Expose PLM to simplify BPG usage
 from typing import Union

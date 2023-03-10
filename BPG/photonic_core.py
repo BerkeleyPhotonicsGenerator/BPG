@@ -52,7 +52,7 @@ def _parse_yaml_file(fname):
     content = read_file(fname)
     # substitute environment variables
     content = string.Template(content).substitute(os.environ)
-    return yaml.load(content)
+    return yaml.load(content, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
 
 
 # From bag/core
@@ -128,6 +128,9 @@ class PhotonicBagProject(BagProject):
                 tech_info=self.tech_info,
             )
             self.photonic_tech_info.load_tech_files()
+
+        if hasattr(self.photonic_tech_info, 'finalize_template'):
+            self.tech_info.finalize_template = self.photonic_tech_info.finalize_template
 
         # Setup relevant output files and directories
         if 'project_dir' in BPG.run_settings:
@@ -723,16 +726,22 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
     def load_tech_files(self):
         with open(self.layermap_path, 'r') as f:
-            layer_info = yaml.full_load(f)
+            layer_info = yaml.load(f, Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader)
             self.layer_map = layer_info['layer_map']
             self.via_info = layer_info['via_info']
 
         with open(self.lsf_export_path, 'r') as f:
-            self.lsf_export_parameters = yaml.full_load(f)
+            self.lsf_export_parameters = yaml.load(
+                f,
+                Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader
+            )
 
         if self.dataprep_parameters_filepath:
             with open(self.dataprep_parameters_filepath, 'r') as f:
-                self.dataprep_parameters = yaml.full_load(f)
+                self.dataprep_parameters = yaml.load(
+                    f,
+                    Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader
+                )
         else:
             self.dataprep_parameters = None
             logging.warning('Warning: dataprep_parameters_filepath not specified in tech config. '
@@ -740,7 +749,10 @@ class PhotonicTechInfo(object, metaclass=abc.ABCMeta):
 
         if self.dataprep_routine_filepath:
             with open(self.dataprep_routine_filepath, 'r') as f:
-                self.dataprep_routine_data = yaml.full_load(f)
+                self.dataprep_routine_data = yaml.load(
+                    f,
+                    Loader=yaml.CFullLoader if yaml.__with_libyaml__ else yaml.FullLoader
+                )
             self.global_dataprep_size_amount = self.dataprep_routine_data['GlobalDataprepSizeAmount']
             self.global_grid_size = self.dataprep_routine_data['GlobalGridSize']
             self.global_rough_grid_size = self.dataprep_routine_data['GlobalRoughGridSize']
