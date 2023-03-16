@@ -554,49 +554,62 @@ class PhotonicRound(Arrayable):
         spx, spy = spx * 1e-6, spy * 1e-6
         lsf_code = []
 
-        if rin == 0:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addcircle;\n')
-
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
-
-                    # Set radius
-                    lsf_code.append('set(radius, {});\n'.format(rout * 1e-6))
-
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
-
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
+        if not isinstance(layer_prop['z_min'], list):
+            z_min_list = [layer_prop['z_min']]
         else:
-            for x_count in range(nx):
-                for y_count in range(ny):
-                    lsf_code.append('\n')
-                    lsf_code.append('addring;\n')
+            z_min_list = layer_prop['z_min']
+        if not isinstance(layer_prop['z_max'], list):
+            z_max_list = [layer_prop['z_max']]
+        else:
+            z_max_list = layer_prop['z_max']
 
-                    # Set material properties
-                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+        for z_min_val, z_max_val in zip(z_min_list, z_max_list):
+            z_min = CoordBase(z_min_val).meters
+            z_max = CoordBase(z_max_val).meters
 
-                    # Set dimensions/angles
-                    lsf_code.append('set("outer radius", {});\n'.format(rout * 1e-6))
-                    lsf_code.append('set("inner radius", {});\n'.format(rin * 1e-6))
-                    lsf_code.append('set("theta start", {});\n'.format(theta0))
-                    lsf_code.append('set("theta stop", {});\n'.format(theta1))
+            if rin == 0:
+                for x_count in range(nx):
+                    for y_count in range(ny):
+                        lsf_code.append('\n')
+                        lsf_code.append('addcircle;\n')
 
-                    # Compute the x and y coordinates for each rectangle
-                    lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
-                    lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
+                        # Set material properties
+                        lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                        lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
-                    # Extract the thickness values from the layermap file
-                    lsf_code.append('set("z min", {});\n'.format(layer_prop['z_min'] * 1e-6))
-                    lsf_code.append('set("z max", {});\n'.format(layer_prop['z_max'] * 1e-6))
+                        # Set radius
+                        lsf_code.append('set(radius, {});\n'.format(rout * 1e-6))
+
+                        # Compute the x and y coordinates for each rectangle
+                        lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
+                        lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
+
+                        # Extract the thickness values from the layermap file
+                        lsf_code.append('set("z min", {});\n'.format(z_min))
+                        lsf_code.append('set("z max", {});\n'.format(z_max))
+            else:
+                for x_count in range(nx):
+                    for y_count in range(ny):
+                        lsf_code.append('\n')
+                        lsf_code.append('addring;\n')
+
+                        # Set material properties
+                        lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                        lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+
+                        # Set dimensions/angles
+                        lsf_code.append('set("outer radius", {});\n'.format(rout * 1e-6))
+                        lsf_code.append('set("inner radius", {});\n'.format(rin * 1e-6))
+                        lsf_code.append('set("theta start", {});\n'.format(theta0))
+                        lsf_code.append('set("theta stop", {});\n'.format(theta1))
+
+                        # Compute the x and y coordinates for each rectangle
+                        lsf_code.append('set("x", {});\n'.format(x0 + spx * x_count))
+                        lsf_code.append('set("y", {});\n'.format(y0 + spy * y_count))
+
+                        # Extract the thickness values from the layermap file
+                        lsf_code.append('set("z min", {});\n'.format(z_min))
+                        lsf_code.append('set("z max", {});\n'.format(z_max))
 
         return lsf_code
 
@@ -721,6 +734,8 @@ class PhotonicRect(Rect):
         lsf_code : List[str]
             list of str containing the lsf code required to create specified rectangles
         """
+        # Write the lumerical code for each rectangle in the array
+        lsf_code = []
 
         # Calculate the width and length of the rectangle in meters
         x_span = CoordBase(bbox[1][0] - bbox[0][0]).meters
@@ -730,32 +745,39 @@ class PhotonicRect(Rect):
         base_x_center = CoordBase((bbox[1][0] + bbox[0][0]) / 2).meters
         base_y_center = CoordBase((bbox[1][1] + bbox[0][1]) / 2).meters
 
-        # Get vertical dimensions
-        z_min = CoordBase(layer_prop['z_min']).meters
-        z_max = CoordBase(layer_prop['z_max']).meters
+        if not isinstance(layer_prop['z_min'], list):
+            z_min_list = [layer_prop['z_min']]
+        else:
+            z_min_list = layer_prop['z_min']
+        if not isinstance(layer_prop['z_max'], list):
+            z_max_list = [layer_prop['z_max']]
+        else:
+            z_max_list = layer_prop['z_max']
 
-        # Write the lumerical code for each rectangle in the array
-        lsf_code = []
-        for x_count in range(nx):
-            for y_count in range(ny):
-                lsf_code.append('\n')
-                lsf_code.append('addrect;\n')
-                lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
-                lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
+        for z_min_val, z_max_val in zip(z_min_list, z_max_list):
+            z_min = CoordBase(z_min_val).meters
+            z_max = CoordBase(z_max_val).meters
 
-                # Compute the x and y coordinates for each rectangle
-                lsf_code.append('set("x span", {});\n'.format(x_span))
-                lsf_code.append('set("x", {});\n'.format(base_x_center + CoordBase(spx * x_count).meters))
-                lsf_code.append('set("y span", {});\n'.format(y_span))
-                lsf_code.append('set("y", {});\n'.format(base_y_center + CoordBase(spy * y_count).meters))
+            for x_count in range(nx):
+                for y_count in range(ny):
+                    lsf_code.append('\n')
+                    lsf_code.append('addrect;\n')
+                    lsf_code.append('set("material", "{}");\n'.format(layer_prop['material']))
+                    lsf_code.append('set("alpha", {});\n'.format(layer_prop['alpha']))
 
-                # Extract the thickness values from the layermap file
-                lsf_code.append('set("z min", {});\n'.format(z_min))
-                lsf_code.append('set("z max", {});\n'.format(z_max))
+                    # Compute the x and y coordinates for each rectangle
+                    lsf_code.append('set("x span", {});\n'.format(x_span))
+                    lsf_code.append('set("x", {});\n'.format(base_x_center + CoordBase(spx * x_count).meters))
+                    lsf_code.append('set("y span", {});\n'.format(y_span))
+                    lsf_code.append('set("y", {});\n'.format(base_y_center + CoordBase(spy * y_count).meters))
 
-                if 'mesh_order' in layer_prop:
-                    lsf_code.append('set("override mesh order from material database", 1);\n')
-                    lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
+                    # Extract the thickness values from the layermap file
+                    lsf_code.append('set("z min", {});\n'.format(z_min))
+                    lsf_code.append('set("z max", {});\n'.format(z_max))
+
+                    if 'mesh_order' in layer_prop:
+                        lsf_code.append('set("override mesh order from material database", 1);\n')
+                        lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
 
         return lsf_code
 
@@ -1282,30 +1304,46 @@ class PhotonicPolygon(Polygon):
         poly_len = len(vertices)
 
         # Write the lumerical code for the polygon
-        lsf_code = ['\n',
-                    'addpoly;\n',
-                    'set("material", "{}");\n'.format(layer_prop['material']),
-                    'set("alpha", {});\n'.format(layer_prop['alpha']),
+        lsf_code = []
 
-                    # Set center reference to (0, 0) to fix lumericals relative coordinates
-                    'set("x", 0);\n',
-                    'set("y", 0);\n',
-                    'set("use relative coordinates", 0);\n'
+        if not isinstance(layer_prop['z_min'], list):
+            z_min_list = [layer_prop['z_min']]
+        else:
+            z_min_list = layer_prop['z_min']
+        if not isinstance(layer_prop['z_max'], list):
+            z_max_list = [layer_prop['z_max']]
+        else:
+            z_max_list = layer_prop['z_max']
 
-                    # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
-                    'V = matrix({},2);\n'.format(poly_len),
-                    'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),
-                    'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
-                    'set("vertices", V);\n',
+        for z_min_val, z_max_val in zip(z_min_list, z_max_list):
+            z_min = CoordBase(z_min_val).meters
+            z_max = CoordBase(z_max_val).meters
 
-                    # Set the thickness values from the layermap file
-                    'set("z min", {});\n'.format(CoordBase(layer_prop['z_min']).meters),
-                    'set("z max", {});\n'.format(CoordBase(layer_prop['z_max']).meters)
-                    ]
+            lsf_code.extend([
+                '\n',
+                'addpoly;\n',
+                'set("material", "{}");\n'.format(layer_prop['material']),
+                'set("alpha", {});\n'.format(layer_prop['alpha']),
 
-        if 'mesh_order' in layer_prop:
-            lsf_code.append('set("override mesh order from material database", 1);\n')
-            lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
+                # Set center reference to (0, 0) to fix lumericals relative coordinates
+                'set("x", 0);\n',
+                'set("y", 0);\n',
+                'set("use relative coordinates", 0);\n'
+
+                # Create matrix to hold vertices, Note that the Lumerical uses meters as the base unit
+                'V = matrix({},2);\n'.format(poly_len),
+                'V(1:{},1) = {};\n'.format(poly_len, [CoordBase(point[0]).meters for point in vertices]),
+                'V(1:{},2) = {};\n'.format(poly_len, [CoordBase(point[1]).meters for point in vertices]),
+                'set("vertices", V);\n',
+
+                # Set the thickness values from the layermap file
+                'set("z min", {});\n'.format(z_min),
+                'set("z max", {});\n'.format(z_max)
+            ])
+
+            if 'mesh_order' in layer_prop:
+                lsf_code.append('set("override mesh order from material database", 1);\n')
+                lsf_code.append('set("mesh order", {});\n'.format(layer_prop['mesh_order']))
 
         return lsf_code
 
