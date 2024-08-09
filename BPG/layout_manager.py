@@ -344,7 +344,21 @@ class PhotonicLayoutManager(PhotonicBagProject):
         self.calibre_dataprep_plugin.run_dataprep(file_in=file_in, file_out=file_out,
                                                   is_lumerical_dataprep=True)
 
-        self.content_list_post_lsf_dataprep = self.gds_plugin.import_content_list(gds_filepath=file_out)
+        # Create a flattened version of the dataprep-ed GDS (fixes off-grid DRC violations)
+        # file_out = self.gds_path + '_dataprep_calibre.gds'
+        try:
+            import pya
+        except ImportError:
+            print('PyA not installed. Please install PyA to use this function.')
+            return
+
+        file_flat = file_out.replace("dataprep_calibre.gds", "dataprep_flatten.gds")
+        flatten_layout = pya.Layout()
+        flatten_layout.read(file_out)
+        flatten_layout.top_cell().flatten(True)
+        flatten_layout.write(file_flat)
+
+        self.content_list_post_lsf_dataprep = self.gds_plugin.import_content_list(gds_filepath=file_flat)
 
         self.content_list_post_lsf_dataprep.extend_content_list(
             self.content_list[-1].optical_design_content()

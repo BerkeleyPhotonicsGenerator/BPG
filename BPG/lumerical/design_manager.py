@@ -205,13 +205,33 @@ class LumericalDesignManager(BPG.PhotonicLayoutManager):
         # Set the root name for all files in this batch
         root_path = self.scripts_dir
 
+        import os
+        try:
+            import pya
+        except ImportError:
+            logger.error('PyA not installed. Please install PyA to use this function.')
+            return
+
         # Generate templates from all of the sweep points
         for dsn in self.design_list:
             self.template_list = []
             self.generate_template(temp_cls=dsn[0], params=dsn[1], cell_name=batch_name)
             self.generate_content(save_content=False)
             self.generate_gds()
-            self.generate_lsf_calibre(export_dir=export_dir)
+            self.dataprep_calibre()
+
+            # Create a flattened version of the dataprep-ed GDS (fixes off-grid DRC violations)
+            file_out = self.gds_path + '_dataprep_calibre.gds'
+            file_flat = file_out.replace("dataprep_calibre.gds", "dataprep_flatten.gds")
+            flatten_layout = pya.Layout()
+            flatten_layout.read(file_out)
+            flatten_layout.top_cell().flatten(True)
+            flatten_layout.write(file_flat)
+
+            if os.path.exists(file_out):
+                os.remove(file_out)
+            self.generate_lsf_calibre(file_in=file_flat,
+                                      export_dir=export_dir)
 
         # Create the sweep LSF file
         batch_sweep_name = batch_name + '_main'
